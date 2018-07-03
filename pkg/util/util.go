@@ -16,6 +16,11 @@ var (
 	BridgeName  string = "br0"
 	MacvlanName string = "macvlan0"
 	DefaultMAC  string = "42:d6:7d:f7:3e:00"
+
+	ContainerNet net.IPNet = net.IPNet{
+		IP:   net.IPv4(172, 16, 0, 0),
+		Mask: net.CIDRMask(16, 32),
+	}
 )
 
 func LinkAdd(link netlink.Link) {

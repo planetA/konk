@@ -14,37 +14,6 @@ import (
 	"github.com/planetA/konk/pkg/util"
 )
 
-func createVethPair(id int) (netlink.Link, netlink.Link) {
-	vethNameId := util.GetNameId(util.VethName, id)
-	vpeerNameId := util.GetNameId(util.VpeerName, id)
-
-	// Set appropriate MAC address for the container interface
-	hwAddr := util.CreateNewHardwareAddr(id)
-	fmt.Println(hwAddr)
-	
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: vethNameId,
-			HardwareAddr: hwAddr,
-		},
-		PeerName: vpeerNameId,
-	}
-
-	util.LinkAdd(veth)
-
-	vethLink, err := netlink.LinkByName(vethNameId)
-	if err != nil {
-		log.Panicf("Can' get a veth link %s: %v", vethNameId, err)
-	}
-
-	vpeer, err := netlink.LinkByName(vpeerNameId)
-	if err != nil {
-		log.Panicf("Can't get a peer link %s: %v", vpeerNameId, err)
-	}
-
-	return vethLink, vpeer
-}
-
 func createNs(id int) (netns.NsHandle, netns.NsHandle) {
 	oldNs, _ := netns.Get()
 
@@ -96,7 +65,7 @@ func Create(id int) {
 
 	newNs, oldNs := createNs(id)
 
-	veth, vpeer := createVethPair(id)
+	veth, vpeer := util.CreateVethPair(id)
 	if err := netlink.LinkSetNsFd(veth, int(newNs)); err != nil {
 		log.Panic(err)
 	}
@@ -105,18 +74,22 @@ func Create(id int) {
 		log.Panic(err)
 	}
 
+	// Get handle to new namespace
 	nsHandle, err := netlink.NewHandleAt(newNs)
 	if err != nil {
 		log.Panic(err)
 	}
-	
+
+	// Put links up
 	if err := nsHandle.LinkSetUp(veth); err != nil {
 		log.Panicf("Could not set interface %s up: %v", veth.Attrs().Name, err)
 	}
 	netlink.LinkSetUp(vpeer)
 
 	ifaces, _ := net.Interfaces()
-	fmt.Printf("Interfaces: %v\n", ifaces)
+	for _, dev := range ifaces {
+		fmt.Println(dev)
+	}
 }
 
 func Delete(id int) {

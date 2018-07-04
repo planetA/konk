@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
 	"syscall"
 
@@ -12,6 +13,11 @@ import (
 
 	"github.com/planetA/konk/pkg/util"
 )
+
+type Container struct {
+	Host  netns.NsHandle
+	Guest netns.NsHandle
+}
 
 func createNs(id int) (netns.NsHandle, netns.NsHandle) {
 	oldNs, _ := netns.Get()
@@ -48,13 +54,13 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	if err != nil {
 		log.Panicf("Could not get %s: %v\n", util.BridgeName, err)
 	}
-	
+
 	return &netlink.Bridge{
 		LinkAttrs: *bridgeLink.Attrs(),
 	}
 }
 
-func createContainer(id int) (netns.NsHandle, error) {
+func createContainer(id int) (*Container, error) {
 	// First get the bridge
 	bridge := getBridge(util.BridgeName)
 
@@ -64,17 +70,17 @@ func createContainer(id int) (netns.NsHandle, error) {
 	veth, vpeer := util.CreateVethPair(id)
 	// Put end of the pair into corresponding namespaces
 	if err := netlink.LinkSetNsFd(veth, int(oldNs)); err != nil {
-		return newNs, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name,  err)
+		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
 	}
 
 	if err := netlink.LinkSetNsFd(vpeer, int(newNs)); err != nil {
-		return newNs, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name,  err)
+		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
 	}
 
 	// Get handle to new namespace
 	nsHandle, err := netlink.NewHandleAt(newNs)
 	if err != nil {
-		return newNs, fmt.Errorf("Could not get a handle for namespace %s: %v", id, err)
+		return nil, fmt.Errorf("Could not get a handle for namespace %s: %v", id, err)
 	}
 
 	// Set slave-master relationships between bridge the physical interface
@@ -82,19 +88,21 @@ func createContainer(id int) (netns.NsHandle, error) {
 
 	// Put links up
 	if err := nsHandle.LinkSetUp(vpeer); err != nil {
-		return newNs, fmt.Errorf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
+		return nil, fmt.Errorf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
 	}
 	if err := netlink.LinkSetUp(veth); err != nil {
-		return newNs, fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
+		return nil, fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
 	}
 
 	nsHandle.AddrAdd(vpeer, util.CreateContainerAddr(id))
 
-	return newNs, nil
+	return &Container{
+		Host:  oldNs,
+		Guest: newNs,
+	}, nil
 }
 
 func deleteContainer(id int) error {
-
 
 	// Delete namespace
 	nsPath := util.GetNetNsPath(id)
@@ -143,9 +151,7 @@ func Delete(id int) {
 	}
 }
 
-func Run(id int) {
-	fmt.Println(id)
-
+func Run(id int, args []string) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -153,8 +159,27 @@ func Run(id int) {
 		log.Println(err)
 	}
 
-	_, err := createContainer(id)
+	container, err := createContainer(id)
 	if err != nil {
 		log.Panic(err)
+	}
+
+	netns.Set(container.Guest)
+	defer netns.Set(container.Host)
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: uint32(os.Getuid()),
+		},
+	}
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Run()
+	if err != nil {
+		log.Panicf("Failed to run the application: %v", err)
 	}
 }

@@ -69,7 +69,7 @@ var containerRunCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		container.Run(containerId)
+		container.Run(containerId, args)
 	},
 }
 

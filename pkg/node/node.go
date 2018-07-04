@@ -56,7 +56,11 @@ func generateInnerOmpi(addr netlink.Addr) netlink.Addr {
 Here I create two bridges and connect a physical ethernet to one bridge.
 */
 func Init(id int) {
-	eth := util.GetEthernet(util.EthName)
+	eth, err := netlink.LinkByName(util.EthName)
+	if err != nil {
+		log.Panic("Could not get %s: %v\n", util.EthName, err)
+	}
+
 	eth_ip := getIpv4(eth)
 
 	ip_host := eth_ip[0]

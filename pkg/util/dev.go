@@ -58,12 +58,3 @@ func CreateVethPair(id int) (netlink.Link, netlink.Link) {
 
 	return vethLink, vpeer
 }
-
-func GetEthernet(name string) netlink.Link {
-	eth, err := netlink.LinkByName(name)
-	if err != nil {
-		log.Panic("Could not get %s: %v\n", name, err)
-	}
-
-	return eth
-}

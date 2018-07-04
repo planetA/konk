@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/vishvananda/netlink"
@@ -34,7 +33,6 @@ func CreateVethPair(id int) (netlink.Link, netlink.Link) {
 
 	// Set appropriate MAC address for the container interface
 	hwAddr := CreateNewHardwareAddr(id)
-	fmt.Println(hwAddr)
 	
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{

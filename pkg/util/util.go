@@ -46,7 +46,6 @@ In our network, I need to set the first byte of MAC to 42, to get ip addresses i
 func ComputeNewHardwareAddr(oldAddr net.HardwareAddr) net.HardwareAddr {
 	newAddr := oldAddr
 	newAddr[0] = byte(0x42)
-	fmt.Printf("%v -> %v\n", oldAddr[0], newAddr[0])
 	return newAddr
 }
 

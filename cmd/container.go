@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	"os"
+	"strconv"
 
 	"github.com/planetA/konk/docs"
 	"github.com/planetA/konk/pkg/container"
@@ -10,13 +13,15 @@ import (
 var (
 	// Unique Id of a container in a network
 	containerId int
+	// Environment variable containing the Id
+	envVarId string
 )
 
 var containerCmd = &cobra.Command{
 	TraverseChildren: true,
-	Use:   docs.ContainerUse,
-	Short: docs.ContainerShort,
-	Long:  docs.ContainerLong,
+	Use:              docs.ContainerUse,
+	Short:            docs.ContainerShort,
+	Long:             docs.ContainerLong,
 	Run: func(cmd *cobra.Command, args []string) {
 	},
 }
@@ -39,14 +44,46 @@ var containerDeleteCmd = &cobra.Command{
 	},
 }
 
+var containerRunCmd = &cobra.Command{
+	Use:   docs.ContainerRunUse,
+	Short: docs.ContainerRunShort,
+	Long:  docs.ContainerRunLong,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if (len(envVarId) == 0) == (!cmd.Flags().Changed("id")) {
+			return fmt.Errorf(`Expected to set either "id" or "env"`)
+		}
+
+		if len(envVarId) != 0 {
+			envVal := os.Getenv(envVarId)
+			i, err := strconv.Atoi(envVal)
+			if err != nil {
+				return fmt.Errorf(`Could not parse variable %s: %s`, envVarId, envVal)
+			}
+			containerId = i
+		}
+
+		if containerId < 0 {
+			return fmt.Errorf("Id should be >= 0: %v", containerId)
+		}
+
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		container.Run(containerId)
+	},
+}
+
 func init() {
 	KonkCmd.AddCommand(containerCmd)
 
-	containerCreateCmd.Flags().IntVarP(&containerId, "id", "i", 0, "Container id")
+	containerCmd.PersistentFlags().IntVarP(&containerId, "id", "i", 0, "Container id")
+
 	containerCreateCmd.MarkFlagRequired("id")
 	containerCmd.AddCommand(containerCreateCmd)
 
-	containerDeleteCmd.Flags().IntVarP(&containerId, "id", "i", 0, "Container id")
 	containerDeleteCmd.MarkFlagRequired("id")
 	containerCmd.AddCommand(containerDeleteCmd)
+
+	containerRunCmd.Flags().StringVar(&envVarId, "env", "", "Environment variable containing id")
+	containerCmd.AddCommand(containerRunCmd)
 }

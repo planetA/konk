@@ -13,15 +13,19 @@ const (
 	NodeInitShort string = `Init the node for running migratable MPI applications`
 	NodeInitLong  string = ``
 
-	ContainerUse   string = `container <subcommand> <args>`
+	ContainerUse   string = `container <id> <subcommand> <args>`
 	ContainerShort string = `Operations on containers`
 	ContainerLong  string = ``
 
-	ContainerCreateUse   string = `create <id>`
+	ContainerCreateUse   string = `create`
 	ContainerCreateShort string = `Create a container with a prespecified id`
 	ContainerCreateLong  string = ``
 
-	ContainerDeleteUse   string = `delete <id>`
+	ContainerDeleteUse   string = `delete`
 	ContainerDeleteShort string = `Delete a container with a prespecified id`
 	ContainerDeleteLong  string = ``
+
+	ContainerRunUse   string = `run <env>`
+	ContainerRunShort string = `Run a container with a prespecified id`
+	ContainerRunLong  string = ``
 )

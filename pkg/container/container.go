@@ -112,3 +112,7 @@ func Delete(id int) {
 		netlink.LinkDel(vpeerId)
 	}
 }
+
+func Run(id int) {
+	fmt.Println(id)
+}

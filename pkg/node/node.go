@@ -63,6 +63,10 @@ func Init(id int) {
 
 	eth_ip := getIpv4(eth)
 
+	if len(eth_ip) < 1 {
+		log.Panicf("Expected the device %s to have at least one address", util.EthName)
+	}
+
 	ip_host := eth_ip[0]
 	ip_host.Label = "br0"
 	

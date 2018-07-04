@@ -11,7 +11,7 @@ import (
 )
 
 func launchDhcpClient(devName string) {
-	cmd := exec.Command("dhclient", "-v", devName)
+	cmd := exec.Command(util.DhclientPath, "-v", devName)
 	err := cmd.Run()
 	if err != nil {
 		log.Panicf("Failed to launch dhcp client for device %s: %v", devName, err)

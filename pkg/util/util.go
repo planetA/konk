@@ -21,6 +21,8 @@ var (
 		IP:   net.IPv4(172, 16, 0, 0),
 		Mask: net.CIDRMask(16, 32),
 	}
+
+	DhclientPath string = "/sbin/dhclient"
 )
 
 func LinkAdd(link netlink.Link) {

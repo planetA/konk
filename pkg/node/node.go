@@ -44,8 +44,6 @@ func addrFlush(link netlink.Link) {
 func generateInnerOmpi(addr netlink.Addr) netlink.Addr {
 	base := util.ContainerNet
 
-
-	// base.IP[3] = addr.IP[3]
 	base.IP = base.IP.To4()
 	base.IP[3] = addr.IP[3]
 

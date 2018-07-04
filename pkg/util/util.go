@@ -57,3 +57,18 @@ func CreateNewHardwareAddr(id int) net.HardwareAddr {
 	newAddr[len(newAddr)-1] = byte(id)
 	return newAddr
 }
+
+func CreateContainerAddr(id int) *netlink.Addr {
+	base := ContainerNet
+
+	base.IP = base.IP.To4()
+	base.IP[2] = 1
+	if id > 253 {
+		log.Panic("Unsupported container id: %v", id)
+	}
+	base.IP[3] = byte(id + 1)
+
+	return &netlink.Addr{
+		IPNet: &base,
+	}
+}

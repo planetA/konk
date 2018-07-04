@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"runtime"
 	"syscall"
@@ -66,11 +65,11 @@ func Create(id int) {
 	newNs, oldNs := createNs(id)
 
 	veth, vpeer := util.CreateVethPair(id)
-	if err := netlink.LinkSetNsFd(veth, int(newNs)); err != nil {
+	if err := netlink.LinkSetNsFd(veth, int(oldNs)); err != nil {
 		log.Panic(err)
 	}
 
-	if err := netlink.LinkSetNsFd(vpeer, int(oldNs)); err != nil {
+	if err := netlink.LinkSetNsFd(vpeer, int(newNs)); err != nil {
 		log.Panic(err)
 	}
 
@@ -80,16 +79,28 @@ func Create(id int) {
 		log.Panic(err)
 	}
 
+	// Set slave-master relationships between bridge the physical interface
+	bridgeLink, err := netlink.LinkByName(util.BridgeName)
+	if err != nil {
+		log.Panic(err)
+	}
+	bridge := &netlink.Bridge{
+		LinkAttrs: *bridgeLink.Attrs(),
+	}
+	if err != nil {
+		log.Panic("Could not get %s: %v\n", util.BridgeName, err)
+	}
+	netlink.LinkSetMaster(veth, bridge)
+
 	// Put links up
-	if err := nsHandle.LinkSetUp(veth); err != nil {
+	if err := nsHandle.LinkSetUp(vpeer); err != nil {
+		log.Panicf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
+	}
+	if err := netlink.LinkSetUp(veth); err != nil {
 		log.Panicf("Could not set interface %s up: %v", veth.Attrs().Name, err)
 	}
-	netlink.LinkSetUp(vpeer)
 
-	ifaces, _ := net.Interfaces()
-	for _, dev := range ifaces {
-		fmt.Println(dev)
-	}
+	nsHandle.AddrAdd(vpeer, util.CreateContainerAddr(id))
 }
 
 func Delete(id int) {

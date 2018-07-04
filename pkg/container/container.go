@@ -62,6 +62,19 @@ func Create(id int) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	// First get the bridge
+	bridgeLink, err := netlink.LinkByName(util.BridgeName)
+	if err != nil {
+		log.Panic(err)
+	}
+	bridge := &netlink.Bridge{
+		LinkAttrs: *bridgeLink.Attrs(),
+	}
+	if err != nil {
+		log.Panic("Could not get %s: %v\n", util.BridgeName, err)
+	}
+
+	// Only then create anything
 	newNs, oldNs := createNs(id)
 
 	veth, vpeer := util.CreateVethPair(id)
@@ -80,16 +93,6 @@ func Create(id int) {
 	}
 
 	// Set slave-master relationships between bridge the physical interface
-	bridgeLink, err := netlink.LinkByName(util.BridgeName)
-	if err != nil {
-		log.Panic(err)
-	}
-	bridge := &netlink.Bridge{
-		LinkAttrs: *bridgeLink.Attrs(),
-	}
-	if err != nil {
-		log.Panic("Could not get %s: %v\n", util.BridgeName, err)
-	}
 	netlink.LinkSetMaster(veth, bridge)
 
 	// Put links up

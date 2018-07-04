@@ -43,53 +43,38 @@ func createNs(id int) (netns.NsHandle, netns.NsHandle) {
 	return newNs, oldNs
 }
 
-func deleteNs(id int) {
-	nsPath := util.GetNetNsPath(id)
-
-	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
-		log.Printf("Could not delete the container %s: %v", nsPath, err)
+func getBridge(bridgeName string) *netlink.Bridge {
+	bridgeLink, err := netlink.LinkByName(util.BridgeName)
+	if err != nil {
+		log.Panicf("Could not get %s: %v\n", util.BridgeName, err)
+	}
+	
+	return &netlink.Bridge{
+		LinkAttrs: *bridgeLink.Attrs(),
 	}
 }
 
-/*
-Create a network namespace, a veth pair, put one end into the namespace and
-another end connect to the bridge
-*/
-func Create(id int) {
-	log.Printf("Creating container with id %v", id)
-
-	// Lock the OS Thread so we don't accidentally switch namespaces
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
+func createContainer(id int) (netns.NsHandle, error) {
 	// First get the bridge
-	bridgeLink, err := netlink.LinkByName(util.BridgeName)
-	if err != nil {
-		log.Panic(err)
-	}
-	bridge := &netlink.Bridge{
-		LinkAttrs: *bridgeLink.Attrs(),
-	}
-	if err != nil {
-		log.Panic("Could not get %s: %v\n", util.BridgeName, err)
-	}
+	bridge := getBridge(util.BridgeName)
 
 	// Only then create anything
 	newNs, oldNs := createNs(id)
 
 	veth, vpeer := util.CreateVethPair(id)
+	// Put end of the pair into corresponding namespaces
 	if err := netlink.LinkSetNsFd(veth, int(oldNs)); err != nil {
-		log.Panic(err)
+		return newNs, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name,  err)
 	}
 
 	if err := netlink.LinkSetNsFd(vpeer, int(newNs)); err != nil {
-		log.Panic(err)
+		return newNs, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name,  err)
 	}
 
 	// Get handle to new namespace
 	nsHandle, err := netlink.NewHandleAt(newNs)
 	if err != nil {
-		log.Panic(err)
+		return newNs, fmt.Errorf("Could not get a handle for namespace %s: %v", id, err)
 	}
 
 	// Set slave-master relationships between bridge the physical interface
@@ -97,13 +82,53 @@ func Create(id int) {
 
 	// Put links up
 	if err := nsHandle.LinkSetUp(vpeer); err != nil {
-		log.Panicf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
+		return newNs, fmt.Errorf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
 	}
 	if err := netlink.LinkSetUp(veth); err != nil {
-		log.Panicf("Could not set interface %s up: %v", veth.Attrs().Name, err)
+		return newNs, fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
 	}
 
 	nsHandle.AddrAdd(vpeer, util.CreateContainerAddr(id))
+
+	return newNs, nil
+}
+
+func deleteContainer(id int) error {
+
+
+	// Delete namespace
+	nsPath := util.GetNetNsPath(id)
+
+	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
+		return fmt.Errorf("Could not delete the container %s: %v", nsPath, err)
+	}
+
+	/* Theoretically we should not kill these two, because deleting a namespace should delete veth the ns contains. Deleting a veth should delete vpeer. But we delete everything to be on the safe side. */
+	vethId, err := netlink.LinkByName(util.GetNameId(util.VethName, id))
+	if err == nil {
+		netlink.LinkDel(vethId)
+	}
+
+	vpeerId, err := netlink.LinkByName(util.GetNameId(util.VpeerName, id))
+	if err == nil {
+		netlink.LinkDel(vpeerId)
+	}
+
+	return nil
+}
+
+/*
+Create a network namespace, a veth pair, put one end into the namespace and
+another end connect to the bridge
+*/
+func Create(id int) {
+	// Lock the OS Thread so we don't accidentally switch namespaces
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if _, err := createContainer(id); err != nil {
+		log.Panic(err)
+	}
 }
 
 func Delete(id int) {
@@ -113,20 +138,23 @@ func Delete(id int) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	deleteNs(id)
-
-	/* Theoretically we should not kill these two, because deleting a namespace should delete veth the ns contains. Deleting a veth should delete vpeer. But we delete everything to be on the safe side. */
-	vethId, err := netlink.LinkByName(util.GetNameId(util.NsName, id))
-	if err == nil {
-		netlink.LinkDel(vethId)
-	}
-
-	vpeerId, err := netlink.LinkByName(util.GetNameId(util.NsName, id))
-	if err == nil {
-		netlink.LinkDel(vpeerId)
+	if err := deleteContainer(id); err != nil {
+		log.Panic(err)
 	}
 }
 
 func Run(id int) {
 	fmt.Println(id)
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if err := deleteContainer(id); err != nil {
+		log.Println(err)
+	}
+
+	_, err := createContainer(id)
+	if err != nil {
+		log.Panic(err)
+	}
 }

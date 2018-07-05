@@ -151,6 +151,24 @@ func Delete(id int) {
 	}
 }
 
+func getCredential() *syscall.Credential {
+	grp, _ := os.Getgroups()
+	grp32 := func(b []int) []uint32 {
+		data := make([]uint32, len(b))
+		for i, v := range b {
+			data[i] = uint32(v)
+		}
+		return data
+	}(grp)
+
+	return &syscall.Credential{
+		Uid:    uint32(os.Getuid()),
+		Gid:    uint32(os.Getgid()),
+		Groups: grp32,
+	}
+
+}
+
 func Run(id int, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -169,9 +187,7 @@ func Run(id int, args []string) error {
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: &syscall.Credential{
-			Uid: uint32(os.Getuid()),
-		},
+		Credential: getCredential(),
 	}
 
 	cmd.Stdin = os.Stdin

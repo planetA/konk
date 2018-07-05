@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"syscall"
 
@@ -169,7 +170,20 @@ func getCredential() *syscall.Credential {
 
 }
 
+func abortHandler(id int) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		for range c {
+			deleteContainer(id)
+		}
+	}()
+}
+
 func Run(id int, args []string) error {
+	abortHandler(id)
+
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -181,6 +195,7 @@ func Run(id int, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
+	defer deleteContainer(id)
 
 	netns.Set(container.Guest)
 	defer netns.Set(container.Host)

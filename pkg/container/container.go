@@ -151,7 +151,7 @@ func Delete(id int) {
 	}
 }
 
-func Run(id int, args []string) {
+func Run(id int, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -161,7 +161,7 @@ func Run(id int, args []string) {
 
 	container, err := createContainer(id)
 	if err != nil {
-		log.Panic(err)
+		return fmt.Errorf("Failed to create a container: %v", err)
 	}
 
 	netns.Set(container.Guest)
@@ -180,6 +180,8 @@ func Run(id int, args []string) {
 
 	err = cmd.Run()
 	if err != nil {
-		log.Panicf("Failed to run the application: %v", err)
+		return fmt.Errorf("Application exiten with an error: %v", err)
 	}
+
+	return nil
 }

@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+	"log"
 	"os"
 	"strconv"
+
+	"github.com/spf13/cobra"
 
 	"github.com/planetA/konk/docs"
 	"github.com/planetA/konk/pkg/container"
@@ -69,7 +71,9 @@ var containerRunCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		container.Run(containerId, args)
+		if err := container.Run(containerId, args); err != nil {
+			log.Print(err)
+		}
 	},
 }
 

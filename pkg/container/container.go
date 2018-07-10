@@ -94,8 +94,15 @@ func createContainer(id int) (*Container, error) {
 	if err := netlink.LinkSetUp(veth); err != nil {
 		return nil, fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
 	}
-
 	nsHandle.AddrAdd(vpeer, util.CreateContainerAddr(id))
+
+	lo, err := nsHandle.LinkByName("lo")
+	if err != nil {
+		return nil, fmt.Errorf("Cannot acquire loopback: %v", err)
+	}
+	if err := nsHandle.LinkSetUp(lo); err != nil {
+		return nil, fmt.Errorf("Could not set interface %s up: %v", lo.Attrs().Name, err)
+	}
 
 	return &Container{
 		Host:  oldNs,

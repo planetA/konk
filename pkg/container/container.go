@@ -206,6 +206,7 @@ func Run(id int, args []string) error {
 
 	netns.Set(container.Guest)
 	defer netns.Set(container.Host)
+	syscall.CloseOnExec(int(container.Host))
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{

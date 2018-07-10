@@ -23,6 +23,8 @@ var (
 	}
 
 	DhclientPath string = "/sbin/dhclient"
+	CriuPath     string = "/home/user/singularity-criu/install/sbin/criu"
+	CriuImageDir string = "/tmp/criu.images"
 )
 
 func LinkAdd(link netlink.Link) {

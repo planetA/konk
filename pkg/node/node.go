@@ -86,8 +86,8 @@ func Init(id int) {
 	// The order is important. This way OpenMPI will pick the
 	// inner address first
 	netlink.AddrAdd(bridge, &ip_inner)
-	launchDhcpClient(bridge.Attrs().Name)
-	// netlink.AddrAdd(bridge, &ip_host)
+	netlink.AddrAdd(bridge, &ip_host)
+	// launchDhcpClient(bridge.Attrs().Name)
 
 	fmt.Println("Initializing", id)
 }

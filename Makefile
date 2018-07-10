@@ -9,12 +9,13 @@ endif
 
 GOFILES=$(shell find . -name '[^.]*\.go')
 RPC_PROTO_FILE=$(CRIU_DIR)/images/rpc.proto
-RPC_PROTO_DIR=pkg/proto
+RPC_PROTO_DIR=pkg/rpc
 RPC_PROTO=$(RPC_PROTO_DIR)/rpc.pb.go
 
 all: konk
 
 $(RPC_PROTO): $(RPC_PROTO_FILE)
+	mkdir -p $(shell dirname $@)
 	protoc --go_out=$(shell dirname $@) -I$(shell dirname $^) $^
 
 konk: $(RPC_PROTO) $(GOFILES)

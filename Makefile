@@ -7,7 +7,7 @@ else
 endif
 
 
-GOFILES=$(shell find . -name '*\.go')
+GOFILES=$(shell find . -name '[^.]*\.go')
 RPC_PROTO_FILE=$(CRIU_DIR)/images/rpc.proto
 RPC_PROTO_DIR=pkg/proto
 RPC_PROTO=$(RPC_PROTO_DIR)/rpc.pb.go

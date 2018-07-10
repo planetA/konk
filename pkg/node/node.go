@@ -18,17 +18,17 @@ func launchDhcpClient(devName string) {
 	}
 }
 
-func getIpv4(link netlink.Link) []netlink.Addr {
+func getIpv4(link netlink.Link) ([]netlink.Addr, error) {
 	addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
-		log.Panic(err)
+		return nil, fmt.Errorf("Could not get the list of addresses for link %v: %v", link, err)
 	}
 
 	if len(addrs) != 1 {
 		log.Printf("More than one address found: %v\n", addrs)
 	}
 
-	return addrs
+	return addrs, nil
 }
 
 func addrFlush(link netlink.Link) {
@@ -55,16 +55,19 @@ func generateInnerOmpi(addr netlink.Addr) netlink.Addr {
 /*
 Here I create two bridges and connect a physical ethernet to one bridge.
 */
-func Init(id int) {
+func Init(id int) error {
 	eth, err := netlink.LinkByName(util.EthName)
 	if err != nil {
-		log.Panic("Could not get %s: %v\n", util.EthName, err)
+		return fmt.Errorf("Could not get %s: %v\n", util.EthName, err)
 	}
 
-	eth_ip := getIpv4(eth)
 
+	eth_ip, err := getIpv4(eth)
+	if err != nil {
+		return err
+	}
 	if len(eth_ip) < 1 {
-		log.Panicf("Expected the device %s to have at least one address", util.EthName)
+		return fmt.Errorf("Expected the device %s to have at least one address", util.EthName)
 	}
 
 	ip_host := eth_ip[0]
@@ -90,4 +93,6 @@ func Init(id int) {
 	// launchDhcpClient(bridge.Attrs().Name)
 
 	fmt.Println("Initializing", id)
+
+	return nil
 }

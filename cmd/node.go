@@ -32,8 +32,11 @@ var nodeInitCmd = &cobra.Command{
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		node.Init(nodeId)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := node.Init(nodeId); err != nil {
+			return fmt.Errorf("Failed to init the node: %v", err)
+		}
+		return nil
 	},
 }
 

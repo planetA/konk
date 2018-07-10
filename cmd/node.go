@@ -19,8 +19,7 @@ var nodeCmd = &cobra.Command{
 	Use:              docs.NodeUse,
 	Short:            docs.NodeShort,
 	Long:             docs.NodeLong,
-	Run: func(cmd *cobra.Command, args []string) {
-	},
+	Run: nil,
 }
 
 var nodeInitCmd = &cobra.Command{

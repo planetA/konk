@@ -218,7 +218,7 @@ func Run(id int, args []string) error {
 
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Application exiten with an error: %v", err)
+		return fmt.Errorf("Application exited with an error: %v", err)
 	}
 
 	return nil

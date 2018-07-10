@@ -61,6 +61,10 @@ func Init(id int) error {
 		return fmt.Errorf("Could not get %s: %v\n", util.EthName, err)
 	}
 
+	routes, err := netlink.RouteList(eth, netlink.FAMILY_V4)
+	if err != nil {
+		return fmt.Errorf("Could not acquire list of routes: %v", err)
+	}
 
 	eth_ip, err := getIpv4(eth)
 	if err != nil {
@@ -91,6 +95,13 @@ func Init(id int) error {
 	netlink.AddrAdd(bridge, &ip_inner)
 	netlink.AddrAdd(bridge, &ip_host)
 	// launchDhcpClient(bridge.Attrs().Name)
+
+	for _, route := range routes {
+		route.LinkIndex = bridge.Attrs().Index
+		if err = netlink.RouteAdd(&route); err != nil {
+			return fmt.Errorf("Could not add the route %v back: %v", route, err)
+		}
+	}
 
 	fmt.Println("Initializing", id)
 

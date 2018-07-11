@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
 	"syscall"
 
@@ -177,19 +176,10 @@ func getCredential() *syscall.Credential {
 
 }
 
-func abortHandler(id int) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	go func() {
-		for range c {
-			deleteContainer(id)
-		}
-	}()
-}
-
 func Run(id int, args []string) error {
-	abortHandler(id)
+	util.AbortHandler(func(sig os.Signal) {
+		deleteContainer(id)
+	})
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

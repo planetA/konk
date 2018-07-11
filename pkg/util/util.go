@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 
 	"github.com/vishvananda/netlink"
 )
@@ -74,4 +76,19 @@ func CreateContainerAddr(id int) *netlink.Addr {
 	return &netlink.Addr{
 		IPNet: &base,
 	}
+}
+
+type signalCallback func(os.Signal)
+
+func AbortHandler(callback signalCallback) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	log.Printf("Set up abort handler: %v\n", c)
+	go func() {
+		for sig := range c {
+			log.Printf("Received a signal %v\n", sig)
+			callback(sig)
+		}
+	}()
 }

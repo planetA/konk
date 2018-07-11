@@ -21,6 +21,28 @@ import (
 	"github.com/planetA/konk/pkg/util"
 )
 
+type EventType int
+
+const (
+	PreDump EventType = iota
+	PostDump
+	Success
+	Error
+)
+
+type CriuEvent struct {
+	Type     EventType
+	Response *rpc.CriuResp
+}
+
+func isActive(e EventType) bool {
+	return e != Error && e != Success
+}
+
+func isValid(e EventType) bool {
+	return e != Error
+}
+
 func getSocketPath(pid int) string {
 	return fmt.Sprintf("/var/run/criu.service.%v", pid)
 }
@@ -87,10 +109,16 @@ func (criu *CriuService) launch() error {
 }
 
 func (criu *CriuService) cleanupService() {
+	if criu == nil {
+		return
+	}
+
 	syscall.Kill(criu.pid, syscall.SIGTERM)
 	os.Remove(criu.pidfilePath)
 	os.Remove(criu.socketPath)
 	criu.conn.Close()
+
+	criu = nil
 }
 
 func createCriuService(target int) (*CriuService, error) {
@@ -136,7 +164,7 @@ func createCriuService(target int) (*CriuService, error) {
 }
 
 func (criu *CriuService) sendDumpRequest() error {
-	req := createDumpRequest(int32(criu.imageDir.Fd()), int32(criu.pid))
+	req := criu.createDumpRequest()
 	_, err := criu.conn.Write(req)
 	return err
 }
@@ -161,7 +189,54 @@ func (criu *CriuService) getResponse() (*rpc.CriuResp, error) {
 	return resp, err
 }
 
-func createDumpRequest(fd int32, pid int32) []byte {
+func (criu *CriuService) respond() error {
+	req := createNotifyResponse(true)
+	_, err := criu.conn.Write(req)
+	if err != nil {
+		return fmt.Errorf("Writing notification to socket failed: %v", err)
+	}
+
+	return nil
+}
+
+func (criu *CriuService) nextEvent() (CriuEvent, error) {
+	resp, err := criu.getResponse()
+	if err != nil {
+		return CriuEvent{
+			Type:     Error,
+			Response: nil,
+		}, fmt.Errorf("Failed to read the response from CRIU: %v", err)
+	}
+
+	switch resp.GetType() {
+	case rpc.CriuReqType_NOTIFY:
+		return CriuEvent{
+			Type:     criu.getEventType(resp),
+			Response: resp,
+		}, nil
+	case rpc.CriuReqType_DUMP:
+		if resp.GetSuccess() {
+			return CriuEvent{
+				Type:     Success,
+				Response: resp,
+			}, nil
+		} else {
+			return CriuEvent{
+				Type:     Error,
+				Response: resp,
+			}, fmt.Errorf("Failed to create a dump: %v", resp)
+		}
+	}
+
+	return CriuEvent{
+		Type:     Error,
+		Response: resp,
+	}, fmt.Errorf("Unexpected response: %v", resp)
+}
+
+func (criu *CriuService) createDumpRequest() []byte {
+	fd := int32(criu.imageDir.Fd())
+	pid := int32(criu.targetPid)
 	leaveRunning := false
 	tcpEstablished := true
 	shellJob := true
@@ -185,6 +260,7 @@ func createDumpRequest(fd int32, pid int32) []byte {
 		Type: &reqType,
 		Opts: criuOpts,
 	}
+	log.Println(criuReq)
 
 	out, err := proto.Marshal(criuReq)
 	if err != nil {
@@ -209,38 +285,23 @@ func createNotifyResponse(notifySuccess bool) []byte {
 	return out
 }
 
-func handleNotifyCallback(sock net.Conn, resp *rpc.CriuResp) error {
+func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 	notify := resp.GetNotify()
 
 	switch notify.GetScript() {
 	case "pre-dump":
-		log.Printf("@post-dump %v", notify.GetPid())
-
-		req := createNotifyResponse(true)
-		_, err := sock.Write(req)
-		if err != nil {
-			return fmt.Errorf("Writing notification to socket failed: %v", err)
-		}
+		return PreDump
 	case "post-dump":
-		log.Printf("@post-dump %v", notify.GetPid())
-
-		time.Sleep(time.Duration(10000) * time.Second)
-		log.Printf("@post-dump continue")
-
-		req := createNotifyResponse(true)
-		_, err := sock.Write(req)
-		if err != nil {
-			return fmt.Errorf("Writing notification to socket failed: %v", err)
-		}
-
-	default:
-		log.Panicf("Unexpected notification type")
+		return PostDump
 	}
 
-	return nil
+	log.Panicf("Unexpected notification type")
+	// Not reached
+	return Error
 }
 
 func Dump(pid int) error {
+	log.Printf("%v\n", pid)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -249,38 +310,35 @@ func Dump(pid int) error {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
 	defer criu.cleanupService()
+	util.AbortHandler(func(sig os.Signal) {
+		criu.cleanupService()
+		os.Exit(1)
+	})
 
 	err = criu.sendDumpRequest()
 	if err != nil {
 		return fmt.Errorf("Write to socket failed: %v", err)
 	}
 
-loop:
 	for {
-		resp, err := criu.getResponse()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("Failed to read the response from CRIU: %v", err)
-		}
-
-		switch resp.GetType() {
-		case rpc.CriuReqType_NOTIFY:
-			if err = handleNotifyCallback(criu.conn, resp); err != nil {
-				return fmt.Errorf("Failed handling notify callback: %v", err)
-			}
-		case rpc.CriuReqType_DUMP:
-			log.Printf("Finished dump")
-			break loop
+		event, err := criu.nextEvent()
+		switch event.Type {
+		case PreDump:
+			log.Printf("@pre-dump: %v", event.Response)
+			time.Sleep(time.Duration(1) * time.Second)
+		case PostDump:
+			log.Printf("@post-dump")
+			time.Sleep(time.Duration(1) * time.Second)
+			log.Printf("@post-dump continue")
+		case Success:
+			log.Printf("Dump completed: %v", event.Response)
+			return nil
 		default:
-			return fmt.Errorf("Unexpected response: %v", resp)
+			return fmt.Errorf("Error or unexpected event type while communicating with CRIU service: %v", err)
 		}
 
+		criu.respond()
 	}
-
-	return nil
 }
 
-	return nil
-}
+

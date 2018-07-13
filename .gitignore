@@ -1,2 +1,3 @@
 konk
+!pkg/konk
 pkg/proto/rpc.pb.go

@@ -36,4 +36,12 @@ const (
 	CriuDumpUse   string = `dump`
 	CriuDumpShort string = `Dump a process in a CRIU`
 	CriuDumpLong  string = ``
+
+	CriuMigrateUse   string = `migrate`
+	CriuMigrateShort string = `Migrate a process to another node using CRIU`
+	CriuMigrateLong  string = ``
+
+	CriuReceiveUse   string = `receive`
+	CriuReceiveShort string = `Receive a process from another node using CRIU`
+	CriuReceiveLong  string = ``
 )

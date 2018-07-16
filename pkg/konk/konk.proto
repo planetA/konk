@@ -1,10 +1,5 @@
 syntax = "proto3";
 
-message ImageInfo {
-  int32 pid = 1;
-  int32 file_count = 2;
-}
-
 enum Status {
   OK = 0;
   FAIL = 1;
@@ -15,16 +10,26 @@ message Reply {
 }
 
 message FileData {
+  message ImageInfo {
+    int32 pid = 1;
+    int32 file_count = 2;
+  }
+
   message FileInfo {
     string filename = 1;
   }
 
-  FileInfo file_info = 1;
-  bytes data = 2;
-  bool  end_marker = 3;
+  message LaunchInfo {
+    int32 container_id = 1;
+  }
+
+  ImageInfo image_info = 1;
+  FileInfo file_info = 2;
+  bytes data = 3;
+  bool  end_marker = 4;
+  LaunchInfo launch_info = 5;
 }
 
 service Migration {
-  rpc TransferFile(stream FileData) returns (Reply) {}
-  rpc Launch(Reply) returns (Reply) {}
+  rpc Migrate(stream FileData) returns (Reply) {}
 }

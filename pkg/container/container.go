@@ -115,6 +115,13 @@ func deleteContainer(id int) error {
 	nsPath := util.GetNetNsPath(id)
 
 	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
+		if err == syscall.ENOENT {
+			return nil
+		}
+		return fmt.Errorf("Could not unmount the container %s: %v", nsPath, err)
+	}
+
+	if err := syscall.Unlink(nsPath); err != nil {
 		return fmt.Errorf("Could not delete the container %s: %v", nsPath, err)
 	}
 
@@ -136,14 +143,22 @@ func deleteContainer(id int) error {
 Create a network namespace, a veth pair, put one end into the namespace and
 another end connect to the bridge
 */
-func Create(id int) {
+func Create(id int) error {
 	// Lock the OS Thread so we don't accidentally switch namespaces
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if _, err := createContainer(id); err != nil {
-		log.Panic(err)
+	deleteContainer(id)
+
+	container, err := createContainer(id);
+	if  err != nil {
+		return fmt.Errorf("Failed to create container %d: %v", id, err)
 	}
+
+	container.Host.Close()
+	container.Guest.Close()
+
+	return nil
 }
 
 func Delete(id int) {
@@ -180,9 +195,7 @@ func Run(id int, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := deleteContainer(id); err != nil {
-		log.Println(err)
-	}
+	deleteContainer(id)
 
 	container, err := createContainer(id)
 	if err != nil {

@@ -177,10 +177,6 @@ func getCredential() *syscall.Credential {
 }
 
 func Run(id int, args []string) error {
-	util.AbortHandler(func(sig os.Signal) {
-		deleteContainer(id)
-	})
-
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"runtime"
 	"time"
 
@@ -62,10 +61,6 @@ func Dump(pid int) error {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
 	defer criu.cleanupService()
-	util.AbortHandler(func(sig os.Signal) {
-		criu.cleanupService()
-		os.Exit(1)
-	})
 
 	err = criu.sendDumpRequest()
 	if err != nil {
@@ -95,10 +90,6 @@ func Migrate(pid int, recipient string) error {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
 	defer criu.cleanupService()
-	util.AbortHandler(func(sig os.Signal) {
-		criu.cleanupService()
-		os.Exit(1)
-	})
 
 	err = criu.sendDumpRequest()
 	if err != nil {

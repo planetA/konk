@@ -20,6 +20,9 @@ type Container struct {
 }
 
 func createNs(id int) (netns.NsHandle, netns.NsHandle) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	oldNs, _ := netns.Get()
 
 	newNs, err := netns.New()
@@ -40,6 +43,7 @@ func createNs(id int) (netns.NsHandle, netns.NsHandle) {
 	newNsPath := fmt.Sprintf("%s/%s", netNsDir, nsNameId)
 	os.OpenFile(newNsPath, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0666)
 
+	netns.Set(newNs)
 	err = syscall.Mount("/proc/self/ns/net", newNsPath, "", syscall.MS_BIND|syscall.MS_REC, "")
 	if err != nil {
 		log.Panicf("Can't create a named namespace %s (%s): %v", nsNameId, newNsPath, err)

@@ -154,7 +154,7 @@ func Create(id int) error {
 
 	deleteContainer(id)
 
-	container, err := createContainer(id);
+	container, err := createContainer(id)
 	if  err != nil {
 		return fmt.Errorf("Failed to create container %d: %v", id, err)
 	}
@@ -173,7 +173,7 @@ func Delete(id int) {
 	defer runtime.UnlockOSThread()
 
 	if err := deleteContainer(id); err != nil {
-		log.Panic(err)
+		log.Printf("Could not delete the container")
 	}
 }
 

@@ -8,8 +8,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -46,12 +49,38 @@ type CriuService struct {
 	conn         net.Conn
 }
 
-func (criu *CriuService) launch() error {
-
-	targetNs, err := netns.GetFromPid(criu.targetPid)
-	if err != nil {
-		return fmt.Errorf("Could not get network namespace for process %v: %v", criu.targetPid, err)
+func (criu *CriuService) connect() error {
+	if err := os.MkdirAll(criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
+		return fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
 	}
+
+	b, err := ioutil.ReadFile(criu.pidfilePath)
+	if err != nil {
+		return fmt.Errorf("Could not read pid file (%s): %v", criu.pidfilePath, err)
+	}
+
+	pidStr := string(b)
+	criu.pid, err = strconv.Atoi(pidStr)
+	if err != nil {
+		return fmt.Errorf("Could not parse pid file (%s): %v", pidStr, err)
+	}
+
+	criu.imageDir, err = os.Open(criu.imageDirPath)
+	if err != nil {
+		return fmt.Errorf("Could not open the directory (%s): %v", criu.imageDirPath, err)
+	}
+
+	criu.conn, err = net.Dial("unixpacket", criu.socketPath)
+	if err != nil {
+		return fmt.Errorf("Could not connect to the socket (%s): %v", criu.socketPath, err)
+	}
+
+	return nil
+}
+
+func (criu *CriuService) launch(targetNs netns.NsHandle) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	curNs, err := netns.Get()
 	if err != nil {
@@ -64,8 +93,11 @@ func (criu *CriuService) launch() error {
 
 	log.Printf("Ns id %v\n", targetNs.UniqueId())
 	log.Printf("Ns id %v\n", curNs.UniqueId())
-	cmd := exec.Command(util.CriuPath, "service", "-d", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4")
+	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4")
 
+	log.Printf("Launching criu: %v\n", cmd)
+
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -73,9 +105,11 @@ func (criu *CriuService) launch() error {
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=/sbin/:%s", os.Getenv("PATH")))
 
-	// cmd.SysProcAttr = &syscall.SysProcAttr{
-	// 	Setpgid: true,
-	// }
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: 0,
+		Setsid:     true,
+		Setctty:    true,
+	}
 
 	err = cmd.Start()
 	if err != nil {
@@ -84,7 +118,14 @@ func (criu *CriuService) launch() error {
 
 	// pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	// defer syscall.Kill(-pgid, 15)
-	cmd.Wait()
+	// cmd.Wait()
+
+	log.Println("TODO: Connect to CRIU properly")
+	time.Sleep(1000 * time.Millisecond)
+
+	if err = criu.connect(); err != nil {
+		return fmt.Errorf("Could not establish connection to criu service: %v", err)
+	}
 
 	return nil
 }
@@ -102,9 +143,7 @@ func (criu *CriuService) cleanupService() {
 	criu = nil
 }
 
-func createCriuService(target int) (*CriuService, error) {
-	var err error
-
+func criuFromPid(target int) (*CriuService, error) {
 	criu := &CriuService{
 		targetPid:    target,
 		pidfilePath:  getPidfilePath(target),
@@ -112,42 +151,36 @@ func createCriuService(target int) (*CriuService, error) {
 		imageDirPath: getImagePath(target),
 	}
 
-	if err = criu.launch(); err != nil {
-		return nil, fmt.Errorf("Could not launch CRIU: %v", err)
-	}
-
-	if err = os.MkdirAll(criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return nil, fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
-	}
-
-	b, err := ioutil.ReadFile(criu.pidfilePath)
+	targetNs, err := netns.GetFromPid(criu.targetPid)
 	if err != nil {
-		return nil, fmt.Errorf("Could not read pid file (%s): %v", criu.pidfilePath, err)
+		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", criu.targetPid, err)
 	}
 
-	pidStr := string(b)
-	criu.pid, err = strconv.Atoi(pidStr)
-	if err != nil {
-		return nil, fmt.Errorf("Could not parse pid file (%s): %v", pidStr, err)
-	}
-
-	criu.imageDir, err = os.Open(criu.imageDirPath)
-	if err != nil {
-		return nil, fmt.Errorf("Could not open the directory (%s): %v", criu.imageDirPath, err)
-	}
-
-	criu.conn, err = net.Dial("unixpacket", criu.socketPath)
-	if err != nil {
-		return nil, fmt.Errorf("Could not connect to the socket (%s): %v", criu.socketPath, err)
+	if err = criu.launch(targetNs); err != nil {
+		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
 	return criu, nil
 }
 
-func (criu *CriuService) sendDumpRequest() error {
-	req := criu.createDumpRequest()
-	_, err := criu.conn.Write(req)
-	return err
+func criuFromContainer(containerId int, imageDir string) (*CriuService, error) {
+	criu := &CriuService{
+		pidfilePath:  getPidfilePath(containerId),
+		socketPath:   getSocketPath(containerId),
+		imageDirPath: imageDir,
+	}
+
+	nsName := util.GetNameId(util.NsName, containerId)
+	targetNs, err := netns.GetFromName(nsName)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", nsName, err)
+	}
+
+	if err = criu.launch(targetNs); err != nil {
+		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
+	}
+
+	return criu, nil
 }
 
 func (criu *CriuService) getResponse() (*rpc.CriuResp, error) {
@@ -251,6 +284,52 @@ func (criu *CriuService) createDumpRequest() []byte {
 	return out
 }
 
+func (criu *CriuService) sendDumpRequest() error {
+	req := criu.createDumpRequest()
+	_, err := criu.conn.Write(req)
+	return err
+}
+
+func (criu *CriuService) createRestoreRequest() []byte {
+	fd := int32(criu.imageDir.Fd())
+	tcpEstablished := true
+	shellJob := true
+	logLevel := int32(10)
+	logFile := fmt.Sprintf("criu.log.%d", 4)
+	notifyScripts := true
+	// orphanPtsMaster := true
+
+	criuOpts := &rpc.CriuOpts{
+		ImagesDirFd:    &fd,
+		TcpEstablished: &tcpEstablished,
+		ShellJob:       &shellJob,
+		LogLevel:       &logLevel,
+		LogFile:        &logFile,
+		NotifyScripts:  &notifyScripts,
+		// OrphanPtsMaster: &orphanPtsMaster,
+	}
+
+	reqType := rpc.CriuReqType_RESTORE
+	criuReq := &rpc.CriuReq{
+		Type: &reqType,
+		Opts: criuOpts,
+	}
+	log.Println(criuReq)
+
+	out, err := proto.Marshal(criuReq)
+	if err != nil {
+		log.Panicf("Could not marshal criu options: %v", err)
+	}
+
+	return out
+}
+
+func (criu *CriuService) sendRestoreRequest() error {
+	req := criu.createRestoreRequest()
+	_, err := criu.conn.Write(req)
+	return err
+}
+
 func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 	notify := resp.GetNotify()
 
@@ -259,11 +338,46 @@ func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 		return PreDump
 	case "post-dump":
 		return PostDump
+	case "pre-restore":
+		return PreRestore
+	case "post-restore":
+		return PostRestore
 	}
 
-	log.Panicf("Unexpected notification type")
+	log.Panicf("Unexpected notification type: %v", notify.GetScript())
+
 	// Not reached
 	return Error
+}
+
+func (criu *CriuService) GetContainerId() (int, error) {
+
+	environPath := fmt.Sprintf("/proc/%d/environ", criu.targetPid)
+
+	data, err := ioutil.ReadFile(environPath)
+	if err != nil {
+		return -1, err
+	}
+
+	begin := 0
+	for i, char := range data {
+		if char != 0 {
+			continue
+		}
+		tuple := strings.Split(string(data[begin:i]), "=")
+		envVar := tuple[0]
+
+		containerIdVarName := `OMPI_COMM_WORLD_RANK`
+		if envVar == containerIdVarName {
+			if len(tuple) > 1 {
+				return strconv.Atoi(tuple[1])
+			}
+		}
+
+		begin = i + 1
+	}
+
+	return -1, fmt.Errorf("Container ID variable is not found")
 }
 
 func (criu *CriuService) moveState(recipient string) error {
@@ -284,6 +398,15 @@ func (criu *CriuService) moveState(recipient string) error {
 		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
 	}
 
+	containerId, err := criu.GetContainerId()
+	if err != nil {
+		return fmt.Errorf("Failed to get container ID: %v", err)
+	}
+
+	if err = migration.SendImageInfo(containerId); err != nil {
+		return err
+	}
+
 	for _, file := range files {
 		err := migration.SendFile(file)
 		if err != nil {
@@ -293,7 +416,9 @@ func (criu *CriuService) moveState(recipient string) error {
 		log.Printf("Sent a file: %v", file.Name())
 	}
 
-	migration.Launch()
+	if err = migration.Launch(); err != nil {
+		return err
+	}
 
 	return nil
 }

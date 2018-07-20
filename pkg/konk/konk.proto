@@ -11,8 +11,9 @@ message Reply {
 
 message FileData {
   message ImageInfo {
-    int32 pid = 1;
+    string image_path = 1;
     int32 file_count = 2;
+    int32 container_id = 3;
   }
 
   message FileInfo {

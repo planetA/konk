@@ -1,10 +1,10 @@
 package criu
 
 import (
-	"os"
 	"fmt"
 	"io"
 	"log"
+	"os"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -15,6 +15,23 @@ import (
 type MigrationClient struct {
 	konk.Migration_MigrateClient
 	LocalDir string
+}
+
+func (migration *MigrationClient) SendImageInfo(containerId int) error {
+	log.Printf("Sending image info")
+
+	err := migration.Send(&konk.FileData{
+		ImageInfo: &konk.FileData_ImageInfo{
+			ImagePath:   migration.LocalDir,
+			ContainerId: int32(containerId),
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("Failed to send image info: %v", err)
+	}
+
+	return nil
 }
 
 func (migration *MigrationClient) SendFile(fileInfo os.FileInfo) error {
@@ -65,14 +82,20 @@ func (migration *MigrationClient) SendFile(fileInfo os.FileInfo) error {
 	return nil
 }
 
-func (migration *MigrationClient) Launch() {
+func (migration *MigrationClient) Launch() error {
 	log.Printf("Requested launch")
 
-	migration.Send(&konk.FileData{
+	err := migration.Send(&konk.FileData{
 		LaunchInfo: &konk.FileData_LaunchInfo{
-			ContainerId: 0,
+			ContainerId: -1,
 		},
 	})
+
+	if err != nil {
+		return fmt.Errorf("Failed to send launch request: %v", err)
+	}
+
+	return nil
 }
 
 func (migration *MigrationClient) Close() {

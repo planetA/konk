@@ -4,16 +4,31 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"os"
-	"time"
+	"runtime"
 
+	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
 )
 
 type konkMigrationServer struct {
 	// Compose the directory where the image is stored
-	imageDir string
+	imageDir    string
+	criu        *CriuService
+	containerId int
+}
+
+func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) error {
+	srv.containerId = int(imageInfo.ContainerId)
+	srv.imageDir = imageInfo.ImagePath
+
+	log.Printf("Local directory: %v", srv.imageDir)
+
+	if err := os.MkdirAll(srv.imageDir, os.ModeDir|os.ModePerm); err != nil {
+		return fmt.Errorf("Could not create image directory (%s): %v", srv.imageDir, err)
+	}
+
+	return nil
 }
 
 func (srv *konkMigrationServer) recvFile(stream konk.Migration_MigrateServer, fileInfo *konk.FileData_FileInfo) error {
@@ -50,7 +65,50 @@ func (srv *konkMigrationServer) recvFile(stream konk.Migration_MigrateServer, fi
 }
 
 func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	err := container.Create(srv.containerId)
+	if err != nil {
+		return fmt.Errorf("Failed to create a container: %v", err)
+	}
+	defer container.Delete(srv.containerId)
+
+	criu, err := criuFromContainer(srv.containerId, srv.imageDir)
+	if err != nil {
+		return fmt.Errorf("Failed to start criu service: %v", err)
+	}
+	defer criu.cleanupService()
+
+	log.Printf("Received launch request\n")
+
+	err = criu.sendRestoreRequest()
+	if err != nil {
+		return fmt.Errorf("Write to socket failed: %v", err)
+	}
+
+	for {
+		event, err := criu.nextEvent()
+		switch event.Type {
+		case PreRestore:
+			log.Println("@pre-restore")
+		case PostRestore:
+			log.Println("@post-restore")
+		case Success:
+			log.Printf("Restore completed: %v", event.Response)
+			return nil
+		case Error:
+			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
+		}
+
+		criu.respond()
+	}
+
 	return nil
+}
+
+func isImageInfo(chunk *konk.FileData) bool {
+	return chunk.GetImageInfo() != nil
 }
 
 func isFileInfo(chunk *konk.FileData) bool {
@@ -74,6 +132,9 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 		}
 
 		switch {
+		case isImageInfo(chunk):
+			// The first message
+			err = srv.recvImageInfo(chunk.GetImageInfo())
 		case isFileInfo(chunk):
 			// The beginning of a new file
 			err = srv.recvFile(stream, chunk.GetFileInfo())
@@ -83,6 +144,8 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 		}
 
 		if err != nil {
+			log.Printf("Failure at processing the next frame: %v", err)
+			os.Exit(1)
 			return fmt.Errorf("Failure at processing the next frame: %v", err)
 		}
 	}
@@ -93,17 +156,7 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 }
 
 func newServer() (*konkMigrationServer, error) {
-	rand.Seed(time.Now().UTC().UnixNano())
-	imageDir := fmt.Sprintf("%s/criu.image.%v", os.TempDir(), rand.Intn(32767))
-	s := &konkMigrationServer{
-		imageDir: imageDir,
-	}
+	s := &konkMigrationServer{}
 
-	// Create the directory where to store the image
-	if _, err := os.Stat(imageDir); os.IsNotExist(err) {
-		if err = os.Mkdir(imageDir, os.ModePerm); err != nil {
-			return nil, fmt.Errorf("Failed create a directory on the recipient: %v", err)
-		}
-	}
 	return s, nil
 }

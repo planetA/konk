@@ -23,6 +23,8 @@ const (
 const (
 	PreDump EventType = iota
 	PostDump
+	PreRestore
+	PostRestore
 	Success
 	Error
 )
@@ -56,7 +58,7 @@ func Dump(pid int) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	criu, err := createCriuService(pid)
+	criu, err := criuFromPid(pid)
 	if err != nil {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
@@ -85,7 +87,7 @@ func Migrate(pid int, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	criu, err := createCriuService(pid)
+	criu, err := criuFromPid(pid)
 	if err != nil {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
@@ -99,6 +101,8 @@ func Migrate(pid int, recipient string) error {
 	for {
 		event, err := criu.nextEvent()
 		switch event.Type {
+		case PreDump:
+			log.Printf("@pre-dump")
 		case PostDump:
 			log.Printf("@pre-move")
 			if err = criu.moveState(recipient); err != nil {

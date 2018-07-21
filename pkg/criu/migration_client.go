@@ -41,28 +41,34 @@ func (migration *MigrationClient) SendFile(file string) error {
 // send file by its full path. If a path is relative, the file is looked up in
 // the local image directory.
 func (migration *MigrationClient) SendFileDir(path string, dir string) error {
-	err := migration.Send(&konk.FileData{
+	localDir := dir
+	if len(localDir) == 0 {
+		// If the path is relative the file is looked up in the image directory
+		localDir = migration.LocalDir
+	}
+	localPath := fmt.Sprintf("%s/%s", localDir, path)
+
+	file, err := os.Open(localPath)
+	if err != nil {
+		return fmt.Errorf("Failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("Failed to get file state: %v", err)
+	}
+
+	err = migration.Send(&konk.FileData{
 		FileInfo: &konk.FileData_FileInfo{
 			Filename: path,
 			Dir: dir,
+			Perm: int32(fileInfo.Mode().Perm()),
 		},
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to send file info %s: %v", path, err)
 	}
-
-	if len(dir) == 0 {
-		// If the path is relative the file is looked up in the image directory
-		dir = migration.LocalDir
-	}
-
-	path = fmt.Sprintf("%s/%s", dir, path)
-
-	file, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("Failed to open file: %v", err)
-	}
-	defer file.Close()
 
 	buf := make([]byte, ChunkSize)
 

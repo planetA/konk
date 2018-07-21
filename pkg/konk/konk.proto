@@ -19,6 +19,7 @@ message FileData {
   message FileInfo {
     string filename = 1;
     string dir = 2;
+    int32 perm = 3;
   }
 
   message FileData {

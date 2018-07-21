@@ -345,6 +345,14 @@ func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 		return PreRestore
 	case "post-restore":
 		return PostRestore
+	case "pre-resume":
+		return PreResume
+	case "post-resume":
+		return PostResume
+	case "setup-namespaces":
+		return SetupNamespaces
+	case "post-setup-namespaces":
+		return PostSetupNamespaces
 	}
 
 	log.Panicf("Unexpected notification type: %v", notify.GetScript())

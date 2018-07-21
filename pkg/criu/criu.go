@@ -25,6 +25,10 @@ const (
 	PostDump
 	PreRestore
 	PostRestore
+	PreResume
+	PostResume
+	SetupNamespaces
+	PostSetupNamespaces
 	Success
 	Error
 )

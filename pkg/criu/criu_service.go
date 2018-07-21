@@ -426,7 +426,7 @@ func (criu *CriuService) sendOpenFiles(migration *MigrationClient, prefix string
 			continue
 		}
 
-		migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
+		err = migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
 		if err != nil {
 			return fmt.Errorf("Failed to transfer the file %s: %v", filePath, err)
 		}

@@ -17,7 +17,7 @@ import (
 type EventType int
 
 const (
-	ChunkSize int = 1 << 22
+	ChunkSize int = 1 << 21
 )
 
 const (

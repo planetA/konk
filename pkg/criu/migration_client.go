@@ -53,9 +53,10 @@ func (migration *MigrationClient) SendFileDir(path string, dir string) error {
 
 	if len(dir) == 0 {
 		// If the path is relative the file is looked up in the image directory
-		path = fmt.Sprintf("%s/%s", migration.LocalDir, path)
+		dir = migration.LocalDir
 	}
-	log.Println(path, dir)
+
+	path = fmt.Sprintf("%s/%s", dir, path)
 
 	file, err := os.Open(path)
 	if err != nil {

@@ -34,8 +34,6 @@ func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo
 }
 
 func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error {
-	log.Printf("Creating file: %s\n", srv.curFilePath)
-
 	if dir := fileInfo.GetDir(); dir != "" {
 		srv.curFilePath = fmt.Sprintf("%s/%s", dir, fileInfo.GetFilename())
 		if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
@@ -45,6 +43,7 @@ func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error 
 		srv.curFilePath = fmt.Sprintf("%s/%s", srv.imageDir, fileInfo.GetFilename())
 	}
 
+	log.Printf("Creating file: %s\n", srv.curFilePath)
 
 	var err error
 

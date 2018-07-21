@@ -18,6 +18,15 @@ message FileData {
 
   message FileInfo {
     string filename = 1;
+    string dir = 2;
+  }
+
+  message FileData {
+    bytes data = 1;
+  }
+
+  message FileEnd {
+    bool  end_marker = 1;
   }
 
   message LaunchInfo {
@@ -26,8 +35,8 @@ message FileData {
 
   ImageInfo image_info = 1;
   FileInfo file_info = 2;
-  bytes data = 3;
-  bool  end_marker = 4;
+  FileData file_data = 3;
+  FileEnd  file_end = 4;
   LaunchInfo launch_info = 5;
 }
 

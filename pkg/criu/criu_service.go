@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -104,6 +105,8 @@ func (criu *CriuService) launch(targetNs netns.NsHandle) error {
 	// Update PATH variable. Expect that the last value of the path variable will be taken into account. Otherwise, we would need to find the current value of the PATH variable and replace it.
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=/sbin/:%s", os.Getenv("PATH")))
+
+	cmd.Dir = "/"
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: 0,
@@ -380,6 +383,60 @@ func (criu *CriuService) GetContainerId() (int, error) {
 	return -1, fmt.Errorf("Container ID variable is not found")
 }
 
+func (criu *CriuService) sendImage(migration *MigrationClient) error {
+	containerId, err := criu.GetContainerId()
+	if err != nil {
+		return fmt.Errorf("Failed to get container ID: %v", err)
+	}
+
+	files, err := criu.imageDir.Readdir(0)
+	if err != nil {
+		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
+	}
+
+	if err = migration.SendImageInfo(containerId); err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		err := migration.SendFile(file.Name())
+		if err != nil {
+			return fmt.Errorf("Failed to transfer the file %s: %v", file.Name(), err)
+		}
+
+		log.Printf("Sent a file: %v", file.Name())
+	}
+
+	return nil
+}
+
+func (criu *CriuService) sendOpenFiles(migration *MigrationClient, prefix string) error {
+	linksDirPath := fmt.Sprintf("/proc/%d/map_files/", criu.targetPid)
+
+	files, err := ioutil.ReadDir(linksDirPath)
+	if err != nil {
+		return fmt.Errorf("Failed to open directory %s: %v", linksDirPath, err)
+	}
+
+	prefixLen := len(prefix)
+	for _, fdName := range files {
+		fdPath := fmt.Sprintf("%s/%s", linksDirPath, fdName.Name())
+		filePath, err := os.Readlink(fdPath)
+		if filePath[:prefixLen] != prefix {
+			continue
+		}
+
+		migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
+		if err != nil {
+			return fmt.Errorf("Failed to transfer the file %s: %v", filePath, err)
+		}
+
+		log.Printf("Sent a file: %v", filePath)
+	}
+
+	return nil
+}
+
 func (criu *CriuService) moveState(recipient string) error {
 	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
 	if err != nil {
@@ -393,27 +450,12 @@ func (criu *CriuService) moveState(recipient string) error {
 	}
 	defer migration.Close()
 
-	files, err := criu.imageDir.Readdir(0)
-	if err != nil {
-		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
-	}
-
-	containerId, err := criu.GetContainerId()
-	if err != nil {
-		return fmt.Errorf("Failed to get container ID: %v", err)
-	}
-
-	if err = migration.SendImageInfo(containerId); err != nil {
+	if err = criu.sendImage(migration); err != nil {
 		return err
 	}
 
-	for _, file := range files {
-		err := migration.SendFile(file)
-		if err != nil {
-			return fmt.Errorf("Failed to transfer the file %s: %v", file.Name(), err)
-		}
-
-		log.Printf("Sent a file: %v", file.Name())
+	if err = criu.sendOpenFiles(migration, "/tmp"); err != nil {
+		return err
 	}
 
 	if err = migration.Launch(); err != nil {

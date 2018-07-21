@@ -34,23 +34,34 @@ func (migration *MigrationClient) SendImageInfo(containerId int) error {
 	return nil
 }
 
-func (migration *MigrationClient) SendFile(fileInfo os.FileInfo) error {
-	localPath := fmt.Sprintf("%s/%s", migration.LocalDir, fileInfo.Name())
+func (migration *MigrationClient) SendFile(file string) error {
+	return migration.SendFileDir(file, "")
+}
 
-	file, err := os.Open(localPath)
+// send file by its full path. If a path is relative, the file is looked up in
+// the local image directory.
+func (migration *MigrationClient) SendFileDir(path string, dir string) error {
+	err := migration.Send(&konk.FileData{
+		FileInfo: &konk.FileData_FileInfo{
+			Filename: path,
+			Dir: dir,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to send file info %s: %v", path, err)
+	}
+
+	if len(dir) == 0 {
+		// If the path is relative the file is looked up in the image directory
+		path = fmt.Sprintf("%s/%s", migration.LocalDir, path)
+	}
+	log.Println(path, dir)
+
+	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("Failed to open file: %v", err)
 	}
 	defer file.Close()
-
-	err = migration.Send(&konk.FileData{
-		FileInfo: &konk.FileData_FileInfo{
-			Filename: fileInfo.Name(),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to send file info %s: %v", fileInfo.Name(), err)
-	}
 
 	buf := make([]byte, ChunkSize)
 
@@ -64,7 +75,9 @@ func (migration *MigrationClient) SendFile(fileInfo os.FileInfo) error {
 		}
 
 		err = migration.Send(&konk.FileData{
-			Data: buf[:n],
+			FileData: &konk.FileData_FileData{
+				Data: buf[:n],
+			},
 		})
 		if err != nil {
 			return fmt.Errorf("Error while sending data: %v", err)
@@ -73,10 +86,12 @@ func (migration *MigrationClient) SendFile(fileInfo os.FileInfo) error {
 
 	// Notify that the file transfer has ended
 	err = migration.Send(&konk.FileData{
-		EndMarker: true,
+		FileEnd: &konk.FileData_FileEnd{
+			EndMarker: true,
+		},
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to send end marker (%s): %v", fileInfo.Name(), err)
+		return fmt.Errorf("Failed to send end marker (%s): %v", path, err)
 	}
 
 	return nil

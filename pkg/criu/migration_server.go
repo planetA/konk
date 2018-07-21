@@ -16,6 +16,8 @@ type konkMigrationServer struct {
 	imageDir    string
 	criu        *CriuService
 	containerId int
+	curFile     *os.File
+	curFilePath string
 }
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) error {
@@ -31,36 +33,45 @@ func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo
 	return nil
 }
 
-func (srv *konkMigrationServer) recvFile(stream konk.Migration_MigrateServer, fileInfo *konk.FileData_FileInfo) error {
-	filePath := fmt.Sprintf("%s/%s", srv.imageDir, fileInfo.GetFilename())
+func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error {
+	log.Printf("Creating file: %s\n", srv.curFilePath)
 
-	log.Printf("Creating file: %s\n", filePath)
+	if dir := fileInfo.GetDir(); dir != "" {
+		srv.curFilePath = fmt.Sprintf("%s/%s", dir, fileInfo.GetFilename())
+		if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
+			return fmt.Errorf("Could not create image directory (%s): %v", dir, err)
+		}
+	} else {
+		srv.curFilePath = fmt.Sprintf("%s/%s", srv.imageDir, fileInfo.GetFilename())
+	}
 
-	file, err := os.Create(filePath)
+
+	var err error
+
+	srv.curFile, err = os.Create(srv.curFilePath)
 	if err != nil {
-		log.Println(filePath, err)
-		return fmt.Errorf("Failed to create file (%s): %v", filePath, err)
-	}
-	defer file.Close()
-
-	for {
-		chunk, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-
-		if chunk.GetEndMarker() {
-			return nil
-		}
-
-		_, err = file.Write(chunk.GetData())
-		if err != nil {
-			return fmt.Errorf("Failed to write the file: %v", err)
-		}
+		log.Println(srv.curFilePath, err)
+		return fmt.Errorf("Failed to create file (%s): %v", srv.curFilePath, err)
 	}
 
-	log.Printf("File received: %v\n", filePath)
+	return nil
+}
 
+func (srv *konkMigrationServer) recvData(chunk *konk.FileData_FileData) error {
+	_, err := srv.curFile.Write(chunk.GetData())
+	if err != nil {
+		return fmt.Errorf("Failed to write the file: %v", err)
+	}
+
+	return nil
+}
+
+func (srv *konkMigrationServer) closeFile(fileEnd *konk.FileData_FileEnd) error {
+	srv.curFile.Close()
+
+	log.Printf("File received: %v\n", srv.curFilePath)
+
+	srv.curFilePath = ""
 	return nil
 }
 
@@ -115,6 +126,14 @@ func isFileInfo(chunk *konk.FileData) bool {
 	return chunk.GetFileInfo() != nil
 }
 
+func isFileData(chunk *konk.FileData) bool {
+	return chunk.GetFileData() != nil
+}
+
+func isFileEnd(chunk *konk.FileData) bool {
+	return chunk.GetFileEnd() != nil
+}
+
 func isLaunchInfo(chunk *konk.FileData) bool {
 	return chunk.GetLaunchInfo() != nil
 }
@@ -137,7 +156,11 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 			err = srv.recvImageInfo(chunk.GetImageInfo())
 		case isFileInfo(chunk):
 			// The beginning of a new file
-			err = srv.recvFile(stream, chunk.GetFileInfo())
+			err = srv.newFile(chunk.GetFileInfo())
+		case isFileData(chunk):
+			err = srv.recvData(chunk.GetFileData())
+		case isFileEnd(chunk):
+			err = srv.closeFile(chunk.GetFileEnd())
 		case isLaunchInfo(chunk):
 			// Got a request to launch the checkpoint
 			err = srv.launch(chunk.GetLaunchInfo())

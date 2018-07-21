@@ -43,13 +43,14 @@ func createNs(id int) (netns.NsHandle, netns.NsHandle) {
 	newNsPath := fmt.Sprintf("%s/%s", netNsDir, nsNameId)
 	os.OpenFile(newNsPath, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0666)
 
-	netns.Set(newNs)
-	err = syscall.Mount("/proc/self/ns/net", newNsPath, "", syscall.MS_BIND|syscall.MS_REC, "")
+	nsPath := fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), syscall.Gettid())
+	err = syscall.Mount(nsPath, newNsPath, "", syscall.MS_BIND|syscall.MS_REC, "")
 	if err != nil {
 		log.Panicf("Can't create a named namespace %s (%s): %v", nsNameId, newNsPath, err)
 	}
 
 	netns.Set(oldNs)
+
 	return newNs, oldNs
 }
 
@@ -155,7 +156,7 @@ func Create(id int) error {
 	deleteContainer(id)
 
 	container, err := createContainer(id)
-	if  err != nil {
+	if err != nil {
 		return fmt.Errorf("Failed to create container %d: %v", id, err)
 	}
 

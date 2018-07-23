@@ -18,6 +18,7 @@ type konkMigrationServer struct {
 	containerId int
 	curFile     *os.File
 	curFilePath string
+	Ready       chan bool
 }
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) error {
@@ -174,13 +175,14 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 		}
 	}
 
-	return stream.SendAndClose(&konk.Reply{
-		Status: konk.Status_OK,
-	})
+	srv.Ready <- true
+	return nil
 }
 
 func newServer() (*konkMigrationServer, error) {
-	s := &konkMigrationServer{}
+	s := &konkMigrationServer{
+		Ready: make(chan bool, 1),
+	}
 
 	return s, nil
 }

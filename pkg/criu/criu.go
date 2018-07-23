@@ -2,6 +2,7 @@ package criu
 
 import (
 	"fmt"
+	"time"
 	"log"
 	"net"
 	"runtime"
@@ -111,7 +112,7 @@ func Migrate(pid int, recipient string) error {
 			if err = criu.moveState(recipient); err != nil {
 				return fmt.Errorf("Moving the state failed: %v", err)
 			}
-			time.Sleep(time.Duration(1) * time.Second)
+
 			log.Printf("@post-move")
 		case Success:
 			log.Printf("Dump completed: %v", event.Response)
@@ -137,7 +138,16 @@ func Receive(portDumper int) error {
 		return fmt.Errorf("Failed to create migration server: %v", err)
 	}
 	konk.RegisterMigrationServer(grpcServer, migrationServer)
+
+	go func() {
+		<- migrationServer.Ready
+		grpcServer.Stop()
+	}()
+
 	grpcServer.Serve(listener)
 
+	// Not reached
+
 	return nil
+
 }

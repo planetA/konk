@@ -83,13 +83,11 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
-	defer container.Delete(srv.containerId)
 
 	criu, err := criuFromContainer(srv.containerId, srv.imageDir)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
 	}
-	defer criu.cleanupService()
 
 	log.Printf("Received launch request\n")
 

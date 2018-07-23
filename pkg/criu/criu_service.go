@@ -8,11 +8,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
-	"path/filepath"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -231,7 +231,7 @@ func (criu *CriuService) nextEvent() (CriuEvent, error) {
 			Type:     criu.getEventType(resp),
 			Response: resp,
 		}, nil
-	case rpc.CriuReqType_DUMP:
+	case rpc.CriuReqType_DUMP, rpc.CriuReqType_RESTORE:
 		if resp.GetSuccess() {
 			return CriuEvent{
 				Type:     Success,

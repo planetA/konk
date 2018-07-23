@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/planetA/konk/pkg/rpc"
+	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/util"
 )
 
@@ -43,6 +44,7 @@ func createNotifyResponse(notifySuccess bool) []byte {
 type CriuService struct {
 	pid          int
 	targetPid    int
+	containerId  int
 	socketPath   string
 	pidfilePath  string
 	imageDirPath string
@@ -396,6 +398,7 @@ func (criu *CriuService) sendImage(migration *MigrationClient) error {
 	if err != nil {
 		return fmt.Errorf("Failed to get container ID: %v", err)
 	}
+	criu.containerId = containerId
 
 	files, err := criu.imageDir.Readdir(0)
 	if err != nil {
@@ -445,6 +448,10 @@ func (criu *CriuService) sendOpenFiles(migration *MigrationClient, prefix string
 	return nil
 }
 
+func (criu *CriuService) cleanup() {
+	container.Delete(criu.containerId)
+}
+
 func (criu *CriuService) moveState(recipient string) error {
 	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
 	if err != nil {
@@ -469,6 +476,8 @@ func (criu *CriuService) moveState(recipient string) error {
 	if err = migration.Launch(); err != nil {
 		return err
 	}
+
+	criu.cleanup()
 
 	return nil
 }

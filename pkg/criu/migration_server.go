@@ -162,6 +162,9 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 		case isLaunchInfo(chunk):
 			// Got a request to launch the checkpoint
 			err = srv.launch(chunk.GetLaunchInfo())
+			stream.SendAndClose(&konk.Reply{
+				Status: konk.Status_OK,
+			})
 		}
 
 		if err != nil {

@@ -53,10 +53,6 @@ type CriuService struct {
 }
 
 func (criu *CriuService) connect() error {
-	if err := os.MkdirAll(criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
-	}
-
 	b, err := ioutil.ReadFile(criu.pidfilePath)
 	if err != nil {
 		return fmt.Errorf("Could not read pid file (%s): %v", criu.pidfilePath, err)
@@ -79,6 +75,22 @@ func (criu *CriuService) connect() error {
 	}
 
 	return nil
+}
+
+func (criu *CriuService) connectRetry() error {
+	start := time.Now()
+	for {
+		err := criu.connect()
+		if err == nil {
+			return nil
+		}
+
+		if time.Now().Sub(start) > time.Second {
+			return fmt.Errorf("Could not connect to the socket (%s): %v", criu.socketPath, err)
+		}
+
+		time.Sleep(time.Millisecond * time.Duration(100))
+	}
 }
 
 func (criu *CriuService) launch(targetNs netns.NsHandle) error {
@@ -125,10 +137,11 @@ func (criu *CriuService) launch(targetNs netns.NsHandle) error {
 	// defer syscall.Kill(-pgid, 15)
 	// cmd.Wait()
 
-	log.Println("TODO: Connect to CRIU properly")
-	time.Sleep(1000 * time.Millisecond)
+	if err := os.MkdirAll(criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
+		return fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
+	}
 
-	if err = criu.connect(); err != nil {
+	if err = criu.connectRetry(); err != nil {
 		return fmt.Errorf("Could not establish connection to criu service: %v", err)
 	}
 

@@ -2,7 +2,6 @@ package criu
 
 import (
 	"fmt"
-	"time"
 	"log"
 	"net"
 	"runtime"

@@ -49,7 +49,7 @@ func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error 
 	var err error
 
 	perm := os.FileMode(fileInfo.GetPerm())
-	srv.curFile, err = os.OpenFile(srv.curFilePath, os.O_CREATE|os.O_WRONLY, perm)
+	srv.curFile, err = os.OpenFile(srv.curFilePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, perm)
 	if err != nil {
 		log.Println(srv.curFilePath, err)
 		return fmt.Errorf("Failed to create file (%s): %v", srv.curFilePath, err)

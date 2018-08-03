@@ -99,7 +99,7 @@ func Init(id int) error {
 	for _, route := range routes {
 		route.LinkIndex = bridge.Attrs().Index
 		if err = netlink.RouteAdd(&route); err != nil {
-			return fmt.Errorf("Could not add the route %v back: %v", route, err)
+			fmt.Printf("Could not add the route %v back: %v", route, err)
 		}
 	}
 

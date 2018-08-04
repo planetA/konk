@@ -120,6 +120,24 @@ func CreateContainer(id int) (*Container, error) {
 	}, nil
 }
 
+func ContainerAttachPid(pid int) (*Container, error) {
+	hostNs, err := netns.Get()
+	if err != nil {
+		return nil, fmt.Errorf("Could not get host network namespace: %v", err)
+	}
+
+	guestNs, err := netns.GetFromPid(pid)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
+	}
+
+	return &Container{
+		Id:    -1,
+		Host:  hostNs,
+		Guest: guestNs,
+	}, nil
+}
+
 func DeleteContainer(id int) error {
 
 	// Delete namespace

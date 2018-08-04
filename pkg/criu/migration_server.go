@@ -80,29 +80,29 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	err := container.Create(srv.containerId)
+	_, err := container.CreateContainer(srv.containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
 
-	criu, err := criuFromContainer(srv.containerId, srv.imageDir)
+	srv.criu, err = criuFromContainer(srv.containerId, srv.imageDir)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
 	}
 
 	log.Printf("Received launch request\n")
 
-	if err = criu.launch(); err != nil {
+	if err = srv.criu.launch(); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
-	err = criu.sendRestoreRequest()
+	err = srv.criu.sendRestoreRequest()
 	if err != nil {
 		return fmt.Errorf("Write to socket failed: %v", err)
 	}
 
 	for {
-		event, err := criu.nextEvent()
+		event, err := srv.criu.nextEvent()
 		switch event.Type {
 		case PreRestore:
 			log.Println("@pre-restore")
@@ -115,7 +115,7 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
 		}
 
-		criu.respond()
+		srv.criu.respond()
 	}
 
 	return nil

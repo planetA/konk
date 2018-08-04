@@ -65,7 +65,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
-func createContainer(id int) (*Container, error) {
+func CreateContainer(id int) (*Container, error) {
 	// First get the bridge
 	bridge := getBridge(util.BridgeName)
 
@@ -118,7 +118,7 @@ func createContainer(id int) (*Container, error) {
 	}, nil
 }
 
-func deleteContainer(id int) error {
+func DeleteContainer(id int) error {
 
 	// Delete namespace
 	nsPath := util.GetNetNsPath(id)
@@ -157,9 +157,9 @@ func Create(id int) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	deleteContainer(id)
+	DeleteContainer(id)
 
-	container, err := createContainer(id)
+	container, err := CreateContainer(id)
 	if err != nil {
 		return fmt.Errorf("Failed to create container %d: %v", id, err)
 	}
@@ -177,7 +177,7 @@ func Delete(id int) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := deleteContainer(id); err != nil {
+	if err := DeleteContainer(id); err != nil {
 		log.Printf("Could not delete the container")
 	}
 }
@@ -204,13 +204,13 @@ func Run(id int, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	deleteContainer(id)
+	DeleteContainer(id)
 
-	container, err := createContainer(id)
+	container, err := CreateContainer(id)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
-	defer deleteContainer(id)
+	defer DeleteContainer(id)
 
 	netns.Set(container.Guest)
 	defer netns.Set(container.Host)

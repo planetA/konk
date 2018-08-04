@@ -92,6 +92,10 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 
 	log.Printf("Received launch request\n")
 
+	if err = criu.launch(); err != nil {
+		return fmt.Errorf("Failed to launch criu service: %v", err)
+	}
+
 	err = criu.sendRestoreRequest()
 	if err != nil {
 		return fmt.Errorf("Write to socket failed: %v", err)

@@ -67,6 +67,10 @@ func Dump(pid int) error {
 	}
 	defer criu.cleanup()
 
+	if err = criu.launch(); err != nil {
+		return fmt.Errorf("Failed to launch criu service: %v", err)
+	}
+
 	err = criu.sendDumpRequest()
 	if err != nil {
 		return fmt.Errorf("Write to socket failed: %v", err)
@@ -95,6 +99,10 @@ func Migrate(pid int, recipient string) error {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
 	defer criu.cleanup()
+
+	if err = criu.launch(); err != nil {
+		return fmt.Errorf("Failed to launch criu service: %v", err)
+	}
 
 	err = criu.sendDumpRequest()
 	if err != nil {

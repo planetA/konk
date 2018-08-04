@@ -178,10 +178,6 @@ func criuFromPid(target int) (*CriuService, error) {
 		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", criu.targetPid, err)
 	}
 
-	if err = criu.launch(); err != nil {
-		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
-	}
-
 	return criu, nil
 }
 
@@ -197,10 +193,6 @@ func criuFromContainer(containerId int, imageDir string) (*CriuService, error) {
 	criu.targetNs, err = netns.GetFromName(nsName)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", nsName, err)
-	}
-
-	if err = criu.launch(); err != nil {
-		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
 	return criu, nil

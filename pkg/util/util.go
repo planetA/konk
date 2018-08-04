@@ -27,13 +27,6 @@ var (
 	CriuImageDir string = "/tmp/criu.images"
 )
 
-func LinkAdd(link netlink.Link) {
-	err := netlink.LinkAdd(link)
-	if err != nil {
-		log.Panicf("Failed to add %s: %v\n", link.Attrs().Name, err)
-	}
-}
-
 func GetNetNsPath(id int) string {
 	return fmt.Sprintf("/var/run/netns/%s", GetNameId(NsName, id))
 }

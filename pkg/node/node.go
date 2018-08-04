@@ -82,7 +82,10 @@ func Init(id int) error {
 
 	addrFlush(eth)
 	
-	bridge := util.CreateBridge(util.BridgeName)
+	bridge, err := util.CreateBridge(util.BridgeName)
+	if err != nil {
+		return err
+	}
 
 	// Set slave-master relationships between bridge the physical interface
 	netlink.LinkSetMaster(eth, bridge)

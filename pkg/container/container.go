@@ -72,7 +72,11 @@ func createContainer(id int) (*Container, error) {
 	// Only then create anything
 	newNs, oldNs := createNs(id)
 
-	veth, vpeer := util.CreateVethPair(id)
+	veth, vpeer, err := util.CreateVethPair(id)
+	if err != nil {
+		return nil, err
+	}
+
 	// Put end of the pair into corresponding namespaces
 	if err := netlink.LinkSetNsFd(veth, int(oldNs)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)

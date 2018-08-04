@@ -50,6 +50,7 @@ type CriuService struct {
 	imageDirPath string
 	imageDir     *os.File
 	conn         net.Conn
+	targetNs     netns.NsHandle
 }
 
 func (criu *CriuService) connect() error {
@@ -93,7 +94,7 @@ func (criu *CriuService) connectRetry() error {
 	}
 }
 
-func (criu *CriuService) launch(targetNs netns.NsHandle) error {
+func (criu *CriuService) launch() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -102,11 +103,11 @@ func (criu *CriuService) launch(targetNs netns.NsHandle) error {
 		return fmt.Errorf("Could not get host network namespace: %v", err)
 	}
 
-	netns.Set(targetNs)
+	netns.Set(criu.targetNs)
 	defer netns.Set(curNs)
 	syscall.CloseOnExec(int(curNs))
 
-	log.Printf("Ns id %v\n", targetNs.UniqueId())
+	log.Printf("Ns id %v\n", criu.targetNs.UniqueId())
 	log.Printf("Ns id %v\n", curNs.UniqueId())
 	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4")
 
@@ -171,12 +172,13 @@ func criuFromPid(target int) (*CriuService, error) {
 		imageDirPath: getImagePath(target),
 	}
 
-	targetNs, err := netns.GetFromPid(criu.targetPid)
+	var err error
+	criu.targetNs, err = netns.GetFromPid(criu.targetPid)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", criu.targetPid, err)
 	}
 
-	if err = criu.launch(targetNs); err != nil {
+	if err = criu.launch(); err != nil {
 		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -190,13 +192,14 @@ func criuFromContainer(containerId int, imageDir string) (*CriuService, error) {
 		imageDirPath: imageDir,
 	}
 
+	var err error
 	nsName := util.GetNameId(util.NsName, containerId)
-	targetNs, err := netns.GetFromName(nsName)
+	criu.targetNs, err = netns.GetFromName(nsName)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", nsName, err)
 	}
 
-	if err = criu.launch(targetNs); err != nil {
+	if err = criu.launch(); err != nil {
 		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 

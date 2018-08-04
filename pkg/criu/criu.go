@@ -158,7 +158,7 @@ func Receive(portDumper int) error {
 	konk.RegisterMigrationServer(grpcServer, migrationServer)
 
 	go func() {
-		<- migrationServer.Ready
+		<-migrationServer.Ready
 		grpcServer.Stop()
 	}()
 

@@ -15,6 +15,7 @@ type konkMigrationServer struct {
 	// Compose the directory where the image is stored
 	imageDir    string
 	criu        *CriuService
+	container   *container.Container
 	containerId int
 	curFile     *os.File
 	curFilePath string
@@ -29,6 +30,12 @@ func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo
 
 	if err := os.MkdirAll(srv.imageDir, os.ModeDir|os.ModePerm); err != nil {
 		return fmt.Errorf("Could not create image directory (%s): %v", srv.imageDir, err)
+	}
+
+	var err error
+	srv.criu, err = criuFromContainer(srv.containerId, srv.imageDir)
+	if err != nil {
+		return fmt.Errorf("Failed to start criu service: %v", err)
 	}
 
 	return nil
@@ -80,19 +87,15 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	_, err := container.CreateContainer(srv.containerId)
+	var err error
+	srv.container, err = container.CreateContainer(srv.containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
 
-	srv.criu, err = criuFromContainer(srv.containerId, srv.imageDir)
-	if err != nil {
-		return fmt.Errorf("Failed to start criu service: %v", err)
-	}
-
 	log.Printf("Received launch request\n")
 
-	if err = srv.criu.launch(); err != nil {
+	if err = srv.criu.launch(srv.container); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 

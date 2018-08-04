@@ -94,21 +94,16 @@ func (criu *CriuService) connectRetry() error {
 	}
 }
 
-func (criu *CriuService) launch() error {
+func (criu *CriuService) launch(container *container.Container) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	curNs, err := netns.Get()
-	if err != nil {
-		return fmt.Errorf("Could not get host network namespace: %v", err)
-	}
+	netns.Set(container.Guest)
+	defer netns.Set(container.Host)
+	syscall.CloseOnExec(int(container.Host))
 
-	netns.Set(criu.targetNs)
-	defer netns.Set(curNs)
-	syscall.CloseOnExec(int(curNs))
-
-	log.Printf("Ns id %v\n", criu.targetNs.UniqueId())
-	log.Printf("Ns id %v\n", curNs.UniqueId())
+	log.Printf("Ns id %v\n", container.Guest.UniqueId())
+	log.Printf("Ns id %v\n", container.Host.UniqueId())
 	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4")
 
 	log.Printf("Launching criu: %v\n", cmd)
@@ -129,7 +124,7 @@ func (criu *CriuService) launch() error {
 		Setctty:    true,
 	}
 
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("CRIU did not finish properly: %v", err)
 	}
@@ -172,12 +167,6 @@ func criuFromPid(target int) (*CriuService, error) {
 		imageDirPath: getImagePath(target),
 	}
 
-	var err error
-	criu.targetNs, err = netns.GetFromPid(criu.targetPid)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", criu.targetPid, err)
-	}
-
 	return criu, nil
 }
 
@@ -186,13 +175,6 @@ func criuFromContainer(containerId int, imageDir string) (*CriuService, error) {
 		pidfilePath:  getPidfilePath(containerId),
 		socketPath:   getSocketPath(containerId),
 		imageDirPath: imageDir,
-	}
-
-	var err error
-	nsName := util.GetNameId(util.NsName, containerId)
-	criu.targetNs, err = netns.GetFromName(nsName)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", nsName, err)
 	}
 
 	return criu, nil

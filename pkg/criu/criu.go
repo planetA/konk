@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
 	"github.com/planetA/konk/pkg/rpc"
 	"github.com/planetA/konk/pkg/util"
@@ -67,7 +68,12 @@ func Dump(pid int) error {
 	}
 	defer criu.cleanup()
 
-	if err = criu.launch(); err != nil {
+	container, err := container.ContainerAttachPid(pid)
+	if err != nil {
+		return fmt.Errorf("Could not attach to a container: %v", err)
+	}
+
+	if err = criu.launch(container); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -100,7 +106,12 @@ func Migrate(pid int, recipient string) error {
 	}
 	defer criu.cleanup()
 
-	if err = criu.launch(); err != nil {
+	container, err := container.ContainerAttachPid(pid)
+	if err != nil {
+		return fmt.Errorf("Could not attach to a container: %v", err)
+	}
+
+	if err = criu.launch(container); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 

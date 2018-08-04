@@ -15,6 +15,7 @@ import (
 )
 
 type Container struct {
+	Id    int
 	Host  netns.NsHandle
 	Guest netns.NsHandle
 }
@@ -113,6 +114,7 @@ func CreateContainer(id int) (*Container, error) {
 	}
 
 	return &Container{
+		Id:    id,
 		Host:  oldNs,
 		Guest: newNs,
 	}, nil

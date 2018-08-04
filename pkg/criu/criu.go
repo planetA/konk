@@ -65,7 +65,7 @@ func Dump(pid int) error {
 	if err != nil {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
-	defer criu.cleanupService()
+	defer criu.cleanup()
 
 	err = criu.sendDumpRequest()
 	if err != nil {
@@ -94,7 +94,7 @@ func Migrate(pid int, recipient string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
-	defer criu.cleanupService()
+	defer criu.cleanup()
 
 	err = criu.sendDumpRequest()
 	if err != nil {

@@ -148,7 +148,7 @@ func (criu *CriuService) launch(targetNs netns.NsHandle) error {
 	return nil
 }
 
-func (criu *CriuService) cleanupService() {
+func (criu *CriuService) cleanup() {
 	if criu == nil {
 		return
 	}
@@ -156,6 +156,8 @@ func (criu *CriuService) cleanupService() {
 	syscall.Kill(criu.pid, syscall.SIGTERM)
 	os.Remove(criu.pidfilePath)
 	os.Remove(criu.socketPath)
+	os.RemoveAll(criu.imageDirPath)
+	container.Delete(criu.containerId)
 	criu.conn.Close()
 
 	criu = nil
@@ -459,10 +461,6 @@ func (criu *CriuService) sendOpenFiles(migration *MigrationClient, prefix string
 	}
 
 	return nil
-}
-
-func (criu *CriuService) cleanup() {
-	container.Delete(criu.containerId)
 }
 
 func (criu *CriuService) moveState(recipient string) error {

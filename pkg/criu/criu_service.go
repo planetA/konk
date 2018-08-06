@@ -149,7 +149,6 @@ func (criu *CriuService) cleanup() {
 		return
 	}
 
-	syscall.Kill(criu.pid, syscall.SIGTERM)
 	os.Remove(criu.pidfilePath)
 	os.Remove(criu.socketPath)
 	os.RemoveAll(criu.imageDirPath)

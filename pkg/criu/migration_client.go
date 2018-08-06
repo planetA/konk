@@ -121,8 +121,6 @@ func (migration *MigrationClient) Launch() error {
 }
 
 func (migration *MigrationClient) Close() {
-	migration.CloseSend()
-
 	reply, err := migration.CloseAndRecv()
 	if err != nil {
 		log.Printf("Error while closing the stream: %v\n", err)

@@ -461,11 +461,11 @@ func (criu *CriuService) moveState(recipient string) error {
 		return err
 	}
 
+	container.Delete(criu.containerId)
+
 	if err = migration.Launch(); err != nil {
 		return err
 	}
-
-	criu.cleanup()
 
 	return nil
 }

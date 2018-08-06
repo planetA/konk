@@ -62,8 +62,8 @@ func (migration *MigrationClient) SendFileDir(path string, dir string) error {
 	err = migration.Send(&konk.FileData{
 		FileInfo: &konk.FileData_FileInfo{
 			Filename: path,
-			Dir: dir,
-			Perm: int32(fileInfo.Mode().Perm()),
+			Dir:      dir,
+			Perm:     int32(fileInfo.Mode().Perm()),
 		},
 	})
 	if err != nil {

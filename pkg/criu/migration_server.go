@@ -173,6 +173,7 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 			stream.SendAndClose(&konk.Reply{
 				Status: konk.Status_OK,
 			})
+			srv.criu.cleanup()
 		}
 
 		if err != nil {

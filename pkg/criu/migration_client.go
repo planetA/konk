@@ -3,18 +3,23 @@ package criu
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
 )
 
 type MigrationClient struct {
 	konk.Migration_MigrateClient
-	LocalDir string
+	LocalDir   string
+	Container  *container.Container
+	ServerConn *grpc.ClientConn // Connection to the migration server
 }
 
 func (migration *MigrationClient) SendImageInfo(containerId int) error {
@@ -29,6 +34,28 @@ func (migration *MigrationClient) SendImageInfo(containerId int) error {
 
 	if err != nil {
 		return fmt.Errorf("Failed to send image info: %v", err)
+	}
+
+	return nil
+}
+
+func (migration *MigrationClient) sendImage(imageDir *os.File) error {
+	files, err := imageDir.Readdir(0)
+	if err != nil {
+		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
+	}
+
+	if err = migration.SendImageInfo(migration.Container.Id); err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		err := migration.SendFile(file.Name())
+		if err != nil {
+			return fmt.Errorf("Failed to transfer the file %s: %v", file.Name(), err)
+		}
+
+		log.Printf("Sent a file: %v", file.Name())
 	}
 
 	return nil
@@ -104,6 +131,33 @@ func (migration *MigrationClient) SendFileDir(path string, dir string) error {
 	return nil
 }
 
+func (migration *MigrationClient) sendOpenFiles(pid int, prefix string) error {
+	linksDirPath := fmt.Sprintf("/proc/%d/map_files/", pid)
+
+	files, err := ioutil.ReadDir(linksDirPath)
+	if err != nil {
+		return fmt.Errorf("Failed to open directory %s: %v", linksDirPath, err)
+	}
+
+	prefixLen := len(prefix)
+	for _, fdName := range files {
+		fdPath := fmt.Sprintf("%s/%s", linksDirPath, fdName.Name())
+		filePath, err := os.Readlink(fdPath)
+		if filePath[:prefixLen] != prefix {
+			continue
+		}
+
+		err = migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
+		if err != nil {
+			return fmt.Errorf("Failed to transfer the file %s: %v", filePath, err)
+		}
+
+		log.Printf("Sent a file: %v", filePath)
+	}
+
+	return nil
+}
+
 func (migration *MigrationClient) Launch() error {
 	log.Printf("Requested launch")
 
@@ -132,9 +186,17 @@ func (migration *MigrationClient) Close() {
 		log.Printf("File transfer failed: %s\n", reply.GetStatus())
 	}
 
+	migration.ServerConn.Close()
 }
 
-func newMigrationClient(conn *grpc.ClientConn, localDir string) (*MigrationClient, error) {
+func newMigrationClient(recipient string, cont *container.Container, localDir string) (*MigrationClient, error) {
+	log.Println("Connecting to", recipient)
+
+	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open a connection to the recipient: %v", err)
+	}
+
 	ctx := context.Background()
 	client := konk.NewMigrationClient(conn)
 
@@ -146,5 +208,7 @@ func newMigrationClient(conn *grpc.ClientConn, localDir string) (*MigrationClien
 	return &MigrationClient{
 		Migration_MigrateClient: stream,
 		LocalDir:                localDir,
+		ServerConn:              conn,
+		Container:               cont,
 	}, nil
 }

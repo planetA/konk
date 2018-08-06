@@ -2,10 +2,13 @@ package container
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
@@ -120,6 +123,36 @@ func CreateContainer(id int) (*Container, error) {
 	}, nil
 }
 
+func getContainerId(pid int) (int, error) {
+
+	environPath := fmt.Sprintf("/proc/%d/environ", pid)
+
+	data, err := ioutil.ReadFile(environPath)
+	if err != nil {
+		return -1, err
+	}
+
+	begin := 0
+	for i, char := range data {
+		if char != 0 {
+			continue
+		}
+		tuple := strings.Split(string(data[begin:i]), "=")
+		envVar := tuple[0]
+
+		containerIdVarName := `OMPI_COMM_WORLD_RANK`
+		if envVar == containerIdVarName {
+			if len(tuple) > 1 {
+				return strconv.Atoi(tuple[1])
+			}
+		}
+
+		begin = i + 1
+	}
+
+	return -1, fmt.Errorf("Container ID variable is not found")
+}
+
 func ContainerAttachPid(pid int) (*Container, error) {
 	hostNs, err := netns.Get()
 	if err != nil {
@@ -131,8 +164,13 @@ func ContainerAttachPid(pid int) (*Container, error) {
 		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
 	}
 
+	id, err := getContainerId(pid);
+	if  err != nil {
+		return nil, fmt.Errorf("Could not get container id for pid %v: %v", pid, err)
+	}
+
 	return &Container{
-		Id:    -1,
+		Id:    id,
 		Host:  hostNs,
 		Guest: guestNs,
 	}, nil

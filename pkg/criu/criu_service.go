@@ -8,10 +8,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -19,10 +17,8 @@ import (
 
 	"github.com/vishvananda/netns"
 
-	"google.golang.org/grpc"
-
-	"github.com/planetA/konk/pkg/rpc"
 	"github.com/planetA/konk/pkg/container"
+	"github.com/planetA/konk/pkg/rpc"
 	"github.com/planetA/konk/pkg/util"
 )
 
@@ -44,7 +40,6 @@ func createNotifyResponse(notifySuccess bool) []byte {
 type CriuService struct {
 	pid          int
 	targetPid    int
-	containerId  int
 	socketPath   string
 	pidfilePath  string
 	imageDirPath string
@@ -351,120 +346,4 @@ func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 
 	// Not reached
 	return Error
-}
-
-func (criu *CriuService) GetContainerId() (int, error) {
-
-	environPath := fmt.Sprintf("/proc/%d/environ", criu.targetPid)
-
-	data, err := ioutil.ReadFile(environPath)
-	if err != nil {
-		return -1, err
-	}
-
-	begin := 0
-	for i, char := range data {
-		if char != 0 {
-			continue
-		}
-		tuple := strings.Split(string(data[begin:i]), "=")
-		envVar := tuple[0]
-
-		containerIdVarName := `OMPI_COMM_WORLD_RANK`
-		if envVar == containerIdVarName {
-			if len(tuple) > 1 {
-				return strconv.Atoi(tuple[1])
-			}
-		}
-
-		begin = i + 1
-	}
-
-	return -1, fmt.Errorf("Container ID variable is not found")
-}
-
-func (criu *CriuService) sendImage(migration *MigrationClient) error {
-	containerId, err := criu.GetContainerId()
-	if err != nil {
-		return fmt.Errorf("Failed to get container ID: %v", err)
-	}
-	criu.containerId = containerId
-
-	files, err := criu.imageDir.Readdir(0)
-	if err != nil {
-		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
-	}
-
-	if err = migration.SendImageInfo(containerId); err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		err := migration.SendFile(file.Name())
-		if err != nil {
-			return fmt.Errorf("Failed to transfer the file %s: %v", file.Name(), err)
-		}
-
-		log.Printf("Sent a file: %v", file.Name())
-	}
-
-	return nil
-}
-
-func (criu *CriuService) sendOpenFiles(migration *MigrationClient, prefix string) error {
-	linksDirPath := fmt.Sprintf("/proc/%d/map_files/", criu.targetPid)
-
-	files, err := ioutil.ReadDir(linksDirPath)
-	if err != nil {
-		return fmt.Errorf("Failed to open directory %s: %v", linksDirPath, err)
-	}
-
-	prefixLen := len(prefix)
-	for _, fdName := range files {
-		fdPath := fmt.Sprintf("%s/%s", linksDirPath, fdName.Name())
-		filePath, err := os.Readlink(fdPath)
-		if filePath[:prefixLen] != prefix {
-			continue
-		}
-
-		err = migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
-		if err != nil {
-			return fmt.Errorf("Failed to transfer the file %s: %v", filePath, err)
-		}
-
-		log.Printf("Sent a file: %v", filePath)
-	}
-
-	return nil
-}
-
-func (criu *CriuService) moveState(recipient string) error {
-	log.Println("Connecting to", recipient)
-	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
-	if err != nil {
-		return fmt.Errorf("Failed to open a connection to the recipient: %v", err)
-	}
-	defer conn.Close()
-
-	migration, err := newMigrationClient(conn, criu.imageDirPath)
-	if err != nil {
-		return err
-	}
-	defer migration.Close()
-
-	if err = criu.sendImage(migration); err != nil {
-		return err
-	}
-
-	if err = criu.sendOpenFiles(migration, "/tmp"); err != nil {
-		return err
-	}
-
-	container.Delete(criu.containerId)
-
-	if err = migration.Launch(); err != nil {
-		return err
-	}
-
-	return nil
 }

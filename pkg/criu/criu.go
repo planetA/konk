@@ -86,7 +86,7 @@ func Dump(pid int) error {
 		event, err := criu.nextEvent()
 		switch event.Type {
 		case Success:
-			container.Delete(criu.containerId)
+			container.Delete(cont.Id)
 			log.Printf("Dump completed: %v", event.Response)
 			return nil
 		case Error:
@@ -107,12 +107,12 @@ func Migrate(pid int, recipient string) error {
 	}
 	defer criu.cleanup()
 
-	container, err := container.ContainerAttachPid(pid)
+	cont, err := container.ContainerAttachPid(pid)
 	if err != nil {
 		return fmt.Errorf("Could not attach to a container: %v", err)
 	}
 
-	if err = criu.launch(container); err != nil {
+	if err = criu.launch(cont); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -128,8 +128,24 @@ func Migrate(pid int, recipient string) error {
 			log.Printf("@pre-dump")
 		case PostDump:
 			log.Printf("@pre-move")
-			if err = criu.moveState(recipient); err != nil {
-				return fmt.Errorf("Moving the state failed: %v", err)
+			migration, err := newMigrationClient(recipient, cont, criu.imageDirPath)
+			if err != nil {
+				return err
+			}
+			defer migration.Close()
+
+			if err = migration.sendImage(criu.imageDir); err != nil {
+				return err
+			}
+
+			if err = migration.sendOpenFiles(criu.targetPid, "/tmp"); err != nil {
+				return err
+			}
+
+			container.Delete(cont.Id)
+
+			if err = migration.Launch(); err != nil {
+				return err
 			}
 
 			log.Printf("@post-move")

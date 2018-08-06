@@ -68,12 +68,12 @@ func Dump(pid int) error {
 	}
 	defer criu.cleanup()
 
-	container, err := container.ContainerAttachPid(pid)
+	cont, err := container.ContainerAttachPid(pid)
 	if err != nil {
 		return fmt.Errorf("Could not attach to a container: %v", err)
 	}
 
-	if err = criu.launch(container); err != nil {
+	if err = criu.launch(cont); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -86,6 +86,7 @@ func Dump(pid int) error {
 		event, err := criu.nextEvent()
 		switch event.Type {
 		case Success:
+			container.Delete(criu.containerId)
 			log.Printf("Dump completed: %v", event.Response)
 			return nil
 		case Error:

@@ -153,7 +153,6 @@ func (criu *CriuService) cleanup() {
 	os.Remove(criu.pidfilePath)
 	os.Remove(criu.socketPath)
 	os.RemoveAll(criu.imageDirPath)
-	container.Delete(criu.containerId)
 	criu.conn.Close()
 
 	criu = nil

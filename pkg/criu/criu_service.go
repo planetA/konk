@@ -441,6 +441,7 @@ func (criu *CriuService) sendOpenFiles(migration *MigrationClient, prefix string
 }
 
 func (criu *CriuService) moveState(recipient string) error {
+	log.Println("Connecting to", recipient)
 	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
 	if err != nil {
 		return fmt.Errorf("Failed to open a connection to the recipient: %v", err)

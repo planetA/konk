@@ -149,7 +149,7 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
-			log.Printf("Transfer finished\n")
+			log.Printf("Migration finished\n")
 			break
 		}
 		if err != nil {

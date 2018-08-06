@@ -20,6 +20,7 @@ type MigrationClient struct {
 	LocalDir   string
 	Container  *container.Container
 	ServerConn *grpc.ClientConn // Connection to the migration server
+	Criu       *CriuService
 }
 
 func (migration *MigrationClient) SendImageInfo(containerId int) error {
@@ -174,6 +175,60 @@ func (migration *MigrationClient) Launch() error {
 	return nil
 }
 
+func (migration *MigrationClient) sendCheckpoint() error {
+	if err := migration.sendImage(migration.Criu.imageDir); err != nil {
+		return err
+	}
+
+	if err := migration.sendOpenFiles(migration.Criu.targetPid, "/tmp"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (migration *MigrationClient) Run() error {
+	// Launch actual CRIU process
+	if err := migration.Criu.launch(migration.Container); err != nil {
+		return fmt.Errorf("Failed to launch criu service: %v", err)
+	}
+
+	err := migration.Criu.sendDumpRequest()
+	if err != nil {
+		return fmt.Errorf("Write to socket failed: %v", err)
+	}
+
+	for {
+		event, err := migration.Criu.nextEvent()
+		switch event.Type {
+		case PreDump:
+			log.Printf("@pre-dump")
+		case PostDump:
+			log.Printf("@pre-move")
+
+			err = migration.sendCheckpoint()
+			if err != nil {
+				return fmt.Errorf("Failed to save a checkpoint: %v", err)
+			}
+
+			container.Delete(migration.Container.Id)
+
+			if err = migration.Launch(); err != nil {
+				return err
+			}
+
+			log.Printf("@post-move")
+		case Success:
+			log.Printf("Dump completed: %v", event.Response)
+			return nil
+		case Error:
+			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
+		}
+
+		migration.Criu.respond()
+	}
+}
+
 func (migration *MigrationClient) Close() {
 	reply, err := migration.CloseAndRecv()
 	if err != nil {
@@ -187,9 +242,10 @@ func (migration *MigrationClient) Close() {
 	}
 
 	migration.ServerConn.Close()
+	migration.Criu.cleanup()
 }
 
-func newMigrationClient(recipient string, cont *container.Container, localDir string) (*MigrationClient, error) {
+func newMigrationClient(recipient string, pid int) (*MigrationClient, error) {
 	log.Println("Connecting to", recipient)
 
 	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
@@ -205,10 +261,23 @@ func newMigrationClient(recipient string, cont *container.Container, localDir st
 		return nil, fmt.Errorf("Failed to create stream: %v", err)
 	}
 
+	// Create Criu object that is configure to start the real service
+	criu, err := criuFromPid(pid)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
+	}
+
+	// Get handlers to container host and guest namespaces
+	cont, err := container.ContainerAttachPid(pid)
+	if err != nil {
+		return nil, fmt.Errorf("Could not attach to a container: %v", err)
+	}
+
 	return &MigrationClient{
 		Migration_MigrateClient: stream,
-		LocalDir:                localDir,
+		LocalDir:                criu.imageDirPath,
 		ServerConn:              conn,
 		Container:               cont,
+		Criu:                    criu,
 	}, nil
 }

@@ -101,63 +101,18 @@ func Migrate(pid int, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	criu, err := criuFromPid(pid)
+	migration, err := newMigrationClient(recipient, pid)
 	if err != nil {
-		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
+		return err
 	}
-	defer criu.cleanup()
+	defer migration.Close()
 
-	cont, err := container.ContainerAttachPid(pid)
+	err = migration.Run()
 	if err != nil {
-		return fmt.Errorf("Could not attach to a container: %v", err)
+		return fmt.Errorf("Migration failed: %v", err)
 	}
 
-	if err = criu.launch(cont); err != nil {
-		return fmt.Errorf("Failed to launch criu service: %v", err)
-	}
-
-	err = criu.sendDumpRequest()
-	if err != nil {
-		return fmt.Errorf("Write to socket failed: %v", err)
-	}
-
-	for {
-		event, err := criu.nextEvent()
-		switch event.Type {
-		case PreDump:
-			log.Printf("@pre-dump")
-		case PostDump:
-			log.Printf("@pre-move")
-			migration, err := newMigrationClient(recipient, cont, criu.imageDirPath)
-			if err != nil {
-				return err
-			}
-			defer migration.Close()
-
-			if err = migration.sendImage(criu.imageDir); err != nil {
-				return err
-			}
-
-			if err = migration.sendOpenFiles(criu.targetPid, "/tmp"); err != nil {
-				return err
-			}
-
-			container.Delete(cont.Id)
-
-			if err = migration.Launch(); err != nil {
-				return err
-			}
-
-			log.Printf("@post-move")
-		case Success:
-			log.Printf("Dump completed: %v", event.Response)
-			return nil
-		case Error:
-			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
-		}
-
-		criu.respond()
-	}
+	return err
 }
 
 // The recovery server open a port and waits for the dumping server to pass all relevant information

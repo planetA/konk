@@ -124,6 +124,9 @@ func (migration *MigrationClient) Close() {
 	reply, err := migration.CloseAndRecv()
 	if err != nil {
 		log.Printf("Error while closing the stream: %v\n", err)
+		log.Println("XXX: This should not happen. But I don't know how to fix it for now")
+		log.Println("The reason is connected to creating a new container on another" +
+			" machine and this somehow distorts the network connection")
 	}
 	if reply.GetStatus() != konk.Status_OK {
 		log.Printf("File transfer failed: %s\n", reply.GetStatus())

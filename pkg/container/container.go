@@ -219,36 +219,6 @@ func ContainerAttachPid(pid int) (*Container, error) {
 	}, nil
 }
 
-/*
-Create a network namespace, a veth pair, put one end into the namespace and
-another end connect to the bridge
-*/
-func Create(id int) error {
-	// Lock the OS Thread so we don't accidentally switch namespaces
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	_, err := NewContainer(id)
-	if err != nil {
-		return fmt.Errorf("Failed to create container %d: %v", id, err)
-	}
-
-	return nil
-}
-
-func Delete(id int) {
-	log.Printf("Deleting container with id %v", id)
-
-	// Lock the OS Thread so we don't accidentally switch namespaces
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	container, _ := newContainerClosed(id)
-	if err := container.Delete(); err != nil {
-		log.Printf("Could not delete the container")
-	}
-}
-
 func getCredential() *syscall.Credential {
 	grp, _ := os.Getgroups()
 	grp32 := func(b []int) []uint32 {
@@ -288,6 +258,36 @@ func (container *Container) launchCommand(args []string) error {
 	}
 
 	return nil
+}
+
+/*
+Create a network namespace, a veth pair, put one end into the namespace and
+another end connect to the bridge
+*/
+func Create(id int) error {
+	// Lock the OS Thread so we don't accidentally switch namespaces
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	_, err := NewContainer(id)
+	if err != nil {
+		return fmt.Errorf("Failed to create container %d: %v", id, err)
+	}
+
+	return nil
+}
+
+func Delete(id int) {
+	log.Printf("Deleting container with id %v", id)
+
+	// Lock the OS Thread so we don't accidentally switch namespaces
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	container, _ := newContainerClosed(id)
+	if err := container.Delete(); err != nil {
+		log.Printf("Could not delete the container")
+	}
 }
 
 func Run(id int, args []string) error {

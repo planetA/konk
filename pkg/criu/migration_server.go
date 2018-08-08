@@ -88,7 +88,7 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 	defer runtime.UnlockOSThread()
 
 	var err error
-	srv.container, err = container.CreateContainer(srv.containerId)
+	srv.container, err = container.NewContainer(srv.containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}

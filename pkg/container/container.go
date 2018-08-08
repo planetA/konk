@@ -69,7 +69,18 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
-func CreateContainer(id int) (*Container, error) {
+func newContainerClosed(id int) (*Container, error) {
+	return &Container{
+		Id:    id,
+		Host:  -1,
+		Guest: -1,
+	}, nil
+}
+
+func NewContainer(id int) (*Container, error) {
+	oldContainer, _ := newContainerClosed(id)
+	oldContainer.Delete()
+
 	// First get the bridge
 	bridge := getBridge(util.BridgeName)
 
@@ -123,6 +134,38 @@ func CreateContainer(id int) (*Container, error) {
 	}, nil
 }
 
+func (container *Container) Delete() error {
+	// Delete namespace
+	nsPath := util.GetNetNsPath(container.Id)
+
+	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
+		if err == syscall.ENOENT {
+			return nil
+		}
+		return fmt.Errorf("Could not unmount the container %s: %v", nsPath, err)
+	}
+
+	if err := syscall.Unlink(nsPath); err != nil {
+		return fmt.Errorf("Could not delete the container %s: %v", nsPath, err)
+	}
+
+	/* Theoretically we should not kill these two, because deleting a namespace should delete veth the ns contains. Deleting a veth should delete vpeer. But we delete everything to be on the safe side. */
+	vethId, err := netlink.LinkByName(util.GetNameId(util.VethName, container.Id))
+	if err == nil {
+		netlink.LinkDel(vethId)
+	}
+
+	vpeerId, err := netlink.LinkByName(util.GetNameId(util.VpeerName, container.Id))
+	if err == nil {
+		netlink.LinkDel(vpeerId)
+	}
+
+	container.Host.Close()
+	container.Guest.Close()
+
+	return nil
+}
+
 func getContainerId(pid int) (int, error) {
 
 	environPath := fmt.Sprintf("/proc/%d/environ", pid)
@@ -164,8 +207,8 @@ func ContainerAttachPid(pid int) (*Container, error) {
 		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
 	}
 
-	id, err := getContainerId(pid);
-	if  err != nil {
+	id, err := getContainerId(pid)
+	if err != nil {
 		return nil, fmt.Errorf("Could not get container id for pid %v: %v", pid, err)
 	}
 
@@ -174,36 +217,6 @@ func ContainerAttachPid(pid int) (*Container, error) {
 		Host:  hostNs,
 		Guest: guestNs,
 	}, nil
-}
-
-func DeleteContainer(id int) error {
-
-	// Delete namespace
-	nsPath := util.GetNetNsPath(id)
-
-	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
-		if err == syscall.ENOENT {
-			return nil
-		}
-		return fmt.Errorf("Could not unmount the container %s: %v", nsPath, err)
-	}
-
-	if err := syscall.Unlink(nsPath); err != nil {
-		return fmt.Errorf("Could not delete the container %s: %v", nsPath, err)
-	}
-
-	/* Theoretically we should not kill these two, because deleting a namespace should delete veth the ns contains. Deleting a veth should delete vpeer. But we delete everything to be on the safe side. */
-	vethId, err := netlink.LinkByName(util.GetNameId(util.VethName, id))
-	if err == nil {
-		netlink.LinkDel(vethId)
-	}
-
-	vpeerId, err := netlink.LinkByName(util.GetNameId(util.VpeerName, id))
-	if err == nil {
-		netlink.LinkDel(vpeerId)
-	}
-
-	return nil
 }
 
 /*
@@ -215,15 +228,10 @@ func Create(id int) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	DeleteContainer(id)
-
-	container, err := CreateContainer(id)
+	_, err := NewContainer(id)
 	if err != nil {
 		return fmt.Errorf("Failed to create container %d: %v", id, err)
 	}
-
-	container.Host.Close()
-	container.Guest.Close()
 
 	return nil
 }
@@ -235,7 +243,8 @@ func Delete(id int) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := DeleteContainer(id); err != nil {
+	container, _ := newContainerClosed(id)
+	if err := container.Delete(); err != nil {
 		log.Printf("Could not delete the container")
 	}
 }
@@ -258,18 +267,7 @@ func getCredential() *syscall.Credential {
 
 }
 
-func Run(id int, args []string) error {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	DeleteContainer(id)
-
-	container, err := CreateContainer(id)
-	if err != nil {
-		return fmt.Errorf("Failed to create a container: %v", err)
-	}
-	defer DeleteContainer(id)
-
+func (container *Container) launchCommand(args []string) error {
 	netns.Set(container.Guest)
 	defer netns.Set(container.Host)
 	syscall.CloseOnExec(int(container.Host))
@@ -283,9 +281,28 @@ func Run(id int, args []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err = cmd.Run()
+	err := cmd.Run()
+
 	if err != nil {
 		return fmt.Errorf("Application exited with an error: %v", err)
+	}
+
+	return nil
+}
+
+func Run(id int, args []string) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	container, err := NewContainer(id)
+	if err != nil {
+		return fmt.Errorf("Failed to create a container: %v", err)
+	}
+	defer container.Delete()
+
+	err = container.launchCommand(args)
+	if err != nil {
+		return err
 	}
 
 	return nil

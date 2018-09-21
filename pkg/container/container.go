@@ -251,11 +251,13 @@ func (container *Container) launchCommand(args []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Run()
+	err := cmd.Start()
 
 	if err != nil {
 		return fmt.Errorf("Application exited with an error: %v", err)
 	}
+
+	cmd.Wait()
 
 	return nil
 }

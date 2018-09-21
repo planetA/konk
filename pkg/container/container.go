@@ -294,11 +294,18 @@ func Run(id int, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	ctx := util.NewContext()
+
 	container, err := NewContainer(id)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
-	defer container.Delete()
+	go func() {
+		select {
+		case <-ctx.Done():
+			err := container.Delete()
+		}
+	}()
 
 	err = container.launchCommand(args)
 	if err != nil {

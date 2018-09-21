@@ -24,8 +24,7 @@ var containerCmd = &cobra.Command{
 	Use:              docs.ContainerUse,
 	Short:            docs.ContainerShort,
 	Long:             docs.ContainerLong,
-	Run: func(cmd *cobra.Command, args []string) {
-	},
+	Run:              nil,
 }
 
 var containerCreateCmd = &cobra.Command{

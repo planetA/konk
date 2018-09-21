@@ -256,6 +256,7 @@ func newMigrationClient(recipient string, pid int) (*MigrationClient, error) {
 	ctx := context.Background()
 	client := konk.NewMigrationClient(conn)
 
+	// Create to transfer the data over
 	stream, err := client.Migrate(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create stream: %v", err)

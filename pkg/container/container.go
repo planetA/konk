@@ -305,7 +305,7 @@ func Run(id int, args []string) error {
 	go func() {
 		select {
 		case <-ctx.Done():
-			err := container.Delete()
+			container.Delete()
 		}
 	}()
 

@@ -89,16 +89,15 @@ func (criu *CriuService) connectRetry() error {
 	}
 }
 
-func (criu *CriuService) launch(container *container.Container) error {
+func (criu *CriuService) launch(cont *container.Container) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	netns.Set(container.Guest)
-	defer netns.Set(container.Host)
-	syscall.CloseOnExec(int(container.Host))
+	cont.Activate(container.GuestDomain)
+	defer cont.Activate(container.HostDomain)
 
-	log.Printf("Ns id %v\n", container.Guest.UniqueId())
-	log.Printf("Ns id %v\n", container.Host.UniqueId())
+	log.Printf("Ns id %v\n", cont.Network.Guest.UniqueId())
+	log.Printf("Ns id %v\n", cont.Network.Host.UniqueId())
 	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4")
 
 	log.Printf("Launching criu: %v\n", cmd)

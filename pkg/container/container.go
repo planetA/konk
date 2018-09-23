@@ -18,44 +18,8 @@ import (
 )
 
 type Container struct {
-	Id    int
-	Host  netns.NsHandle
-	Guest netns.NsHandle
-}
-
-func createNs(id int) (netns.NsHandle, netns.NsHandle) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	oldNs, _ := netns.Get()
-
-	newNs, err := netns.New()
-	if err != nil {
-		log.Panicf("Can't create a namespace %s%v: %v", util.NsName, id, err)
-	}
-
-	// Mount newly created namespace where we want
-
-	// Create netns directory
-	netNsDir := "/var/run/netns"
-	if _, err := os.Stat(netNsDir); os.IsNotExist(err) {
-		os.Mkdir(netNsDir, os.ModePerm)
-	}
-
-	// Create a file to do mounting
-	nsNameId := util.GetNameId(util.NsName, id)
-	newNsPath := fmt.Sprintf("%s/%s", netNsDir, nsNameId)
-	os.OpenFile(newNsPath, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0666)
-
-	nsPath := fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), syscall.Gettid())
-	err = syscall.Mount(nsPath, newNsPath, "", syscall.MS_BIND|syscall.MS_REC, "")
-	if err != nil {
-		log.Panicf("Can't create a named namespace %s (%s): %v", nsNameId, newNsPath, err)
-	}
-
-	netns.Set(oldNs)
-
-	return newNs, oldNs
+	Id      int
+	Network *Namespace
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -72,9 +36,22 @@ func getBridge(bridgeName string) *netlink.Bridge {
 func newContainerClosed(id int) (*Container, error) {
 	return &Container{
 		Id:    id,
-		Host:  -1,
-		Guest: -1,
 	}, nil
+}
+
+func printAllLinks() {
+	index := 1;
+	for {
+		link, err := netlink.LinkByIndex(index)
+		if index > 10 {
+			break
+		}
+
+		if err == nil {
+			fmt.Println(index, link)
+		}
+		index = index + 1
+	}
 }
 
 func NewContainer(id int) (*Container, error) {
@@ -85,7 +62,10 @@ func NewContainer(id int) (*Container, error) {
 	bridge := getBridge(util.BridgeName)
 
 	// Only then create anything
-	newNs, oldNs := createNs(id)
+	network, err := newNamespace(Network, id)
+	if err != nil {
+		return nil, err
+	}
 
 	veth, vpeer, err := util.CreateVethPair(id)
 	if err != nil {
@@ -93,16 +73,16 @@ func NewContainer(id int) (*Container, error) {
 	}
 
 	// Put end of the pair into corresponding namespaces
-	if err := netlink.LinkSetNsFd(veth, int(oldNs)); err != nil {
+	if err := netlink.LinkSetNsFd(veth, int(network.Host)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
 	}
 
-	if err := netlink.LinkSetNsFd(vpeer, int(newNs)); err != nil {
+	if err := netlink.LinkSetNsFd(vpeer, int(network.Guest)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
 	}
 
 	// Get handle to new namespace
-	nsHandle, err := netlink.NewHandleAt(newNs)
+	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(network.Guest))
 	if err != nil {
 		return nil, fmt.Errorf("Could not get a handle for namespace %s: %v", id, err)
 	}
@@ -128,13 +108,17 @@ func NewContainer(id int) (*Container, error) {
 	}
 
 	return &Container{
-		Id:    id,
-		Host:  oldNs,
-		Guest: newNs,
+		Id:      id,
+		Network: network,
 	}, nil
 }
 
 func (container *Container) Delete() error {
+	// Container does not exist, hence nothing to delete
+	if container == nil {
+		return nil
+	}
+
 	// Delete namespace
 	nsPath := util.GetNetNsPath(container.Id)
 
@@ -160,8 +144,7 @@ func (container *Container) Delete() error {
 		netlink.LinkDel(vpeerId)
 	}
 
-	container.Host.Close()
-	container.Guest.Close()
+	container.Network.Close()
 
 	return nil
 }
@@ -197,25 +180,14 @@ func getContainerId(pid int) (int, error) {
 }
 
 func ContainerAttachPid(pid int) (*Container, error) {
-	hostNs, err := netns.Get()
+	networkNs, err := attachPidNamespace(Network, pid)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get host network namespace: %v", err)
-	}
-
-	guestNs, err := netns.GetFromPid(pid)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
-	}
-
-	id, err := getContainerId(pid)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get container id for pid %v: %v", pid, err)
+		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
 	}
 
 	return &Container{
-		Id:    id,
-		Host:  hostNs,
-		Guest: guestNs,
+		Id:    networkNs.Id,
+		Network: networkNs,
 	}, nil
 }
 
@@ -237,10 +209,18 @@ func getCredential() *syscall.Credential {
 
 }
 
+// Make host or guest container active
+func (container *Container) Activate(domainType DomainType) {
+	container.Network.Activate(domainType)
+}
+
+func (container *Container) CloseOnExec(domainType DomainType) {
+	container.Network.CloseOnExec(domainType)
+}
+
 func (container *Container) launchCommand(args []string) error {
-	netns.Set(container.Guest)
-	defer netns.Set(container.Host)
-	syscall.CloseOnExec(int(container.Host))
+	container.Activate(GuestDomain)
+	defer container.Activate(HostDomain)
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{

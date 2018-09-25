@@ -20,6 +20,7 @@ import (
 type Container struct {
 	Id      int
 	Network *Namespace
+	Pid     *Namespace
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -35,12 +36,12 @@ func getBridge(bridgeName string) *netlink.Bridge {
 
 func newContainerClosed(id int) (*Container, error) {
 	return &Container{
-		Id:    id,
+		Id: id,
 	}, nil
 }
 
 func printAllLinks() {
-	index := 1;
+	index := 1
 	for {
 		link, err := netlink.LinkByIndex(index)
 		if index > 10 {
@@ -63,6 +64,11 @@ func NewContainer(id int) (*Container, error) {
 
 	// Only then create anything
 	network, err := newNamespace(Network, id)
+	if err != nil {
+		return nil, err
+	}
+
+	pid, err := newNamespace(Pid, id)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +116,7 @@ func NewContainer(id int) (*Container, error) {
 	return &Container{
 		Id:      id,
 		Network: network,
+		Pid:     pid,
 	}, nil
 }
 
@@ -185,9 +192,15 @@ func ContainerAttachPid(pid int) (*Container, error) {
 		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
 	}
 
+	pidNs, err := attachPidNamespace(Pid, pid)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
+	}
+
 	return &Container{
-		Id:    networkNs.Id,
+		Id:      networkNs.Id,
 		Network: networkNs,
+		Pid:     pidNs,
 	}, nil
 }
 
@@ -212,10 +225,12 @@ func getCredential() *syscall.Credential {
 // Make host or guest container active
 func (container *Container) Activate(domainType DomainType) {
 	container.Network.Activate(domainType)
+	container.Pid.Activate(domainType)
 }
 
 func (container *Container) CloseOnExec(domainType DomainType) {
 	container.Network.CloseOnExec(domainType)
+	container.Pid.CloseOnExec(domainType)
 }
 
 func (container *Container) launchCommand(args []string) error {

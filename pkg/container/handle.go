@@ -2,7 +2,6 @@ package container
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"syscall"
 )
 
@@ -34,9 +33,6 @@ func openNamespacePid(nsType Type, pid int) (Handle, error) {
 
 // Create new namespace, switch to it and return a handle (file descriptor) to it.
 func createNamespace(nsType Type) (Handle, error) {
-	if unix.CLONE_NEWNET != namespaceCodes[nsType] {
-		panic("wrong ns type")
-	}
 	if err := syscall.Unshare(namespaceCodes[nsType]); err != nil {
 		return -1, err
 	}

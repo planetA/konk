@@ -5,10 +5,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
+	"github.com/planetA/konk/pkg/util"
 )
 
 type konkMigrationServer struct {
@@ -83,25 +85,26 @@ func (srv *konkMigrationServer) closeFile(fileEnd *konk.FileData_FileEnd) error 
 	return nil
 }
 
-func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) error {
+func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	var err error
 	srv.container, err = container.NewContainer(srv.containerId)
 	if err != nil {
-		return fmt.Errorf("Failed to create a container: %v", err)
+		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}
 
 	log.Printf("Received launch request\n")
 
-	if err = srv.criu.launch(srv.container); err != nil {
-		return fmt.Errorf("Failed to launch criu service: %v", err)
+	cmd, err := srv.criu.launch(srv.container)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
 	err = srv.criu.sendRestoreRequest()
 	if err != nil {
-		return fmt.Errorf("Write to socket failed: %v", err)
+		return nil, fmt.Errorf("Write to socket failed: %v", err)
 	}
 
 	for {
@@ -113,15 +116,15 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) err
 			log.Println("@post-restore")
 		case Success:
 			log.Printf("Restore completed: %v", event.Response)
-			return nil
+			return cmd, nil
 		case Error:
-			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
+			return nil, fmt.Errorf("Error while communicating with CRIU service: %v", err)
 		}
 
 		srv.criu.respond()
 	}
 
-	return nil
+	panic("Should be never reached")
 }
 
 func isImageInfo(chunk *konk.FileData) bool {
@@ -145,7 +148,19 @@ func isLaunchInfo(chunk *konk.FileData) bool {
 }
 
 func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) error {
+	var cmd *exec.Cmd
 
+	ctx := util.NewContext()
+	go func() {
+		select {
+		case <-ctx.Done():
+			srv.criu.cleanup()
+			srv.Ready <- true
+		}
+	}()
+
+
+loop:
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
@@ -169,11 +184,13 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 			err = srv.closeFile(chunk.GetFileEnd())
 		case isLaunchInfo(chunk):
 			// Got a request to launch the checkpoint
-			err = srv.launch(chunk.GetLaunchInfo())
-			stream.SendAndClose(&konk.Reply{
-				Status: konk.Status_OK,
-			})
-			srv.criu.cleanup()
+			cmd, err = srv.launch(chunk.GetLaunchInfo())
+			if err == nil {
+				stream.SendAndClose(&konk.Reply{
+					Status: konk.Status_OK,
+				})
+				break loop
+			}
 		}
 
 		if err != nil {
@@ -183,7 +200,7 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 		}
 	}
 
-	srv.Ready <- true
+	cmd.Wait()
 	return nil
 }
 

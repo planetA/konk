@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os/exec"
 	"runtime"
 
 	"google.golang.org/grpc"
@@ -73,7 +74,8 @@ func Dump(pid int) error {
 		return fmt.Errorf("Could not attach to a container: %v", err)
 	}
 
-	if err = criu.launch(cont); err != nil {
+	var cmd *exec.Cmd
+	if cmd, err = criu.launch(cont); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -86,7 +88,8 @@ func Dump(pid int) error {
 		event, err := criu.nextEvent()
 		switch event.Type {
 		case Success:
-			container.Delete(cont.Id)
+			cmd.Wait()
+			cont.Delete()
 			log.Printf("Dump completed: %v", event.Response)
 			return nil
 		case Error:
@@ -101,11 +104,17 @@ func Migrate(pid int, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	migration, err := newMigrationClient(recipient, pid)
+	ctx := util.NewContext()
+	migration, err := newMigrationClient(ctx, recipient, pid)
 	if err != nil {
 		return err
 	}
-	defer migration.Close()
+	go func() {
+		select {
+		case <-ctx.Done():
+			migration.Close()
+		}
+	}()
 
 	err = migration.Run()
 	if err != nil {
@@ -131,6 +140,7 @@ func Receive(portDumper int) error {
 
 	go func() {
 		<-migrationServer.Ready
+		migrationServer.container.Delete()
 		grpcServer.Stop()
 	}()
 

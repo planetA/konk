@@ -89,7 +89,7 @@ func (criu *CriuService) connectRetry() error {
 	}
 }
 
-func (criu *CriuService) launch(cont *container.Container) error {
+func (criu *CriuService) launch(cont *container.Container) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -120,7 +120,7 @@ func (criu *CriuService) launch(cont *container.Container) error {
 
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("CRIU did not finish properly: %v", err)
+		return nil, fmt.Errorf("CRIU did not finish properly: %v", err)
 	}
 
 	// pgid, err := syscall.Getpgid(cmd.Process.Pid)
@@ -128,14 +128,14 @@ func (criu *CriuService) launch(cont *container.Container) error {
 	// cmd.Wait()
 
 	if err := os.MkdirAll(criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
+		return nil, fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
 	}
 
 	if err = criu.connectRetry(); err != nil {
-		return fmt.Errorf("Could not establish connection to criu service: %v", err)
+		return nil, fmt.Errorf("Could not establish connection to criu service: %v", err)
 	}
 
-	return nil
+	return cmd, nil
 }
 
 func (criu *CriuService) cleanup() {

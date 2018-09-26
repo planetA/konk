@@ -189,7 +189,7 @@ func (migration *MigrationClient) sendCheckpoint() error {
 
 func (migration *MigrationClient) Run() error {
 	// Launch actual CRIU process
-	if err := migration.Criu.launch(migration.Container); err != nil {
+	if _, err := migration.Criu.launch(migration.Container); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -243,9 +243,10 @@ func (migration *MigrationClient) Close() {
 
 	migration.ServerConn.Close()
 	migration.Criu.cleanup()
+	migration.Container.Delete()
 }
 
-func newMigrationClient(recipient string, pid int) (*MigrationClient, error) {
+func newMigrationClient(ctx context.Context, recipient string, pid int) (*MigrationClient, error) {
 	log.Println("Connecting to", recipient)
 
 	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
@@ -253,7 +254,6 @@ func newMigrationClient(recipient string, pid int) (*MigrationClient, error) {
 		return nil, fmt.Errorf("Failed to open a connection to the recipient: %v", err)
 	}
 
-	ctx := context.Background()
 	client := konk.NewMigrationClient(conn)
 
 	// Create to transfer the data over

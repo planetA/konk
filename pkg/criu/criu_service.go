@@ -147,6 +147,12 @@ func (criu *CriuService) cleanup() {
 	os.Remove(criu.pidfilePath)
 	os.Remove(criu.socketPath)
 	os.RemoveAll(criu.imageDirPath)
+
+	proc, err := os.FindProcess(criu.pid)
+	if err == nil {
+		proc.Kill()
+	}
+
 	if criu.conn != nil {
 		criu.conn.Close()
 	}

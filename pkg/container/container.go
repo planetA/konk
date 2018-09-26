@@ -291,7 +291,8 @@ func Run(id int, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	ctx := util.NewContext()
+	ctx, cancel := util.NewContext()
+	defer cancel()
 
 	container, err := NewContainer(id)
 	if err != nil {

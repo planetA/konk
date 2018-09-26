@@ -6,7 +6,7 @@ import (
 	"os/signal"
 )
 
-func NewContext() context.Context {
+func NewContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
@@ -15,11 +15,10 @@ func NewContext() context.Context {
 		defer signal.Stop(c)
 
 		select {
-		case <-ctx.Done():
 		case <-c:
 			cancel()
 		}
 	}()
 
-	return ctx
+	return ctx, cancel
 }

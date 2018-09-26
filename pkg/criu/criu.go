@@ -104,7 +104,7 @@ func Migrate(pid int, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	ctx := util.NewContext()
+	ctx, cancel := util.NewContext()
 	migration, err := newMigrationClient(ctx, recipient, pid)
 	if err != nil {
 		return err
@@ -115,13 +115,20 @@ func Migrate(pid int, recipient string) error {
 			migration.Close()
 		}
 	}()
+	defer cancel()
+	defer func () {
+		log.Printf("XXX: I should close the stream only once, but somehow cancel() does not cancel the context")
+		migration.Close()
+	}()
 
-	err = migration.Run()
+	err = migration.Run(ctx)
 	if err != nil {
 		return fmt.Errorf("Migration failed: %v", err)
 	}
 
-	return err
+	cancel()
+
+	return nil
 }
 
 // The recovery server open a port and waits for the dumping server to pass all relevant information

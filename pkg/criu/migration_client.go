@@ -187,7 +187,7 @@ func (migration *MigrationClient) sendCheckpoint() error {
 	return nil
 }
 
-func (migration *MigrationClient) Run() error {
+func (migration *MigrationClient) Run(ctx context.Context) error {
 	// Launch actual CRIU process
 	if _, err := migration.Criu.launch(migration.Container); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)

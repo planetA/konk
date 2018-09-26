@@ -150,7 +150,7 @@ func isLaunchInfo(chunk *konk.FileData) bool {
 func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) error {
 	var cmd *exec.Cmd
 
-	ctx := util.NewContext()
+	ctx, cancel := util.NewContext()
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -158,7 +158,7 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 			srv.Ready <- true
 		}
 	}()
-
+	defer cancel()
 
 loop:
 	for {

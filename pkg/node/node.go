@@ -48,6 +48,7 @@ func generateInnerOmpi(addr netlink.Addr) netlink.Addr {
 	base.IP[3] = addr.IP[3]
 
 	addr.IPNet = &base
+	addr.Broadcast = util.ContainerBroadcast
 
 	return addr
 }
@@ -78,7 +79,7 @@ func Init(id int) error {
 	ip_host.Label = "br0"
 	
 	ip_inner := generateInnerOmpi(ip_host)
-	log.Printf("Prepraing addrs: %s & %s", ip_host, ip_inner)
+	log.Printf("Prepraing addrs: %s & %v (bcast %v)", ip_host, ip_inner, ip_inner.Broadcast)
 
 	addrFlush(eth)
 	

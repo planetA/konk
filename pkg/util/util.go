@@ -21,6 +21,7 @@ var (
 		IP:   net.IPv4(172, 16, 0, 0),
 		Mask: net.CIDRMask(16, 32),
 	}
+	ContainerBroadcast = net.IPv4(172, 16, 255, 255)
 
 	DhclientPath string = "/sbin/dhclient"
 	CriuPath     string = "/home/user/singularity-criu/install/sbin/criu"

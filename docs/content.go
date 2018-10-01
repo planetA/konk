@@ -9,6 +9,14 @@ const (
 	NodeShort string = `Node scale operations`
 	NodeLong  string = ``
 
+	SchedulerUse   string = `scheduler <args>`
+	SchedulerShort string = `Scheduler operations`
+	SchedulerLong  string = ``
+
+	ConsoleUse   string = `console [flags] <command> <args>`
+	ConsoleShort string = `Access scheduler over a console`
+	ConsoleLong  string = ``
+
 	NodeInitUse   string = `init <id>`
 	NodeInitShort string = `Init the node for running migratable MPI applications`
 	NodeInitLong  string = ``

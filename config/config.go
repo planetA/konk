@@ -2,5 +2,8 @@ package config
 
 var (
 	CfgFile string
-	Verbose bool
+	Verbose bool = false
+	SchedulerHost string = "localhost"
+	SchedulerPort int = 8990
 )
+

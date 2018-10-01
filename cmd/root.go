@@ -28,8 +28,13 @@ func ExecuteKonk() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	KonkCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.konk.yaml)")
-	KonkCmd.PersistentFlags().BoolVarP(&config.Verbose, "verbose", "v", false, "verbose output")
+	KonkCmd.PersistentFlags().StringVar(&config.CfgFile, "config", config.CfgFile, "config file")
+	KonkCmd.PersistentFlags().BoolVarP(&config.Verbose, "verbose", "v", config.Verbose, "verbose output")
+	KonkCmd.PersistentFlags().StringVar(&config.SchedulerHost, "scheduler_host", config.SchedulerHost, "Hostname running the scheduler")
+	KonkCmd.PersistentFlags().IntVar(&config.SchedulerPort, "scheduler_port", config.SchedulerPort, "Scheduler server port")
+
+	viper.BindPFlag("scheduler.host", KonkCmd.PersistentFlags().Lookup("scheduler_host"))
+	viper.BindPFlag("scheduler.port", KonkCmd.PersistentFlags().Lookup("scheduler_port"))
 }
 
 func initConfig() {
@@ -40,6 +45,7 @@ func initConfig() {
 		viper.AddConfigPath("$HOME")
 		viper.SetConfigName(".konk")
 	}
+	viper.SetEnvPrefix("konk")
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Println("Can't read config:", err)

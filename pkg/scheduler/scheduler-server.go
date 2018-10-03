@@ -18,6 +18,19 @@ func (s *Scheduler) Announce(args *AnnounceArgs, reply *bool) error {
 	return nil
 }
 
+type ContainerAnnounceArgs struct {
+	Rank     int
+	Hostname string
+	Port     int
+}
+
+func (s *Scheduler) ContainerAnnounce(args *ContainerAnnounceArgs, reply *bool) error {
+	log.Println(s, *s)
+	*s = *s + 1
+	*reply = true
+	return nil
+}
+
 type MigrateArgs struct {
 	DestHost string
 	SrcHost  string

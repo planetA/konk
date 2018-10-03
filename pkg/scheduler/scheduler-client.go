@@ -40,6 +40,17 @@ func (c *SchedulerClient) Announce(rank int, hostname string) error {
 	return err
 }
 
+// The container-process tell the scheduler the container id, and address to connect
+func (c *SchedulerClient) ContainerAnnounce(rank int, hostname string, port int) error {
+	args := &ContainerAnnounceArgs{rank, hostname, port}
+
+	log.Println(args)
+	var reply bool
+	err := c.client.Call("Scheduler.ContainerAnnounce", args, &reply)
+
+	return err
+}
+
 // Request the scheduler to coordinate migration of a process to another node
 func (c *SchedulerClient) Migrate(destHost, srcHost string, srcPort int) error {
 	args := &MigrateArgs{destHost, srcHost, srcPort}

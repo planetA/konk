@@ -32,10 +32,12 @@ func ServerLoop(listener net.Listener) (error) {
 			return fmt.Errorf("Failed to open a connection: %v", err)
 		}
 
-		rpcCodec := codec.MsgpackSpecRpc.ServerCodec(conn, &handle)
-		// XXX: doc says that I should run following line in a go statement
-		// https://golang.org/pkg/net/rpc/#ServeConn
-		rpc.ServeCodec(rpcCodec)
+		go func() {
+			rpcCodec := codec.MsgpackSpecRpc.ServerCodec(conn, &handle)
+			// XXX: doc says that I should run following line in a go statement
+			// https://golang.org/pkg/net/rpc/#ServeConn
+			rpc.ServeCodec(rpcCodec)
+		}()
 	}
 
 	return nil

@@ -15,6 +15,7 @@ import (
 	"github.com/vishvananda/netns"
 
 	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/pkg/scheduler"
 )
 
 type Container struct {
@@ -233,7 +234,7 @@ func (container *Container) CloseOnExec(domainType DomainType) {
 	container.Pid.CloseOnExec(domainType)
 }
 
-func (container *Container) launchCommand(args []string) error {
+func (container *Container) launchCommand(args []string) (*exec.Cmd, error) {
 	container.Activate(GuestDomain)
 	defer container.Activate(HostDomain)
 
@@ -249,12 +250,10 @@ func (container *Container) launchCommand(args []string) error {
 	err := cmd.Start()
 
 	if err != nil {
-		return fmt.Errorf("Application exited with an error: %v", err)
+		return nil, fmt.Errorf("Application exited with an error: %v", err)
 	}
 
-	cmd.Wait()
-
-	return nil
+	return cmd, nil
 }
 
 /*
@@ -305,10 +304,24 @@ func Run(id int, args []string) error {
 		}
 	}()
 
-	err = container.launchCommand(args)
+	cmd, err := container.launchCommand(args)
 	if err != nil {
 		return err
 	}
+
+	sched, err := scheduler.NewSchedulerClient()
+	if err != nil {
+		return fmt.Errorf("Failed to connect to the scheduler: %v", err)
+	}
+
+	log.Println("Announce", id)
+	err = sched.ContainerAnnounce(id, "localhost", 14)
+	if err != nil {
+		return fmt.Errorf("Container announcement failed: %v", err)
+	}
+	sched.Close()
+
+	cmd.Wait()
 
 	return nil
 }

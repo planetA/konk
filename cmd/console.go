@@ -31,7 +31,7 @@ var consoleCmd = &cobra.Command{
 		}
 
 		if err := console.Command(args[0], args[1:]); err != nil {
-			return fmt.Errorf("Failed to init the console: %v", err)
+			return fmt.Errorf("Failed to run console command: %v", err)
 		}
 		return nil
 	},

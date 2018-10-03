@@ -2,9 +2,11 @@ package node
 
 import (
 	"fmt"
+	"net/rpc"
 	"log"
 	"os/exec"
 
+	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 
 	"github.com/planetA/konk/pkg/util"
@@ -33,7 +35,7 @@ func getIpv4(link netlink.Link) ([]netlink.Addr, error) {
 
 func addrFlush(link netlink.Link) {
 	addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
-	
+
 	for _, addr := range addrs {
 		if err := netlink.AddrDel(link, &addr); err != nil {
 			log.Print(err)
@@ -53,9 +55,7 @@ func generateInnerOmpi(addr netlink.Addr) netlink.Addr {
 	return addr
 }
 
-/*
-Here I create two bridges and connect a physical ethernet to one bridge.
-*/
+// Create two bridges and connect a physical ethernet to one bridge.
 func Init(id int) error {
 	eth, err := netlink.LinkByName(util.EthName)
 	if err != nil {
@@ -77,12 +77,12 @@ func Init(id int) error {
 
 	ip_host := eth_ip[0]
 	ip_host.Label = "br0"
-	
+
 	ip_inner := generateInnerOmpi(ip_host)
 	log.Printf("Prepraing addrs: %s & %v (bcast %v)", ip_host, ip_inner, ip_inner.Broadcast)
 
 	addrFlush(eth)
-	
+
 	bridge, err := util.CreateBridge(util.BridgeName)
 	if err != nil {
 		return err
@@ -108,6 +108,26 @@ func Init(id int) error {
 	}
 
 	fmt.Println("Initializing", id)
+
+	return nil
+}
+
+// The node daemon controls node local operations. In the beginning the daemon opens a socket
+// and waits for commands from scheduler. The scheduler sends migration commands to the daemon:
+// either send or receive a process.
+func RunDaemon(id int) error {
+	listener, err := util.CreateListener(viper.GetInt("daemon.port"))
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	daemon := new(Daemon)
+	rpc.Register(daemon)
+
+	if err := util.ServerLoop(listener); err != nil {
+		return err
+	}
 
 	return nil
 }

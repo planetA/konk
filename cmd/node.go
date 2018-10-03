@@ -12,6 +12,10 @@ import (
 var (
 	// Unique Id of a node in a network
 	nodeId int
+	// Init node only
+	initOnly bool
+	// Do not do initialisation
+	noInit bool
 )
 
 var nodeCmd = &cobra.Command{
@@ -19,33 +23,37 @@ var nodeCmd = &cobra.Command{
 	Use:              docs.NodeUse,
 	Short:            docs.NodeShort,
 	Long:             docs.NodeLong,
-	Run: nil,
-}
-
-var nodeInitCmd = &cobra.Command{
-	Use:   docs.NodeInitUse,
-	Short: docs.NodeInitShort,
-	Long:  docs.NodeInitLong,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Changed("id") {
 			return fmt.Errorf(`Don't update "id" for now`)
 		}
+
+		if cmd.Flags().Changed("no-init") && cmd.Flags().Changed("init") {
+			return fmt.Errorf("Requested to do only initialisation and do no initialisation simultaneously")
+		}
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := node.Init(nodeId); err != nil {
-			return fmt.Errorf("Failed to init the node: %v", err)
+		if ! noInit {
+			if err := node.Init(nodeId); err != nil {
+				return fmt.Errorf("Failed to init the node: %v", err)
+			}
+		}
+
+		if initOnly {
+			return nil
+		}
+
+		if err := node.RunDaemon(nodeId); err != nil {
+			return fmt.Errorf("Node-monitoring konk daemon failed: %v", err)
 		}
 		return nil
 	},
 }
 
 func init() {
-	nodeInitCmd.Flags().IntVarP(&nodeId, "id", "i", 0, "Node id")
-	nodeCmd.AddCommand(nodeInitCmd)
-
+	nodeCmd.Flags().IntVarP(&nodeId, "id", "i", 0, "Node id")
+	nodeCmd.Flags().BoolVar(&initOnly, "init", false, "Initialise the node and exit immediately")
+	nodeCmd.Flags().BoolVar(&noInit, "no-init", false, "Initialise the node and exit immediately")
 	KonkCmd.AddCommand(nodeCmd)
-}
-
-func init() {
 }

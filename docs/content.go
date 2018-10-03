@@ -17,10 +17,6 @@ const (
 	ConsoleShort string = `Access scheduler over a console`
 	ConsoleLong  string = ``
 
-	NodeInitUse   string = `init <id>`
-	NodeInitShort string = `Init the node for running migratable MPI applications`
-	NodeInitLong  string = ``
-
 	ContainerUse   string = `container <id> <subcommand> <args>`
 	ContainerShort string = `Operations on containers`
 	ContainerLong  string = ``

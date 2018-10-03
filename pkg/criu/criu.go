@@ -138,6 +138,15 @@ func Receive(portDumper int) error {
 		return fmt.Errorf("Failed to open the port: %v", err)
 	}
 
+	if err := ReceiveListener(listener); err != nil {
+		return err
+	}
+
+	return nil;
+}
+
+// Receive the checkpoint over a created listener
+func ReceiveListener(listener net.Listener) error {
 	grpcServer := grpc.NewServer()
 	migrationServer, err := newServer()
 	if err != nil {
@@ -153,8 +162,8 @@ func Receive(portDumper int) error {
 
 	grpcServer.Serve(listener)
 
+	// XXX: Should be reached when the connection terminates
 	// Not reached
 
 	return nil
-
 }

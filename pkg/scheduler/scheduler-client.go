@@ -2,12 +2,12 @@ package scheduler
 
 import (
 	"fmt"
-	"net"
+	"log"
 	"net/rpc"
 
 	"github.com/spf13/viper"
 
-	"github.com/ugorji/go/codec"
+	"github.com/planetA/konk/pkg/util"
 )
 
 type SchedulerClient struct {
@@ -20,15 +20,10 @@ func NewSchedulerClient() (*SchedulerClient, error) {
 	hostname := viper.GetString("scheduler.host")
 	port := viper.GetInt("scheduler.port")
 
-	address := fmt.Sprintf("%v:%v", hostname, port)
-	conn, err := net.Dial("tcp", address)
+	rpcClient, err := util.DialRpcServer(hostname, port)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot reach the server (%v): %v", address, err)
+		return nil, fmt.Errorf("Failed to dial %v: %v", err)
 	}
-
-	var handle codec.MsgpackHandle
-	rpcCodec := codec.MsgpackSpecRpc.ClientCodec(conn, &handle)
-	rpcClient := rpc.NewClientWithCodec(rpcCodec)
 
 	return &SchedulerClient{
 		client: rpcClient,
@@ -36,13 +31,24 @@ func NewSchedulerClient() (*SchedulerClient, error) {
 }
 
 // Announch where a process that should be managed by the scheduler is running
-func (c *SchedulerClient) Announce(rank int, hostname string) (bool, error) {
+func (c *SchedulerClient) Announce(rank int, hostname string) error {
 	args := &AnnounceArgs{rank, hostname}
 
 	var reply bool
-	err := c.client.Call("Scheduler.Notify", args, &reply)
+	err := c.client.Call("Scheduler.Announce", args, &reply)
 
-	return reply, err
+	return err
+}
+
+// Request the scheduler to coordinate migration of a process to another node
+func (c *SchedulerClient) Migrate(destHost, srcHost string, srcPort int) error {
+	args := &MigrateArgs{destHost, srcHost, srcPort}
+
+	log.Println(args)
+	var reply bool
+	err := c.client.Call("Scheduler.Migrate", args, &reply)
+
+	return err
 }
 
 func (c *SchedulerClient) Close() {

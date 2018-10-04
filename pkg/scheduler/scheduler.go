@@ -17,7 +17,7 @@ func Run() error {
 	}
 	defer listener.Close()
 
-	sched := new(Scheduler)
+	sched := NewSchedulerServer()
 	rpc.Register(sched)
 
 	if err := util.ServerLoop(listener); err != nil {

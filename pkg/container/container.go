@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
+	"net/rpc"
 	"os"
 	"os/exec"
 	"runtime"
@@ -14,8 +16,9 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
-	"github.com/planetA/konk/pkg/util"
 	"github.com/planetA/konk/pkg/scheduler"
+	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/pkg/node"
 )
 
 type Container struct {
@@ -309,13 +312,36 @@ func Run(id int, args []string) error {
 		return err
 	}
 
+	// Start node-daemon server inside a container process
+	listener, err := util.CreateListener(0)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	daemon := new(node.Daemon)
+	rpc.Register(daemon)
+
+	go func() {
+		if err := util.ServerLoop(listener); err != nil {
+			log.Panicf("XXX: server failed: %v", err)
+		}
+	}()
+
+	// The port the scheduler should connect to ask the container process to send a checkpoint
+	port := listener.Addr().(*net.TCPAddr).Port
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("Failed to get hostname: %v", err)
+	}
+
+	// Report the port the node-daemon listens on
 	sched, err := scheduler.NewSchedulerClient()
 	if err != nil {
 		return fmt.Errorf("Failed to connect to the scheduler: %v", err)
 	}
 
-	log.Println("Announce", id)
-	err = sched.ContainerAnnounce(id, "localhost", 14)
+	err = sched.ContainerAnnounce(id, hostname, port)
 	if err != nil {
 		return fmt.Errorf("Container announcement failed: %v", err)
 	}

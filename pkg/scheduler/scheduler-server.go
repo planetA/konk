@@ -3,9 +3,13 @@ package scheduler
 import (
 	"fmt"
 	"log"
+	"net"
+	"strconv"
 )
 
-type Scheduler int
+type Scheduler struct {
+	locationDB map[int]string
+}
 
 type AnnounceArgs struct {
 	Rank     int
@@ -24,9 +28,17 @@ type ContainerAnnounceArgs struct {
 	Port     int
 }
 
+func NewSchedulerServer() *Scheduler {
+	return &Scheduler{
+		locationDB: make(map[int]string),
+	}
+}
+
 func (s *Scheduler) ContainerAnnounce(args *ContainerAnnounceArgs, reply *bool) error {
-	log.Println(s, *s)
-	*s = *s + 1
+	s.locationDB[args.Rank] = net.JoinHostPort(args.Hostname, strconv.Itoa(args.Port))
+
+	log.Println(s.locationDB)
+
 	*reply = true
 	return nil
 }
@@ -46,7 +58,7 @@ func (s *Scheduler) Migrate(args *MigrateArgs, reply *bool) error {
 		log.Println("sth", err)
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
-	log.Println("thsthsth")
+
 	*reply = true
 	return nil
 }

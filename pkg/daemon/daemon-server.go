@@ -1,4 +1,4 @@
-package node
+package daemon
 
 import (
 	"fmt"
@@ -6,9 +6,12 @@ import (
 	"net"
 
 	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/pkg/criu"
 )
 
-type Daemon int
+type Daemon struct {
+	receiveCallback func(listener net.Listener)
+}
 
 type ReceiveArgs struct {
 }
@@ -29,10 +32,10 @@ func (d *Daemon) Receive(args *ReceiveArgs, reply *int) error {
 		defer listener.Close()
 
 		log.Println("Receiver is preparing for the migration. Start listening.")
-		// err := criu.ReceiveListener(listener)
-		// if err != nil {
-		// 	return fmt.Errorf("Connection failed: %v", err)
-		// }
+		err := criu.ReceiveListener(listener)
+		if err != nil {
+			return fmt.Errorf("Connection failed: %v", err)
+		}
 	}()
 	return nil
 }

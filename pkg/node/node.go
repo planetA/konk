@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/pkg/daemon"
 )
 
 func launchDhcpClient(devName string) {
@@ -122,7 +123,7 @@ func RunDaemon(id int) error {
 	}
 	defer listener.Close()
 
-	daemon := new(Daemon)
+	daemon := new(daemon.Daemon)
 	rpc.Register(daemon)
 
 	if err := util.ServerLoop(listener); err != nil {

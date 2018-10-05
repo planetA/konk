@@ -18,7 +18,7 @@ import (
 
 	"github.com/planetA/konk/pkg/scheduler"
 	"github.com/planetA/konk/pkg/util"
-	"github.com/planetA/konk/pkg/node"
+	"github.com/planetA/konk/pkg/daemon"
 )
 
 type Container struct {
@@ -319,7 +319,7 @@ func Run(id int, args []string) error {
 	}
 	defer listener.Close()
 
-	daemon := new(node.Daemon)
+	daemon := new(daemon.Daemon)
 	rpc.Register(daemon)
 
 	go func() {

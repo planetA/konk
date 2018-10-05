@@ -3,12 +3,15 @@ package scheduler
 import (
 	"fmt"
 	"log"
-	"net"
-	"strconv"
 )
 
+type Location struct {
+	Hostname string
+	Port     int
+}
+
 type Scheduler struct {
-	locationDB map[int]string
+	locationDB map[int]Location
 }
 
 type AnnounceArgs struct {
@@ -30,12 +33,12 @@ type ContainerAnnounceArgs struct {
 
 func NewSchedulerServer() *Scheduler {
 	return &Scheduler{
-		locationDB: make(map[int]string),
+		locationDB: make(map[int]Location),
 	}
 }
 
 func (s *Scheduler) ContainerAnnounce(args *ContainerAnnounceArgs, reply *bool) error {
-	s.locationDB[args.Rank] = net.JoinHostPort(args.Hostname, strconv.Itoa(args.Port))
+	s.locationDB[args.Rank] = Location{args.Hostname, args.Port}
 
 	log.Println(s.locationDB)
 
@@ -45,17 +48,17 @@ func (s *Scheduler) ContainerAnnounce(args *ContainerAnnounceArgs, reply *bool) 
 
 type MigrateArgs struct {
 	DestHost string
-	SrcHost  string
-	SrcPort  int
+	Rank     int
 }
 
 // Scheduler can receive a migration request from an external entity.
 func (s *Scheduler) Migrate(args *MigrateArgs, reply *bool) error {
-	log.Println("Received a migration request", args.DestHost, args.SrcHost, args.SrcPort)
+	log.Printf("Received a request to move rank %v to \n", args.Rank, args.DestHost)
 
-	if err := Migrate(args.DestHost, args.SrcHost, args.SrcPort); err != nil {
+	src := s.locationDB[args.Rank]
+
+	if err := Migrate(args.DestHost, src.Hostname, src.Port); err != nil {
 		*reply = false
-		log.Println("sth", err)
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
 

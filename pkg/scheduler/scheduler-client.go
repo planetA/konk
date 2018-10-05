@@ -52,8 +52,8 @@ func (c *SchedulerClient) ContainerAnnounce(rank int, hostname string, port int)
 }
 
 // Request the scheduler to coordinate migration of a process to another node
-func (c *SchedulerClient) Migrate(destHost, srcHost string, srcPort int) error {
-	args := &MigrateArgs{destHost, srcHost, srcPort}
+func (c *SchedulerClient) Migrate(destHost string, rank int) error {
+	args := &MigrateArgs{destHost, rank}
 
 	log.Println(args)
 	var reply bool

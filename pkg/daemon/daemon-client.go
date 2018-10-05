@@ -1,4 +1,4 @@
-package node
+package daemon
 
 import (
 	"net/rpc"

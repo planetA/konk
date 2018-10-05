@@ -24,18 +24,17 @@ func Command(command string, args []string) error {
 		}
 		log.Println("Got reply")
 	case "migrate":
-		if len(args) != 3 {
-			return fmt.Errorf("Migrate command usage: migrate <dest> <src> <src-port>")
+		if len(args) != 2 {
+			return fmt.Errorf("Migrate command usage: migrate <rank> <dest>")
 		}
 
-		destHost := args[0]
-		srcHost := args[1]
-		srcPort, err := strconv.Atoi(args[2])
+		rank, err := strconv.Atoi(args[0])
 		if err != nil {
 			return fmt.Errorf("Failed to parse port number (%v): %v", args[2], err)
 		}
+		destHost := args[1]
 
-		if err := sched.Migrate(destHost, srcHost, srcPort); err != nil {
+		if err := sched.Migrate(destHost, rank); err != nil {
 			return fmt.Errorf("Migration failed: %v", err)
 		}
 	default:

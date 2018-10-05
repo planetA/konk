@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/planetA/konk/pkg/util"
-	"github.com/planetA/konk/pkg/node"
+	"github.com/planetA/konk/pkg/daemon"
 )
 
 func Run() error {
@@ -33,7 +33,7 @@ func Run() error {
 // to do the migration. Port of the source should correspond to the container-process of
 // the container we want to migrate.
 func Migrate(destHost, srcHost string, srcPort int) error {
-	destClient, err := node.NewDaemonClient(destHost, viper.GetInt("daemon.port"))
+	destClient, err := daemon.NewDaemonClient(destHost, viper.GetInt("daemon.port"))
 	if err != nil {
 		return fmt.Errorf("Failed to reach node-daemon: %v", err)
 	}
@@ -45,7 +45,7 @@ func Migrate(destHost, srcHost string, srcPort int) error {
 	}
 
 	// Once we have the port number, we can tell the container-process to migrate the container
-	srcClient, err := node.NewDaemonClient(srcHost, srcPort)
+	srcClient, err := daemon.NewDaemonClient(srcHost, srcPort)
 	if err != nil {
 		return fmt.Errorf("Failed to reach container-process: %v", err)
 	}

@@ -123,7 +123,7 @@ func RunDaemon(id int) error {
 	}
 	defer listener.Close()
 
-	daemon := new(daemon.Daemon)
+	daemon := new(daemon.CoReceiver)
 	rpc.Register(daemon)
 
 	if err := util.ServerLoop(listener); err != nil {

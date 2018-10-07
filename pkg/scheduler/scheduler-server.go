@@ -8,6 +8,7 @@ import (
 type Location struct {
 	Hostname string
 	Port     int
+	Pid      int
 }
 
 type Scheduler struct {
@@ -29,6 +30,7 @@ type ContainerAnnounceArgs struct {
 	Rank     int
 	Hostname string
 	Port     int
+	Pid      int
 }
 
 func NewSchedulerServer() *Scheduler {
@@ -38,7 +40,7 @@ func NewSchedulerServer() *Scheduler {
 }
 
 func (s *Scheduler) ContainerAnnounce(args *ContainerAnnounceArgs, reply *bool) error {
-	s.locationDB[args.Rank] = Location{args.Hostname, args.Port}
+	s.locationDB[args.Rank] = Location{args.Hostname, args.Port, args.Pid}
 
 	log.Println(s.locationDB)
 
@@ -53,7 +55,7 @@ type MigrateArgs struct {
 
 // Scheduler can receive a migration request from an external entity.
 func (s *Scheduler) Migrate(args *MigrateArgs, reply *bool) error {
-	log.Printf("Received a request to move rank %v to \n", args.Rank, args.DestHost)
+	log.Printf("Received a request to move rank %v to %v\n", args.Rank, args.DestHost)
 
 	src := s.locationDB[args.Rank]
 

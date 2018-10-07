@@ -10,6 +10,7 @@ import (
 
 	"github.com/planetA/konk/docs"
 	"github.com/planetA/konk/pkg/container"
+	"github.com/planetA/konk/srv/coproc"
 )
 
 var containerCmd = &cobra.Command{
@@ -59,7 +60,7 @@ var containerRunCmd = &cobra.Command{
 			return err
 		}
 
-		if err = container.Run(containerId, args); err != nil {
+		if err = coproc.Run(containerId, args); err != nil {
 			return err
 		}
 

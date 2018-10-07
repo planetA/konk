@@ -75,7 +75,8 @@ func Dump(pid int) error {
 	}
 
 	var cmd *exec.Cmd
-	if cmd, err = criu.launch(cont); err != nil {
+	// XXX: false is very bad style
+	if cmd, err = criu.launch(cont, false); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 

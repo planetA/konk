@@ -97,7 +97,8 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 
 	log.Printf("Received launch request\n")
 
-	cmd, err := srv.criu.launch(srv.container)
+	// XXX: true is very bad style
+	cmd, err := srv.criu.launch(srv.container, true)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}
@@ -109,6 +110,7 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 
 	for {
 		event, err := srv.criu.nextEvent()
+		log.Println("3", event, err)
 		switch event.Type {
 		case PreRestore:
 			log.Println("@pre-restore")
@@ -198,6 +200,10 @@ loop:
 			os.Exit(1)
 			return fmt.Errorf("Failure at processing the next frame: %v", err)
 		}
+	}
+
+	if cmd == nil {
+		return fmt.Errorf("The container was not relaunched")
 	}
 
 	cmd.Wait()

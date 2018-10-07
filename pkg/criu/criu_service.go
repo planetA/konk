@@ -89,7 +89,7 @@ func (criu *CriuService) connectRetry() error {
 	}
 }
 
-func (criu *CriuService) launch(cont *container.Container) (*exec.Cmd, error) {
+func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -98,7 +98,7 @@ func (criu *CriuService) launch(cont *container.Container) (*exec.Cmd, error) {
 
 	log.Printf("Ns id %v\n", cont.Network.Guest.UniqueId())
 	log.Printf("Ns id %v\n", cont.Network.Host.UniqueId())
-	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4")
+	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4", "--log-pid")
 
 	log.Printf("Launching criu: %v\n", cmd)
 
@@ -115,11 +115,17 @@ func (criu *CriuService) launch(cont *container.Container) (*exec.Cmd, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: 0,
 		Setsid:     true,
-		Setctty:    true,
+		Credential: &syscall.Credential{
+			Uid:         0,
+			Gid:         0,
+			NoSetGroups: true,
+		},
+		Setctty:    setctty,
 	}
 
 	err := cmd.Start()
 	if err != nil {
+		log.Println(err)
 		return nil, fmt.Errorf("CRIU did not finish properly: %v", err)
 	}
 
@@ -186,6 +192,9 @@ func (criu *CriuService) getResponse() (*rpc.CriuResp, error) {
 	tmp := make([]byte, 256)     // using small tmo buffer for demonstrating
 	n, err := criu.conn.Read(tmp)
 	if err != nil && err != io.EOF {
+		var input string
+		fmt.Println("Press Enter:")
+		fmt.Scanln(&input)
 		return nil, fmt.Errorf("Failed to receive response (read %v bytes): %v", n, err)
 	}
 	buf = append(buf, tmp[:n]...)

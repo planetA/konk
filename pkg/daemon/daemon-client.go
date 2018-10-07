@@ -28,10 +28,10 @@ func NewDaemonClient(hostname string, port int) (*DaemonClient, error) {
 // responds with the port number the sender has to connect to. The caller provides only
 // the hostname, the port number of the node-daemon is taken from the configuration.
 func (d *DaemonClient) Receive() (int, error) {
-	args := &ReceiveArgs{}
+	args := &CoReceiverArgs{}
 
 	var reply int
-	err := d.client.Call("Daemon.Receive", args, &reply)
+	err := d.client.Call("CoReceiver.Receive", args, &reply)
 	if err != nil {
 		return -1, err
 	}
@@ -40,10 +40,10 @@ func (d *DaemonClient) Receive() (int, error) {
 }
 
 func (d *DaemonClient) Migrate(destHost string, destPort int) error {
-	args := &MigrateArgs{destHost, destPort}
+	args := &CoSenderArgs{destHost, destPort}
 
 	var reply bool
-	err := d.client.Call("Daemon.Migrate", args, &reply)
+	err := d.client.Call("CoSender.Migrate", args, &reply)
 	if err != nil {
 		return err
 	}

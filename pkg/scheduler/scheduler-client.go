@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"os"
 
 	"github.com/spf13/viper"
 
@@ -42,7 +43,7 @@ func (c *SchedulerClient) Announce(rank int, hostname string) error {
 
 // The container-process tell the scheduler the container id, and address to connect
 func (c *SchedulerClient) ContainerAnnounce(rank int, hostname string, port int) error {
-	args := &ContainerAnnounceArgs{rank, hostname, port}
+	args := &ContainerAnnounceArgs{rank, hostname, port, os.Getpid()}
 
 	log.Println(args)
 	var reply bool

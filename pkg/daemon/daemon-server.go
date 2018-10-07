@@ -4,20 +4,23 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 
-	"github.com/planetA/konk/pkg/util"
 	"github.com/planetA/konk/pkg/criu"
+	"github.com/planetA/konk/pkg/util"
 )
 
-type Daemon struct {
-	receiveCallback func(listener net.Listener)
+// Type for container receiving server
+type CoReceiver struct {
+	_ int
 }
 
-type ReceiveArgs struct {
+// Container receiving server actually expects no parameters
+type CoReceiverArgs struct {
 }
 
-// Daemon server code to receive a checkpoint
-func (d *Daemon) Receive(args *ReceiveArgs, reply *int) error {
+// Container receiving server has only one method
+func (r *CoReceiver) Receive(args *CoReceiverArgs, reply *int) error {
 	log.Println("Received a request to receive a checkpoint")
 
 	// Passing port zero will make the kernel arbitrary free port
@@ -34,20 +37,38 @@ func (d *Daemon) Receive(args *ReceiveArgs, reply *int) error {
 		log.Println("Receiver is preparing for the migration. Start listening.")
 		err := criu.ReceiveListener(listener)
 		if err != nil {
-			return fmt.Errorf("Connection failed: %v", err)
+			log.Panicf("Connection failed: %v", err)
 		}
 	}()
 	return nil
 }
 
-type MigrateArgs struct {
+// Type for container sending server
+type CoSender struct {
+	Pid int
+}
+
+type CoSenderArgs struct {
 	Host string
 	Port int
 }
 
-// Daemon server code to send a checkpoint
-func (d *Daemon) Migrate(args *MigrateArgs, reply *bool) error {
+func NewCoSender(pid int) *CoSender {
+	return &CoSender{
+		Pid: pid,
+	}
+}
+
+// Container sending server also has only one method
+func (s *CoSender) Migrate(args *CoSenderArgs, reply *bool) error {
 	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
+
+	address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
+	if err := criu.Migrate(s.Pid, address); err != nil {
+		*reply = false
+		return err
+	}
+
 	*reply = true
 	return nil
 }

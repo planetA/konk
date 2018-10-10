@@ -18,7 +18,7 @@ import (
 )
 
 type Container struct {
-	Id      int
+	Id      Id
 	Network *Namespace
 	Pid     *Namespace
 }
@@ -34,7 +34,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
-func newContainerClosed(id int) (*Container, error) {
+func newContainerClosed(id Id) (*Container, error) {
 	return &Container{
 		Id: id,
 	}, nil
@@ -55,7 +55,7 @@ func printAllLinks() {
 	}
 }
 
-func NewContainer(id int) (*Container, error) {
+func NewContainer(id Id) (*Container, error) {
 	oldContainer, _ := newContainerClosed(id)
 	oldContainer.Delete()
 
@@ -73,7 +73,7 @@ func NewContainer(id int) (*Container, error) {
 		return nil, err
 	}
 
-	veth, vpeer, err := util.CreateVethPair(id)
+	veth, vpeer, err := createVethPair(id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func NewContainer(id int) (*Container, error) {
 	// Get handle to new namespace
 	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(network.Guest))
 	if err != nil {
-		return nil, fmt.Errorf("Could not get a handle for namespace %s: %v", id, err)
+		return nil, fmt.Errorf("Could not get a handle for namespace %v: %v", id, err)
 	}
 
 	// Set slave-master relationships between bridge the physical interface
@@ -103,7 +103,7 @@ func NewContainer(id int) (*Container, error) {
 	if err := netlink.LinkSetUp(veth); err != nil {
 		return nil, fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
 	}
-	nsHandle.AddrAdd(vpeer, util.CreateContainerAddr(id))
+	nsHandle.AddrAdd(vpeer, createContainerAddr(id))
 
 	lo, err := nsHandle.LinkByName("lo")
 	if err != nil {
@@ -127,7 +127,7 @@ func (container *Container) Delete() error {
 	}
 
 	// Delete namespace
-	nsPath := util.GetNetNsPath(container.Id)
+	nsPath := getNetNsPath(container.Id)
 
 	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
 		if err == syscall.ENOENT {
@@ -141,12 +141,12 @@ func (container *Container) Delete() error {
 	}
 
 	/* Theoretically we should not kill these two, because deleting a namespace should delete veth the ns contains. Deleting a veth should delete vpeer. But we delete everything to be on the safe side. */
-	vethId, err := netlink.LinkByName(util.GetNameId(util.VethName, container.Id))
+	vethId, err := netlink.LinkByName(getDevName(util.VethName, container.Id))
 	if err == nil {
 		netlink.LinkDel(vethId)
 	}
 
-	vpeerId, err := netlink.LinkByName(util.GetNameId(util.VpeerName, container.Id))
+	vpeerId, err := netlink.LinkByName(getDevName(util.VpeerName, container.Id))
 	if err == nil {
 		netlink.LinkDel(vpeerId)
 	}
@@ -156,7 +156,7 @@ func (container *Container) Delete() error {
 	return nil
 }
 
-func getContainerId(pid int) (int, error) {
+func getContainerId(pid int) (Id, error) {
 
 	environPath := fmt.Sprintf("/proc/%d/environ", pid)
 
@@ -174,10 +174,12 @@ func getContainerId(pid int) (int, error) {
 		envVar := tuple[0]
 
 		containerIdVarName := `OMPI_COMM_WORLD_RANK`
-		if envVar == containerIdVarName {
-			if len(tuple) > 1 {
-				return strconv.Atoi(tuple[1])
+		if envVar == containerIdVarName && len(tuple) > 1 {
+			id, err := strconv.Atoi(tuple[1])
+			if err != nil {
+				return -1, nil
 			}
+			return Id(id), nil
 		}
 
 		begin = i + 1
@@ -259,7 +261,7 @@ func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 Create a network namespace, a veth pair, put one end into the namespace and
 another end connect to the bridge
 */
-func Create(id int) error {
+func Create(id Id) error {
 	// Lock the OS Thread so we don't accidentally switch namespaces
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -272,7 +274,7 @@ func Create(id int) error {
 	return nil
 }
 
-func Delete(id int) {
+func Delete(id Id) {
 	log.Printf("Deleting container with id %v", id)
 
 	// Lock the OS Thread so we don't accidentally switch namespaces
@@ -284,4 +286,3 @@ func Delete(id int) {
 		log.Printf("Could not delete the container")
 	}
 }
-

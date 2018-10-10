@@ -1,17 +1,12 @@
 package util
 
 import (
-	"fmt"
-	"log"
 	"net"
-
-	"github.com/vishvananda/netlink"
 )
 
 var (
 	VethName    string = "veth"
 	VpeerName   string = "vpeer"
-	NsName      string = "net"
 	EthName     string = "enp2s0"
 	BridgeName  string = "br0"
 	MacvlanName string = "macvlan0"
@@ -27,45 +22,3 @@ var (
 	CriuPath     string = "/home/user/singularity-criu/install/sbin/criu"
 	CriuImageDir string = "/tmp/criu.images"
 )
-
-func GetNetNsPath(id int) string {
-	return fmt.Sprintf("/var/run/netns/%s", GetNameId(NsName, id))
-}
-
-func GetNameId(nsName string, id int) string {
-	return fmt.Sprintf("%s%v", nsName, id)
-}
-
-/*
-In our network, I need to set the first byte of MAC to 42, to get ip addresses in a particular subnet.
-*/
-func ComputeNewHardwareAddr(oldAddr net.HardwareAddr) net.HardwareAddr {
-	newAddr := oldAddr
-	newAddr[0] = byte(0x42)
-	return newAddr
-}
-
-/*
-In our network, I need to set the first byte of MAC to 42, to get ip addresses in a particular subnet.
-*/
-func CreateNewHardwareAddr(id int) net.HardwareAddr {
-	newAddr, _ := net.ParseMAC(DefaultMAC)
-	newAddr[0] = byte(0x42)
-	newAddr[len(newAddr)-1] = byte(id)
-	return newAddr
-}
-
-func CreateContainerAddr(id int) *netlink.Addr {
-	base := ContainerNet
-
-	base.IP = base.IP.To4()
-	base.IP[2] = 1
-	if id > 253 {
-		log.Panic("Unsupported container id: %v", id)
-	}
-	base.IP[3] = byte(id + 1)
-
-	return &netlink.Addr{
-		IPNet: &base,
-	}
-}

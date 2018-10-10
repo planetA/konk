@@ -87,7 +87,7 @@ func init() {
 
 // Return a unique Id of a container in a network. It either can be set over a command line,
 // or obtained from an environment variable.
-func GetContainerId() (int, error) {
+func GetContainerId() (container.Id, error) {
 	// Environment variable containing the Id
 	envVarId := viper.GetString("container.rank_env")
 
@@ -95,14 +95,14 @@ func GetContainerId() (int, error) {
 		return -1, fmt.Errorf(`Expected to set either "id" or "env"`)
 	}
 
-	var containerId int
+	var containerId container.Id
 	if len(envVarId) != 0 {
 		envVal := os.Getenv(envVarId)
 		i, err := strconv.Atoi(envVal)
 		if err != nil {
 			return -1, fmt.Errorf(`Could not parse variable %s: %s`, envVarId, envVal)
 		}
-		containerId = i
+		containerId = container.Id(i)
 	}
 
 	if containerId < 0 {

@@ -3,19 +3,14 @@ package coproc
 
 import (
 	"fmt"
-	"log"
-	"net"
-	"net/rpc"
-	"os"
 	"runtime"
 
 	"github.com/planetA/konk/pkg/container"
-	"github.com/planetA/konk/pkg/scheduler"
+	"github.com/planetA/konk/pkg/nymph"
 	"github.com/planetA/konk/pkg/util"
-	"github.com/planetA/konk/pkg/daemon"
 )
 
-func Run(id int, args []string) error {
+func Run(id container.Id, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -45,35 +40,26 @@ func Run(id int, args []string) error {
 	}
 	defer listener.Close()
 
-	daemon := daemon.NewCoSender(cmd.Process.Pid)
-	rpc.Register(daemon)
-
-	go func() {
-		if err := util.ServerLoop(listener); err != nil {
-			log.Panicf("XXX: server failed: %v", err)
-		}
-	}()
-
-	// The port the scheduler should connect to ask the container process to send a checkpoint
-	port := listener.Addr().(*net.TCPAddr).Port
-	hostname, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("Failed to get hostname: %v", err)
-	}
-
-	// Report the port the node-daemon listens on
-	sched, err := scheduler.NewSchedulerClient()
-	if err != nil {
-		return fmt.Errorf("Failed to connect to the scheduler: %v", err)
-	}
-
-	err = sched.ContainerAnnounce(id, hostname, port)
-	if err != nil {
-		return fmt.Errorf("Container announcement failed: %v", err)
-	}
-	sched.Close()
+	registerAtNymph(id, cmd.Process.Pid)
 
 	cmd.Wait()
+
+	return nil
+}
+
+// Connect to the local nymph daemon and inform it about the new container
+func registerAtNymph(id container.Id, pid int) error {
+	nymph, err := nymph.NewClient("localhost")
+	if err != nil {
+		return fmt.Errorf("Failed to connect to nymph: %v", err)
+	}
+	defer nymph.Close()
+
+	err = nymph.Register(id, pid)
+
+	if err != nil {
+		return fmt.Errorf("Container registeration failed: %v", err)
+	}
 
 	return nil
 }

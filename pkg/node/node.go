@@ -2,15 +2,12 @@ package node
 
 import (
 	"fmt"
-	"net/rpc"
 	"log"
 	"os/exec"
 
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 
 	"github.com/planetA/konk/pkg/util"
-	"github.com/planetA/konk/pkg/daemon"
 )
 
 func launchDhcpClient(devName string) {
@@ -57,7 +54,7 @@ func generateInnerOmpi(addr netlink.Addr) netlink.Addr {
 }
 
 // Create two bridges and connect a physical ethernet to one bridge.
-func Init(id int) error {
+func Init() error {
 	eth, err := netlink.LinkByName(util.EthName)
 	if err != nil {
 		return fmt.Errorf("Could not get %s: %v\n", util.EthName, err)
@@ -84,7 +81,7 @@ func Init(id int) error {
 
 	addrFlush(eth)
 
-	bridge, err := util.CreateBridge(util.BridgeName)
+	bridge, err := createBridge(util.BridgeName)
 	if err != nil {
 		return err
 	}
@@ -108,27 +105,7 @@ func Init(id int) error {
 		}
 	}
 
-	fmt.Println("Initializing", id)
-
-	return nil
-}
-
-// The node daemon controls node local operations. In the beginning the daemon opens a socket
-// and waits for commands from scheduler. The scheduler sends migration commands to the daemon:
-// either send or receive a process.
-func RunDaemon(id int) error {
-	listener, err := util.CreateListener(viper.GetInt("daemon.port"))
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	daemon := new(daemon.CoReceiver)
-	rpc.Register(daemon)
-
-	if err := util.ServerLoop(listener); err != nil {
-		return err
-	}
+	fmt.Println("Initializing")
 
 	return nil
 }

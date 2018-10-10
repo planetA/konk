@@ -32,3 +32,5 @@ var namespaceCodes = map[Type]int{
 	Pid:     unix.CLONE_NEWPID,
 	Mount:   unix.CLONE_NEWNS,
 }
+
+type Id int

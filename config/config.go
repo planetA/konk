@@ -3,7 +3,7 @@ package config
 var (
 	CfgFile string
 	Verbose bool = false
-	SchedulerHost string = "localhost"
-	SchedulerPort int = 8990
-)
 
+	CoordinatorHost string = "localhost"
+	CoordinatorPort int    = 8990
+)

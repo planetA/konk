@@ -5,24 +5,20 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/planetA/konk/pkg/scheduler"
+	"github.com/planetA/konk/pkg/container"
+	"github.com/planetA/konk/pkg/coordinator"
 )
 
 func Command(command string, args []string) error {
 	log.Printf("Executing a command: %v", command)
 
-	sched, err := scheduler.NewSchedulerClient()
+	coord, err := coordinator.NewClient()
 	if err != nil {
 		return err
 	}
-	defer sched.Close()
+	defer coord.Close()
 
 	switch command {
-	case "hi":
-		if err := sched.Announce(0, "localhost"); err != nil {
-			return fmt.Errorf("Announce failed: %v", err)
-		}
-		log.Println("Got reply")
 	case "migrate":
 		if len(args) != 2 {
 			return fmt.Errorf("Migrate command usage: migrate <rank> <dest>")
@@ -34,7 +30,7 @@ func Command(command string, args []string) error {
 		}
 		destHost := args[1]
 
-		if err := sched.Migrate(destHost, rank); err != nil {
+		if err := coord.Migrate(container.Id(rank), destHost); err != nil {
 			return fmt.Errorf("Migration failed: %v", err)
 		}
 	default:

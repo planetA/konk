@@ -23,7 +23,7 @@ type MigrationClient struct {
 	Criu       *CriuService
 }
 
-func (migration *MigrationClient) SendImageInfo(containerId int) error {
+func (migration *MigrationClient) SendImageInfo(containerId container.Id) error {
 	log.Printf("Sending image info")
 
 	err := migration.Send(&konk.FileData{

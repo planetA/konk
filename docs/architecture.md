@@ -1,4 +1,55 @@
+# Overall architecture
+
+Konk consists of three services:
+
+1. Coproc
+
+	Coprocs is a wrapper for a client process that is responsible for
+    putting the client process inside a container and connecting the
+    container to a local node-daemon (nymph)
+	
+2. Nymph
+
+	A node-local daemon that manages all local containers and with the
+    help from coordinator organises container migration between
+    different nodes. Additionally, nymph should be responsible for
+    managing NMD (node monitoring daemon) and MOSIX module.
+	
+3. Coordinator
+
+	Coordinator is responsible for maintaining a global database of
+    container locations. The coordinator receives the information from
+    nymphs. The coordinator may organise migration of a container by
+    first asking a nymph to prepare to receive a container, then,
+    asking another nymph to send one. A client can connect to the
+    coordinator and ask it to execute some commands.
+	
+# Directory structure
+
+1. srv
+
+	Contains logic for running the three services: coproc, nymph and
+    coordinator
+
+2. pkg
+
+	Supplementary packages needed by various services
+
+3. cmd
+
+	Command line interface to execute various konk commands
+	
+4. config
+
+	Default values for configuration variables.
+
+5. docs
+
+	Documentation related package
+
 # Migration architecture
+
+~ATTENTION~: potentially outdated info
 
 The migration workflow works as follows.
 

@@ -10,14 +10,14 @@ import (
 )
 
 type Namespace struct {
-	Id    int
+	Id    Id
 	Host  Handle
 	Guest Handle
 	Type  Type
 }
 
 // Compose a namespace name, give type and id
-func getNameId(nsType Type, id int) string {
+func getNameId(nsType Type, id Id) string {
 	return fmt.Sprintf("%s%v", namespaceNames[nsType], id)
 }
 
@@ -43,7 +43,7 @@ func getNsDir(nsType Type) string {
 }
 
 // Create new namespace of a given type
-func newNamespace(nsType Type, id int) (*Namespace, error) {
+func newNamespace(nsType Type, id Id) (*Namespace, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 

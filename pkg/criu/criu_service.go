@@ -120,7 +120,7 @@ func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.
 			Gid:         0,
 			NoSetGroups: true,
 		},
-		Setctty:    setctty,
+		Setctty: setctty,
 	}
 
 	err := cmd.Start()
@@ -177,10 +177,10 @@ func criuFromPid(target int) (*CriuService, error) {
 	return criu, nil
 }
 
-func criuFromContainer(containerId int, imageDir string) (*CriuService, error) {
+func criuFromContainer(containerId container.Id, imageDir string) (*CriuService, error) {
 	criu := &CriuService{
-		pidfilePath:  getPidfilePath(containerId),
-		socketPath:   getSocketPath(containerId),
+		pidfilePath:  getPidfilePath(int(containerId)),
+		socketPath:   getSocketPath(int(containerId)),
 		imageDirPath: imageDir,
 	}
 

@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"os"
 	"log"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,11 +30,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	KonkCmd.PersistentFlags().StringVar(&config.CfgFile, "config", config.CfgFile, "config file")
 	KonkCmd.PersistentFlags().BoolVarP(&config.Verbose, "verbose", "v", config.Verbose, "verbose output")
-	KonkCmd.PersistentFlags().StringVar(&config.SchedulerHost, "scheduler_host", config.SchedulerHost, "Hostname running the scheduler")
-	KonkCmd.PersistentFlags().IntVar(&config.SchedulerPort, "scheduler_port", config.SchedulerPort, "Scheduler server port")
+	KonkCmd.PersistentFlags().StringVar(&config.CoordinatorHost, "coordinator_host", config.CoordinatorHost, "Hostname running the coordinator")
+	KonkCmd.PersistentFlags().IntVar(&config.CoordinatorPort, "coordinator_port", config.CoordinatorPort, "Coordinator server port")
 
-	viper.BindPFlag("scheduler.host", KonkCmd.PersistentFlags().Lookup("scheduler_host"))
-	viper.BindPFlag("scheduler.port", KonkCmd.PersistentFlags().Lookup("scheduler_port"))
+	viper.BindPFlag(config.ViperCoordinatorHost, KonkCmd.PersistentFlags().Lookup("coordinator_host"))
+	viper.BindPFlag(config.ViperCoordinatorPort, KonkCmd.PersistentFlags().Lookup("coordinator_port"))
 }
 
 func initConfig() {

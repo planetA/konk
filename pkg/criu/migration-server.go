@@ -18,14 +18,14 @@ type konkMigrationServer struct {
 	imageDir    string
 	criu        *CriuService
 	container   *container.Container
-	containerId int
+	containerId container.Id
 	curFile     *os.File
 	curFilePath string
 	Ready       chan bool
 }
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) error {
-	srv.containerId = int(imageInfo.ContainerId)
+	srv.containerId = container.Id(imageInfo.ContainerId)
 	srv.imageDir = imageInfo.ImagePath
 
 	log.Printf("Local directory: %v", srv.imageDir)

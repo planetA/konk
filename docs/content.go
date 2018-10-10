@@ -5,16 +5,16 @@ const (
 	KonkShort string = ``
 	KonkLong  string = ``
 
-	NodeUse   string = `node <subcommand> <args>`
-	NodeShort string = `Node scale operations`
-	NodeLong  string = ``
+	NymphUse   string = `nymph <subcommand> <args>`
+	NymphShort string = `Operations over a node conducted by local nymph daemon`
+	NymphLong  string = ``
 
-	SchedulerUse   string = `scheduler <args>`
-	SchedulerShort string = `Scheduler operations`
-	SchedulerLong  string = ``
+	CoordinatorUse   string = `coordinator <args>`
+	CoordinatorShort string = `Coordinator operations`
+	CoordinatorLong  string = ``
 
 	ConsoleUse   string = `console [flags] <command> <args>`
-	ConsoleShort string = `Access scheduler over a console`
+	ConsoleShort string = `Access coordinator over a console`
 	ConsoleLong  string = ``
 
 	ContainerUse   string = `container <id> <subcommand> <args>`

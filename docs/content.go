@@ -33,6 +33,10 @@ const (
 	ContainerRunShort string = `Run a container with a prespecified id`
 	ContainerRunLong  string = ``
 
+	ContainerRunLCUse   string = `runlc <env>`
+	ContainerRunLCShort string = `Run a container with a prespecified id`
+	ContainerRunLCLong  string = `Uses libcontainer for creating a container`
+
 	CriuUse   string = `criu <id> <subcommand> <args>`
 	CriuShort string = `Interface to CRIU`
 	CriuLong  string = ``
@@ -48,6 +52,10 @@ const (
 	CriuReceiveUse   string = `receive`
 	CriuReceiveShort string = `Receive a process from another node using CRIU`
 	CriuReceiveLong  string = ``
+
+	InitUse   string = `init <args>`
+	InitShort string = `Container initialization operations`
+	InitLong  string = `Never use this program standalone`
 
 	PrestartUse   string = `prestart <args>`
 	PrestartShort string = `Container initialization operations`

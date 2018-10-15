@@ -68,6 +68,27 @@ var containerRunCmd = &cobra.Command{
 	},
 }
 
+var containerRunLCCmd = &cobra.Command{
+	Use:   docs.ContainerRunLCUse,
+	Short: docs.ContainerRunLCShort,
+	Long:  docs.ContainerRunLCLong,
+	Args:  func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		containerId, err := GetContainerId()
+		if err != nil {
+			return err
+		}
+
+		if err = coproc.RunLC(containerId, args); err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	KonkCmd.AddCommand(containerCmd)
 
@@ -83,6 +104,10 @@ func init() {
 	containerRunCmd.Flags().String("rank_env", "", "Environment variable containing id")
 	viper.BindPFlag("container.rank_env", containerRunCmd.Flags().Lookup("rank_env"))
 	containerCmd.AddCommand(containerRunCmd)
+
+	containerRunLCCmd.Flags().String("rank_env", "", "Environment variable containing id")
+	viper.BindPFlag("container.rank_env", containerRunLCCmd.Flags().Lookup("rank_env"))
+	containerCmd.AddCommand(containerRunLCCmd)
 }
 
 // Return a unique Id of a container in a network. It either can be set over a command line,

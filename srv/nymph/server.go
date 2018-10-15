@@ -10,6 +10,7 @@ import (
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/criu"
+	"github.com/planetA/konk/pkg/initial"
 	"github.com/planetA/konk/pkg/util"
 
 	. "github.com/planetA/konk/pkg/nymph"
@@ -101,4 +102,29 @@ func registerAtCoordinator(id container.Id) error {
 	}
 
 	return nil
+}
+
+// Nymph creates a container, starts an init process inside and reports about the new container
+// to the coordinator. The function replies with a pid of the init process, other processes need to attac to the init process.
+func (n *Nymph) CreateContainer(args CreateContainerArgs, pid *int) error {
+	containerId := args.Id
+
+	var err error
+	*pid, err = createContainer(containerId)
+	if err != nil {
+		return fmt.Errorf("Failed to create container %v: %v", containerId, err)
+	}
+
+	return nil
+}
+
+func createContainer(id container.Id) (int, error) {
+	log.Println("XXX: Should create container now")
+
+	pid, err := initial.Run(int(id))
+	if err != nil {
+		return -1, err
+	}
+
+	return pid, nil
 }

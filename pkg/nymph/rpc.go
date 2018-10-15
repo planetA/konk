@@ -7,9 +7,10 @@ import (
 // RPC method names
 
 const (
-	rpcPrepareReceive = "Nymph.PrepareReceive"
-	rpcSend           = "Nymph.Send"
-	rpcRegister       = "Nymph.Register"
+	rpcPrepareReceive  = "Nymph.PrepareReceive"
+	rpcSend            = "Nymph.Send"
+	rpcRegister        = "Nymph.Register"
+	rpcCreateContainer = "Nymph.CreateContainer"
 )
 
 // Container receiving server actually expects no parameters
@@ -25,4 +26,8 @@ type SendArgs struct {
 type RegisterArgs struct {
 	Id  container.Id
 	Pid int
+}
+
+type CreateContainerArgs struct {
+	Id container.Id
 }

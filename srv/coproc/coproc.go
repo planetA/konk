@@ -2,6 +2,7 @@
 package coproc
 
 import (
+	"log"
 	"fmt"
 	"runtime"
 
@@ -17,7 +18,12 @@ func Run(id container.Id, args []string) error {
 	ctx, cancel := util.NewContext()
 	defer cancel()
 
-	cont, err := container.NewContainer(id)
+	pid, err := createContainer(id);
+	if  err != nil {
+		return err
+	}
+
+	cont, err := container.ContainerAttachPid(pid)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
@@ -33,14 +39,7 @@ func Run(id container.Id, args []string) error {
 		return err
 	}
 
-	// Start node-daemon server inside a container process
-	listener, err := util.CreateListener(0)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	registerAtNymph(id, cmd.Process.Pid)
+	log.Println("Launched command. Now waiting")
 
 	cmd.Wait()
 
@@ -48,18 +47,17 @@ func Run(id container.Id, args []string) error {
 }
 
 // Connect to the local nymph daemon and inform it about the new container
-func registerAtNymph(id container.Id, pid int) error {
+func createContainer(id container.Id) (int, error) {
 	nymph, err := nymph.NewClient("localhost")
 	if err != nil {
-		return fmt.Errorf("Failed to connect to nymph: %v", err)
+		return -1, fmt.Errorf("Failed to connect to nymph: %v", err)
 	}
 	defer nymph.Close()
 
-	err = nymph.Register(id, pid)
-
+	pid, err := nymph.CreateContainer(id)
 	if err != nil {
-		return fmt.Errorf("Container registeration failed: %v", err)
+		return -1, fmt.Errorf("Container creation failed: %v", err)
 	}
 
-	return nil
+	return pid, nil
 }

@@ -48,7 +48,8 @@ func initConfig() {
 	viper.SetEnvPrefix("konk")
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Println("Can't read config:", err)
+		log.Println("Cannot read config:", err)
+		log.Println(os.Getpid())
 		os.Exit(1)
 	}
 }

@@ -11,10 +11,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/spf13/viper"
+
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
 	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/config"
 )
 
 type Container struct {
@@ -157,6 +160,7 @@ func (container *Container) Delete() error {
 }
 
 func getContainerId(pid int) (Id, error) {
+	containerIdVarName := viper.GetString(config.ViperContainerIdEnv)
 
 	environPath := fmt.Sprintf("/proc/%d/environ", pid)
 
@@ -173,7 +177,6 @@ func getContainerId(pid int) (Id, error) {
 		tuple := strings.Split(string(data[begin:i]), "=")
 		envVar := tuple[0]
 
-		containerIdVarName := `OMPI_COMM_WORLD_RANK`
 		if envVar == containerIdVarName && len(tuple) > 1 {
 			id, err := strconv.Atoi(tuple[1])
 			if err != nil {

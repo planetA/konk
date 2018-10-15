@@ -8,4 +8,6 @@ const (
 
 	ViperCoordinatorHost = "coordinator.host"
 	ViperCoordinatorPort = "coordinator.port"
+
+	ViperContainerIdEnv = "OMPI_COMM_WORLD_RANK"
 )

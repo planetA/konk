@@ -27,6 +27,7 @@ $(KONK_PROTO): $(KONK_PROTO_FILE)
 	protoc --go_out=plugins=grpc:$(shell dirname $@) -I$(shell dirname $^) $^
 
 konk: $(RPC_PROTO) $(KONK_PROTO) $(GOFILES)
+	go get
 	go build
 
 install: konk

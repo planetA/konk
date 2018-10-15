@@ -1,6 +1,8 @@
 package container
 
 import (
+	"os/exec"
+
 	"fmt"
 	"syscall"
 )
@@ -35,6 +37,15 @@ func openNamespacePid(nsType Type, pid int) (Handle, error) {
 func createNamespace(nsType Type) (Handle, error) {
 	if err := syscall.Unshare(namespaceCodes[nsType]); err != nil {
 		return -1, err
+	}
+
+	if nsType == Pid {
+		// Create a dummy process to trigger the creation of pid namespace
+
+		cmd := exec.Command("env")
+		if err := cmd.Run(); err != nil {
+			return -1, fmt.Errorf("Failed to create pid namespace: %v", err)
+		}
 	}
 	return openNamespace(nsType)
 }

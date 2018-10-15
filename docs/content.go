@@ -48,4 +48,8 @@ const (
 	CriuReceiveUse   string = `receive`
 	CriuReceiveShort string = `Receive a process from another node using CRIU`
 	CriuReceiveLong  string = ``
+
+	PrestartUse   string = `prestart <args>`
+	PrestartShort string = `Container initialization operations`
+	PrestartLong  string = `Never use this program standalone`
 )

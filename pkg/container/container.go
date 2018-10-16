@@ -16,14 +16,13 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
-	"github.com/planetA/konk/pkg/util"
 	"github.com/planetA/konk/config"
+	"github.com/planetA/konk/pkg/util"
 )
 
 type Container struct {
-	Id      Id
-	Network *Namespace
-	Pid     *Namespace
+	Id        Id
+	Namespace *Namespace
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -66,12 +65,7 @@ func NewContainer(id Id) (*Container, error) {
 	bridge := getBridge(util.BridgeName)
 
 	// Only then create anything
-	network, err := newNamespace(Network, id)
-	if err != nil {
-		return nil, err
-	}
-
-	pid, err := newNamespace(Pid, id)
+	namespace, err := newNamespace(Network|Pid|Uts, id)
 	if err != nil {
 		return nil, err
 	}
@@ -82,16 +76,16 @@ func NewContainer(id Id) (*Container, error) {
 	}
 
 	// Put end of the pair into corresponding namespaces
-	if err := netlink.LinkSetNsFd(veth, int(network.Host)); err != nil {
+	if err := netlink.LinkSetNsFd(veth, int(namespace.Host)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
 	}
 
-	if err := netlink.LinkSetNsFd(vpeer, int(network.Guest)); err != nil {
+	if err := netlink.LinkSetNsFd(vpeer, int(namespace.Guest)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
 	}
 
 	// Get handle to new namespace
-	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(network.Guest))
+	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(namespace.Guest))
 	if err != nil {
 		return nil, fmt.Errorf("Could not get a handle for namespace %v: %v", id, err)
 	}
@@ -117,9 +111,8 @@ func NewContainer(id Id) (*Container, error) {
 	}
 
 	return &Container{
-		Id:      id,
-		Network: network,
-		Pid:     pid,
+		Id:        id,
+		Namespace: namespace,
 	}, nil
 }
 
@@ -154,7 +147,7 @@ func (container *Container) Delete() error {
 		netlink.LinkDel(vpeerId)
 	}
 
-	container.Network.Close()
+	container.Namespace.Close()
 
 	return nil
 }
@@ -192,20 +185,14 @@ func getContainerId(pid int) (Id, error) {
 }
 
 func ContainerAttachPid(pid int) (*Container, error) {
-	networkNs, err := attachPidNamespace(Network, pid)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
-	}
-
-	pidNs, err := attachPidNamespace(Pid, pid)
+	namespace, err := attachPidNamespace(Network|Pid|Uts, pid)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
 	}
 
 	return &Container{
-		Id:      networkNs.Id,
-		Network: networkNs,
-		Pid:     pidNs,
+		Id:        namespace.Id,
+		Namespace: namespace,
 	}, nil
 }
 
@@ -229,13 +216,11 @@ func getCredential() *syscall.Credential {
 
 // Make host or guest container active
 func (container *Container) Activate(domainType DomainType) {
-	container.Network.Activate(domainType)
-	container.Pid.Activate(domainType)
+	container.Namespace.Activate(domainType)
 }
 
 func (container *Container) CloseOnExec(domainType DomainType) {
-	container.Network.CloseOnExec(domainType)
-	container.Pid.CloseOnExec(domainType)
+	container.Namespace.CloseOnExec(domainType)
 }
 
 func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {

@@ -7,7 +7,7 @@ import (
 type Type int
 
 const (
-	Uts Type = iota
+	Uts Type = 1 << iota
 	Ipc
 	User
 	Network

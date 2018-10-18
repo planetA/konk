@@ -2,7 +2,6 @@
 
 package initial
 
-// #cgo pkg-config: msgpack 
 // #cgo CXXFLAGS: -std=c++17
 // #cgo LDFLAGS: -lstdc++fs
 // #include "init.h"

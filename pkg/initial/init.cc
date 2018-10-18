@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <type_traits>
 #include <filesystem>
+#include <exception>
 
 #include <nlohmann/json.hpp>
 
@@ -51,7 +52,7 @@ InitArgs read_args(int socket)
   std::vector<char> buffer(large_size);
   size_t ret = read(socket, buffer.data(), large_size);
   if (ret < 0) {
-    throw "Read: "s + std::strerror(errno);
+    throw std::runtime_error("Read: "s + std::strerror(errno));
   }
   buffer.resize(ret - 1);
 
@@ -81,7 +82,7 @@ void setup_exit_handler(const std::string &path)
       }
     });
   if (ret != 0) {
-    throw "Atexit: "s + std::strerror(errno);
+    throw std::runtime_error("Atexit: "s + std::strerror(errno));
   }
 }
 
@@ -93,7 +94,7 @@ void setup_hostname(const std::string &prefix, int id)
 
   int ret = sethostname(hostname, std::strlen(hostname));
   if (ret) {
-    throw "Sethostname: "s + std::strerror(errno);
+    throw std::runtime_error("Sethostname: "s + std::strerror(errno));
   }
 }
 
@@ -116,7 +117,7 @@ int get_global_pid()
   std::error_code ec;
   std::string pid_string = fs::read_symlink("/proc/self", ec);
   if (ec) {
-    throw "Read symlink: "s + ec.message();
+    throw std::runtime_error("Read symlink: "s + ec.message());
   }
 
   std::stringstream ss(pid_string);
@@ -142,7 +143,7 @@ void create_container(const InitArgs &init_args)
   std::error_code ec;
   fs::create_directories(container_path, ec);
   if (ec) {
-    throw "Create directory: "s + ec.message();
+    throw std::runtime_error("Create directory: "s + ec.message());
   }
 
   // We cannot trust getpid anymore, so we can take our "outer" pid
@@ -161,7 +162,7 @@ void reply_ok(int socket)
   int dummy;
   size_t ret = write(socket, &dummy, 1);
   if (ret < 0) {
-    throw "Write: "s  + std::strerror(errno);
+    throw std::runtime_error("Write: "s  + std::strerror(errno));
   }
 }
 

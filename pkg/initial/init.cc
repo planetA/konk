@@ -24,7 +24,7 @@ using json = nlohmann::json;
 using namespace std::string_literals;
 namespace fs = std::filesystem;
 
-#define STACK_SIZE (4 * 1024)
+const size_t STACK_SIZE = 4 * 1024;
 
 struct arg_t
 {

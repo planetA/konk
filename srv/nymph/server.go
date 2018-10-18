@@ -142,7 +142,7 @@ func createContainer(id container.Id) (string, error) {
 
 	root := "/var/run/konk"
 	containerName := "konk"
-	containerPath := fmt.Sprintf("%v/%v", root, containerName)
+	containerPath := fmt.Sprintf("%v/%v%v", root, containerName, id)
 
 	encoder := json.NewEncoder(outerSocket)
 	encoder.Encode(InitArgs{

@@ -132,11 +132,12 @@ void create_container(const InitArgs &init_args)
   std::cerr << "Creating container" << std::endl;
 
   // Construct the path to the container directory
-  std::string container_path = [&]() {
+  std::string container_name = [&]{
     std::stringstream ss;
-    ss << init_args.root << "/" << init_args.name;
+    ss << init_args.name << init_args.id;
     return ss.str();
   }();
+  std::string container_path = fs::path(init_args.root) / container_name;
 
   setup_exit_handler(container_path);
 

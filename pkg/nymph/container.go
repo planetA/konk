@@ -2,7 +2,6 @@ package nymph
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/planetA/konk/pkg/container"
 )
@@ -26,8 +25,6 @@ func CreateContainer(id container.Id) (*container.Container, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}
-
-	log.Println("Created")
 
 	return cont, nil
 }

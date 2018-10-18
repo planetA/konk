@@ -85,6 +85,18 @@ void setup_exit_handler(const std::string &path)
   }
 }
 
+void setup_hostname(const std::string &prefix, int id)
+{
+  std::stringstream ss;
+  ss << prefix << id;
+  const auto hostname = ss.str().c_str();
+
+  int ret = sethostname(hostname, std::strlen(hostname));
+  if (ret) {
+    throw "Sethostname: "s + std::strerror(errno);
+  }
+}
+
 void create_number_file(const std::string &container_path, const std::string &filename, int number)
 {
   // Root of the container
@@ -97,6 +109,21 @@ void create_number_file(const std::string &container_path, const std::string &fi
   std::ofstream file{file_path};
 
   file << number;
+}
+
+int get_global_pid()
+{
+  std::error_code ec;
+  std::string pid_string = fs::read_symlink("/proc/self", ec);
+  if (ec) {
+    throw "Read symlink: "s + ec.message();
+  }
+
+  std::stringstream ss(pid_string);
+  int pid;
+  ss >> pid;
+
+  return pid;
 }
 
 void create_container(const InitArgs &init_args)
@@ -118,10 +145,15 @@ void create_container(const InitArgs &init_args)
     throw "Create directory: "s + ec.message();
   }
 
+  // We cannot trust getpid anymore, so we can take our "outer" pid
+  // from the proc, but only untly we mount a new proc there
+  int global_pid = get_global_pid();
+
   // Once we have a directory for a container, we need to setup the directory structure
-  create_number_file(container_path, "pid", getpid());
+  create_number_file(container_path, "pid", global_pid);
   create_number_file(container_path, "id", init_args.id);
-  
+
+  setup_hostname(init_args.name, init_args.id);
 }
 
 void reply_ok(int socket)
@@ -137,12 +169,6 @@ int init_daemon_throw(void *void_arg)
 {
   auto arg = static_cast<arg_t*>(void_arg);
 
-  std::stringstream ss;
-  ss << "konk" << arg->socket;
-  const auto hostname = ss.str().c_str();
-
-  sethostname(hostname, std::strlen(hostname));
-
   InitArgs init_args = read_args(arg->socket);
   // Once the configuration is read, we need to create the container
 
@@ -152,8 +178,8 @@ int init_daemon_throw(void *void_arg)
   reply_ok(arg->socket);
   
   while (true) {
-    sleep(3);
-    std::cerr << "Ping from init daemon " << hostname << "  " << getpid() << std::endl;
+    sleep(7);
+    std::cerr << "Ping from init daemon " << getpid() << std::endl;
   }
 
   return 0;
@@ -161,7 +187,7 @@ int init_daemon_throw(void *void_arg)
 
 int init_daemon(void *void_arg)
 {
-  std::cerr << "Called init process" << std::endl;
+  std::cerr << "Called init process: " << getpid() << std::endl;
   try {
     return init_daemon_throw(void_arg);
   } catch (std::exception &e) {
@@ -183,7 +209,7 @@ int run_init_process(int socket)
 
   arg_t arg{socket};
 
-  child = clone(init_daemon, stack_top, CLONE_NEWUTS | SIGCHLD, &arg);
+  child = clone(init_daemon, stack_top, CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD, &arg);
 
   return child;
 }

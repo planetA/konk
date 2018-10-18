@@ -228,8 +228,8 @@ func getCredential() *syscall.Credential {
 }
 
 // Make host or guest container active
-func (container *Container) Activate(domainType DomainType) {
-	container.Namespace.Activate(domainType)
+func (container *Container) Activate(domainType DomainType) error {
+	return container.Namespace.Activate(domainType)
 }
 
 func (container *Container) CloseOnExec(domainType DomainType) {
@@ -237,7 +237,10 @@ func (container *Container) CloseOnExec(domainType DomainType) {
 }
 
 func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
-	container.Activate(GuestDomain)
+	err := container.Activate(GuestDomain)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot attach to the guest: %v");
+	}
 	defer container.Activate(HostDomain)
 
 	cmd := exec.Command(args[0], args[1:]...)
@@ -249,8 +252,7 @@ func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Start()
-
+	err = cmd.Start()
 	if err != nil {
 		return nil, fmt.Errorf("Application exited with an error: %v", err)
 	}

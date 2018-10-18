@@ -196,6 +196,19 @@ func ContainerAttachPid(pid int) (*Container, error) {
 	}, nil
 }
 
+// Attach to the container by the PID of the init process
+func ContainerAttachInit(path string) (*Container, error) {
+	namespace, err := attachNamespaceInit(path)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
+	}
+
+	return &Container{
+		Id:        namespace.Id,
+		Namespace: namespace,
+	}, nil
+}
+
 func getCredential() *syscall.Credential {
 	grp, _ := os.Getgroups()
 	grp32 := func(b []int) []uint32 {

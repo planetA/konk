@@ -75,16 +75,16 @@ func (c *Client) Register(containerId container.Id, pid int) error {
 	return nil
 }
 
-func (c *Client) CreateContainer(containerId container.Id) (int, error) {
+func (c *Client) CreateContainer(containerId container.Id) (string, error) {
 	args := &CreateContainerArgs{containerId}
 
-	var pid int
-	err := c.client.Call(rpcCreateContainer, args, &pid)
+	var path string
+	err := c.client.Call(rpcCreateContainer, args, &path)
 	if err != nil {
-		return -1, fmt.Errorf("RPC call failed: %v", err)
+		return "", fmt.Errorf("RPC call failed: %v", err)
 	}
 
-	return pid, nil
+	return path, nil
 }
 
 func (c *Client) Close() {

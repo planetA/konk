@@ -1,11 +1,14 @@
 package nymph
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strconv"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/coordinator"
@@ -105,12 +108,13 @@ func registerAtCoordinator(id container.Id) error {
 }
 
 // Nymph creates a container, starts an init process inside and reports about the new container
-// to the coordinator. The function replies with a pid of the init process, other processes need to attac to the init process.
-func (n *Nymph) CreateContainer(args CreateContainerArgs, pid *int) error {
+// to the coordinator. The function replies with a path to the init container derictory
+// Other processes need to attach to the init container using the path.
+func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 	containerId := args.Id
 
 	var err error
-	*pid, err = createContainer(containerId)
+	*path, err = createContainer(containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to create container %v: %v", containerId, err)
 	}
@@ -118,13 +122,40 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, pid *int) error {
 	return nil
 }
 
-func createContainer(id container.Id) (int, error) {
-	log.Println("XXX: Should create container now")
-
-	pid, err := initial.Run(int(id))
+// Create container and return the path to the container control directory
+func createContainer(id container.Id) (string, error) {
+	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
-		return -1, err
+		return "", fmt.Errorf("Failed to create socket pair: %v", err)
 	}
 
-	return pid, nil
+	// In future, potentially, run will return the container path. For now we just construct it
+	_, err = initial.Run(fds[1])
+	if err != nil {
+		return "", err
+	}
+
+	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
+	defer outerSocket.Close()
+	innerSocket := os.NewFile(uintptr(fds[0]), "inner")
+	defer innerSocket.Close()
+
+	root := "/var/run/konk"
+	containerName := fmt.Sprintf("konk%v", id)
+	containerPath := fmt.Sprintf("%v/%v", root, containerName)
+
+	encoder := json.NewEncoder(outerSocket)
+	encoder.Encode(InitArgs{
+		Root: root,
+		Name: containerName,
+		Id:   id,
+	})
+
+	log.Println("Waiting init")
+	result := make([]byte, 1)
+	if n, err := outerSocket.Read(result); (n != 1) || (err != nil) {
+		return "", fmt.Errorf("Init process was not ready (read %v): %v", n, err)
+	}
+
+	return containerPath, nil
 }

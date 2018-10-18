@@ -2,11 +2,15 @@ package container
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"path"
+	"runtime"
+	"strconv"
+	"syscall"
 
 	"golang.org/x/sys/unix"
-	"os"
-	"runtime"
-	"syscall"
 )
 
 type Namespace struct {
@@ -64,7 +68,10 @@ func newNamespace(nsType Type, id Id) (*Namespace, error) {
 	guestNsPath := fmt.Sprintf("%s/%s", nsDir, nsNameId)
 
 	// Create a file to do mounting
-	os.OpenFile(guestNsPath, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0666)
+	_, err = os.OpenFile(guestNsPath, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		log.Println("Path '%v' already exists", guestNsPath)
+	}
 
 	nsPath := getNsPath(nsType)
 	err = syscall.Mount(nsPath, guestNsPath, "", syscall.MS_BIND|syscall.MS_REC, "")
@@ -103,6 +110,55 @@ func attachPidNamespace(nsType Type, pid int) (*Namespace, error) {
 
 	return &Namespace{
 		Id:    id,
+		Host:  hostNs,
+		Guest: guestNs,
+		Type:  nsType,
+	}, nil
+}
+
+func readNumber(containerPath, fileName string) (int, error) {
+	filePath := path.Join(containerPath, fileName)
+	buffer, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("Failed to open file (%v): %v", filePath, err)
+	}
+
+	number, err := strconv.Atoi(string(buffer))
+	if err != nil {
+		return 0, fmt.Errorf("Failed to read file %v: %v", err)
+	}
+
+	return number, nil
+}
+
+// Given the path to the container directory, attach to the namespace of the init process
+// of this container.
+func attachNamespaceInit(containerPath string) (*Namespace, error) {
+	nsType := Uts
+
+	pid, err := readNumber(containerPath, "pid")
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := readNumber(containerPath, "id")
+	if err != nil {
+		return nil, err
+	}
+
+	hostNs, err := openNamespace(nsType)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get host network namespace: %v", err)
+	}
+
+	guestNs, err := openNamespacePid(nsType, pid)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
+	}
+
+	log.Println("About to attach to the container")
+	return &Namespace{
+		Id:    Id(id),
 		Host:  hostNs,
 		Guest: guestNs,
 		Type:  nsType,

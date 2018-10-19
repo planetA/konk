@@ -160,7 +160,7 @@ void create_container(const InitArgs &init_args)
 
 void reply_ok(int socket)
 {
-  int dummy;
+  int dummy = 0;
   size_t ret = write(socket, &dummy, 1);
   if (ret < 0) {
     throw std::runtime_error("Write: "s  + std::strerror(errno));

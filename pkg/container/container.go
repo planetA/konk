@@ -1,3 +1,8 @@
+// +build go1.10
+
+// We depend on go1.10, because of the behaviour of LockOSThread behaviour.
+// See: https://github.com/vishvananda/netns/issues/17
+
 package container
 
 import (

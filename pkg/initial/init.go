@@ -2,8 +2,8 @@
 
 package initial
 
-// #cgo CXXFLAGS: -std=c++17
-// #cgo LDFLAGS: -lstdc++fs
+// #cgo CXXFLAGS: -std=c++17 -ggdb3
+// #cgo LDFLAGS: -lstdc++fs -ggdb3
 // #include "init.h"
 import "C"
 

@@ -25,6 +25,8 @@ func Run(id container.Id, args []string) error {
 
 	log.Println("Launched command. No waiting. Pid: ", cmd.Process.Pid)
 
+	cmd.Wait()
+
 	return nil
 }
 

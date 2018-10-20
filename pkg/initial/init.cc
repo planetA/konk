@@ -186,7 +186,14 @@ int init_daemon_throw(void *void_arg)
   
   while (true) {
     sleep(7);
-    std::cerr << "Ping from init daemon " << getpid() << std::endl;
+    int wstatus;
+    std::cerr << "Enter waitpid" << std::endl;
+    int pid = waitpid(-1, &wstatus, 0);
+    std::cerr << "Returned from waitpid" << std::endl;
+    if (pid == -1) {
+      throw std::runtime_error("Waitpid: "s + std::strerror(errno));
+    }
+    std::cerr << "Ping from init daemon " << getpid() << " caught " << pid << std::endl;
   }
 
   return 0;

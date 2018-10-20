@@ -262,11 +262,11 @@ func (container *Container) CloseOnExec(domainType DomainType) {
 func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 	err := container.Activate(GuestDomain)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot attach to the guest: %v");
+		return nil, fmt.Errorf("Cannot attach to the guest: %v")
 	}
 	defer container.Activate(HostDomain)
 
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command("/proc/self/exe", append([]string{"launch"}, args...)...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: getCredential(),
 	}

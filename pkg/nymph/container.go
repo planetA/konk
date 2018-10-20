@@ -21,7 +21,8 @@ func CreateContainer(id container.Id) (*container.Container, error) {
 	}
 
 	// Once we know the path, we can attach to it
-	cont, err := container.ContainerAttachInit(path)
+	nsType := container.Uts|container.Pid
+	cont, err := container.ContainerAttachInit(path, nsType)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}

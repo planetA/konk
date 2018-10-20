@@ -133,9 +133,7 @@ func readNumber(containerPath, fileName string) (int, error) {
 
 // Given the path to the container directory, attach to the namespace of the init process
 // of this container.
-func attachNamespaceInit(containerPath string) (*Namespace, error) {
-	nsType := Uts
-
+func attachNamespaceInit(containerPath string, nsType Type) (*Namespace, error) {
 	pid, err := readNumber(containerPath, "pid")
 	if err != nil {
 		return nil, err

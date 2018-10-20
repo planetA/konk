@@ -26,8 +26,8 @@ import (
 )
 
 type Container struct {
-	Id        Id
-	Namespace *Namespace
+	Id         Id
+	Namespaces []Namespace
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -116,8 +116,8 @@ func NewContainer(id Id) (*Container, error) {
 	}
 
 	return &Container{
-		Id:        id,
-		Namespace: namespace,
+		Id:         id,
+		Namespaces: []Namespace{*namespace},
 	}, nil
 }
 
@@ -152,7 +152,9 @@ func (container *Container) Delete() error {
 		netlink.LinkDel(vpeerId)
 	}
 
-	container.Namespace.Close()
+	for _, ns := range container.Namespaces {
+		ns.Close()
+	}
 
 	return nil
 }
@@ -190,27 +192,36 @@ func getContainerId(pid int) (Id, error) {
 }
 
 func ContainerAttachPid(pid int) (*Container, error) {
-	namespace, err := attachPidNamespace(Network|Pid|Uts, pid)
+	namespace, err := attachPidNamespace(Uts, pid)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
 	}
 
 	return &Container{
-		Id:        namespace.Id,
-		Namespace: namespace,
+		Id:         namespace.Id,
+		Namespaces: []Namespace{*namespace},
 	}, nil
 }
 
 // Attach to the container by the PID of the init process
-func ContainerAttachInit(path string) (*Container, error) {
-	namespace, err := attachNamespaceInit(path)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
+func ContainerAttachInit(path string, nsTypesRequested Type) (*Container, error) {
+	AllTypes := [...]Type{Uts, Ipc, User, Network, Pid, Mount}
+	namespaces := make([]Namespace, 0, len(AllTypes))
+	for _, nsTypeCur := range AllTypes {
+		if (nsTypeCur & nsTypesRequested) == 0 {
+			continue
+		}
+		curNamespace, err := attachNamespaceInit(path, nsTypeCur)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to attach to a container: %v", err)
+		}
+
+		namespaces = append(namespaces, *curNamespace)
 	}
 
 	return &Container{
-		Id:        namespace.Id,
-		Namespace: namespace,
+		Id:         namespaces[0].Id,
+		Namespaces: namespaces,
 	}, nil
 }
 
@@ -234,11 +245,18 @@ func getCredential() *syscall.Credential {
 
 // Make host or guest container active
 func (container *Container) Activate(domainType DomainType) error {
-	return container.Namespace.Activate(domainType)
+	for _, ns := range container.Namespaces {
+		if err := ns.Activate(domainType); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (container *Container) CloseOnExec(domainType DomainType) {
-	container.Namespace.CloseOnExec(domainType)
+	for _, ns := range container.Namespaces {
+		ns.CloseOnExec(domainType)
+	}
 }
 
 func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {

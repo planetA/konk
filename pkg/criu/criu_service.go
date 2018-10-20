@@ -96,8 +96,8 @@ func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.
 	cont.Activate(container.GuestDomain)
 	defer cont.Activate(container.HostDomain)
 
-	log.Printf("Ns id %v\n", cont.Namespace.Guest.UniqueId())
-	log.Printf("Ns id %v\n", cont.Namespace.Host.UniqueId())
+	log.Printf("Ns id %v\n", cont.Namespaces[0].Guest.UniqueId())
+	log.Printf("Ns id %v\n", cont.Namespaces[0].Host.UniqueId())
 	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4", "--log-pid")
 
 	log.Printf("Launching criu: %v\n", cmd)

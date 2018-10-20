@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
+#include <sys/prctl.h>
 
 #include <iostream>
 #include <sstream>
@@ -156,6 +157,10 @@ void create_container(const InitArgs &init_args)
   create_number_file(container_path, "id", init_args.id);
 
   setup_hostname(init_args.name, init_args.id);
+
+  if (prctl(PR_SET_NAME, ("konk-init: "s + container_name).c_str()) == -1) {
+    throw std::runtime_error("Prctl PR_SET_NAME: "s + std::strerror(errno));
+  }
 }
 
 void reply_ok(int socket)

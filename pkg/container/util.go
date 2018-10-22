@@ -44,6 +44,7 @@ func createVethPair(id Id) (netlink.Link, netlink.Link, error) {
 }
 
 func getNetNsPath(id Id) string {
+	panic("Should not be used anymore")
 	return fmt.Sprintf("/var/run/netns/%s", getNameId(Net, id))
 }
 

@@ -70,7 +70,7 @@ func NewContainer(id Id) (*Container, error) {
 	bridge := getBridge(util.BridgeName)
 
 	// Only then create anything
-	namespace, err := newNamespace(Network|Pid|Uts, id)
+	namespace, err := newNamespace(Net|Pid|Uts, id)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func ContainerAttachPid(pid int) (*Container, error) {
 
 // Attach to the container by the PID of the init process
 func ContainerAttachInit(path string, nsTypesRequested Type) (*Container, error) {
-	AllTypes := [...]Type{Uts, Ipc, User, Network, Pid, Mount}
+	AllTypes := [...]Type{Uts, Ipc, User, Net, Pid, Mount}
 	namespaces := make([]Namespace, 0, len(AllTypes))
 	for _, nsTypeCur := range AllTypes {
 		if (nsTypeCur & nsTypesRequested) == 0 {

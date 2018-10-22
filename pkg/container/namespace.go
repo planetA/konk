@@ -196,7 +196,7 @@ func (namespace *Namespace) Activate(domainType DomainType) error {
 	curNs := int(namespace.getHandle(domainType))
 
 	var unixNamespace int
-	for _, nsType := range []Type{Uts, Ipc, User, Network, Mount} {
+	for _, nsType := range []Type{Uts, Ipc, User, Net, Mount} {
 		if nsType&namespace.Type != 0 {
 			unixNamespace = unixNamespace | namespaceCodes[nsType]
 		}

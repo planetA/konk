@@ -44,7 +44,7 @@ func createVethPair(id Id) (netlink.Link, netlink.Link, error) {
 }
 
 func getNetNsPath(id Id) string {
-	return fmt.Sprintf("/var/run/netns/%s", getNameId(Network, id))
+	return fmt.Sprintf("/var/run/netns/%s", getNameId(Net, id))
 }
 
 func getDevName(devType string, id Id) string {

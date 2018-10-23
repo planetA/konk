@@ -229,7 +229,9 @@ int run_init_process(int socket)
 
   arg_t arg{socket};
 
-  child = clone(init_daemon, stack_top, CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD, &arg);
+  int ns_flags = (CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER |
+		  CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWNS);
+  child = clone(init_daemon, stack_top, ns_flags | SIGCHLD, &arg);
 
   return child;
 }

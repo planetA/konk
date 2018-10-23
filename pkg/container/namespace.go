@@ -212,3 +212,7 @@ func (namespace *Namespace) Activate(domainType DomainType) error {
 func (namespace *Namespace) CloseOnExec(domainType DomainType) {
 	namespace.getHandle(domainType).CloseOnExec()
 }
+
+func (namespace *Namespace) TypeString() string {
+	return namespaceNames[namespace.Type]
+}

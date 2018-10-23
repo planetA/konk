@@ -247,7 +247,7 @@ func getCredential() *syscall.Credential {
 func (container *Container) Activate(domainType DomainType) error {
 	for _, ns := range container.Namespaces {
 		if err := ns.Activate(domainType); err != nil {
-			return err
+			return fmt.Errorf("Cannot activate %v: %v", ns.TypeString(), err)
 		}
 	}
 	return nil

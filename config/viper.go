@@ -11,5 +11,6 @@ const (
 
 	ViperContainerIdEnv = "OMPI_COMM_WORLD_RANK"
 
-	ViperCoprocLauncher = "launcher.path"
+	ViperKonkSysLauncher = "konk-sys.launcher"
+	ViperKonkSysInit     = "konk-sys.init"
 )

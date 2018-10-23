@@ -285,7 +285,7 @@ func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 }
 
 func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
-	launcherPath := viper.GetString(config.ViperCoprocLauncher)
+	launcherPath := viper.GetString(config.ViperKonkSysLauncher)
 	cmd := exec.Command(launcherPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: getCredential(),

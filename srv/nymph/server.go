@@ -129,16 +129,16 @@ func createContainer(id container.Id) (string, error) {
 		return "", fmt.Errorf("Failed to create socket pair: %v", err)
 	}
 
+	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
+	defer outerSocket.Close()
+	innerSocket := os.NewFile(uintptr(fds[1]), "inner")
+	defer innerSocket.Close()
+
 	// In future, potentially, run will return the container path. For now we just construct it
-	_, err = initial.Run(fds[1])
+	err = initial.Run(innerSocket)
 	if err != nil {
 		return "", err
 	}
-
-	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
-	defer outerSocket.Close()
-	innerSocket := os.NewFile(uintptr(fds[0]), "inner")
-	defer innerSocket.Close()
 
 	root := "/var/run/konk"
 	containerName := "konk"

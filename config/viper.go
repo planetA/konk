@@ -10,4 +10,6 @@ const (
 	ViperCoordinatorPort = "coordinator.port"
 
 	ViperContainerIdEnv = "OMPI_COMM_WORLD_RANK"
+
+	ViperCoprocLauncher = "launcher.path"
 )

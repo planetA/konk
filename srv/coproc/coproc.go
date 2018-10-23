@@ -4,10 +4,29 @@ package coproc
 import (
 	"log"
 	"runtime"
+	"path"
+	"io/ioutil"
+	"fmt"
+	"strconv"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/nymph"
 )
+
+func readNumber(containerPath, fileName string) (int, error) {
+	filePath := path.Join(containerPath, fileName)
+	buffer, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("Failed to open file (%v): %v", filePath, err)
+	}
+
+	number, err := strconv.Atoi(string(buffer))
+	if err != nil {
+		return 0, fmt.Errorf("Failed to read file %v: %v", err)
+	}
+
+	return number, nil
+}
 
 func Run(id container.Id, args []string) error {
 	runtime.LockOSThread()
@@ -18,7 +37,19 @@ func Run(id container.Id, args []string) error {
 		return err
 	}
 
-	cmd, err := cont.LaunchCommand(args)
+	pid, err := readNumber(cont.Path, "pid")
+	if err != nil {
+		return err
+	}
+
+	cmd, err := container.LaunchCommandInitProc(pid, args)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+	cmd, err = cont.LaunchCommand(args)
 	if err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ import (
 type Container struct {
 	Id         Id
 	Namespaces []Namespace
+	Path       string
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -276,6 +277,27 @@ func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 	cmd.Stderr = os.Stderr
 
 	err = cmd.Start()
+	if err != nil {
+		return nil, fmt.Errorf("Application exited with an error: %v", err)
+	}
+
+	return cmd, nil
+}
+
+func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
+	launcherPath := viper.GetString(config.ViperCoprocLauncher)
+	cmd := exec.Command(launcherPath, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: getCredential(),
+	}
+	cmd.Env = append(os.Environ(),
+		"KONK_INIT_PROC=" + strconv.Itoa(initProc))
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Start()
 	if err != nil {
 		return nil, fmt.Errorf("Application exited with an error: %v", err)
 	}

@@ -20,6 +20,11 @@ func CreateContainer(id container.Id) (*container.Container, error) {
 		return nil, fmt.Errorf("Container creation failed: %v", err)
 	}
 
+	return &container.Container{
+		Id:   id,
+		Path: path,
+	}, nil
+
 	// Once we know the path, we can attach to it
 	nsType := container.Uts | container.Ipc | container.User | container.Net | container.Pid | container.Mount
 	cont, err := container.ContainerAttachInit(path, nsType)

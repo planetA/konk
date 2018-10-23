@@ -16,8 +16,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/spf13/viper"
-
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
@@ -161,7 +159,7 @@ func (container *Container) Delete() error {
 }
 
 func getContainerId(pid int) (Id, error) {
-	containerIdVarName := viper.GetString(config.ViperContainerIdEnv)
+	containerIdVarName := config.GetString(config.ContainerIdEnv)
 
 	environPath := fmt.Sprintf("/proc/%d/environ", pid)
 
@@ -285,7 +283,7 @@ func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 }
 
 func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
-	launcherPath := viper.GetString(config.ViperKonkSysLauncher)
+	launcherPath := config.GetString(config.KonkSysLauncher)
 	cmd := exec.Command(launcherPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: getCredential(),

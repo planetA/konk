@@ -8,15 +8,13 @@ import (
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/util"
-
-	"github.com/spf13/viper"
 )
 
 // The node daemon controls node local operations. In the beginning the daemon opens a socket
 // and waits for commands from scheduler. The scheduler sends migration commands to the daemon:
 // either send or receive a process.
 func Run() error {
-	listener, err := util.CreateListener(viper.GetInt(config.ViperNymphPort))
+	listener, err := util.CreateListener(config.GetInt(config.NymphPort))
 	if err != nil {
 		return err
 	}

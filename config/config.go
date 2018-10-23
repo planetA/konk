@@ -2,8 +2,16 @@ package config
 
 var (
 	CfgFile string
-	Verbose bool = false
 
-	CoordinatorHost string = "localhost"
-	CoordinatorPort int    = 8990
+	VarVerbose bool
+
+	VarCoordinatorHost string
+	VarCoordinatorPort int
+)
+
+const (
+	DefaultVerbose bool = false
+
+	DefaultCoordinatorHost string = "localhost"
+	DefaultCoordinatorPort int    = 8990
 )

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/rpc"
 
-	"github.com/spf13/viper"
-
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/util"
@@ -21,7 +19,7 @@ type Client struct {
 // is passed as a parameter. The port is either taken from the configuration
 // or was reported preveously by a container process
 func NewClient(hostname string) (*Client, error) {
-	port := viper.GetInt(config.ViperNymphPort)
+	port := config.GetInt(config.NymphPort)
 	rpcClient, err := util.DialRpcServer(hostname, port)
 	if err != nil {
 		return nil, err

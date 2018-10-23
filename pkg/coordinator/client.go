@@ -5,8 +5,6 @@ import (
 	"log"
 	"net/rpc"
 
-	"github.com/spf13/viper"
-
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/util"
@@ -19,8 +17,8 @@ type Client struct {
 // Create new connection to the coordinator.
 // The coordinator is located according to configuration set in viper.
 func NewClient() (*Client, error) {
-	hostname := viper.GetString(config.ViperCoordinatorHost)
-	port := viper.GetInt(config.ViperCoordinatorPort)
+	hostname := config.GetString(config.CoordinatorHost)
+	port := config.GetInt(config.CoordinatorPort)
 
 	rpcClient, err := util.DialRpcServer(hostname, port)
 	if err != nil {

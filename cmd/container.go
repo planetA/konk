@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
+	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/docs"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/srv/coproc"
@@ -81,7 +81,7 @@ func init() {
 
 	// Configure a unique Id of a container in a network
 	containerRunCmd.Flags().String("rank_env", "", "Environment variable containing id")
-	viper.BindPFlag("container.rank_env", containerRunCmd.Flags().Lookup("rank_env"))
+	config.BindPFlag(config.ContainerIdEnv, containerRunCmd.Flags().Lookup("rank_env"))
 	containerCmd.AddCommand(containerRunCmd)
 }
 
@@ -89,7 +89,7 @@ func init() {
 // or obtained from an environment variable.
 func GetContainerId() (container.Id, error) {
 	// Environment variable containing the Id
-	envVarId := viper.GetString("container.rank_env")
+	envVarId := config.GetString(config.ContainerIdEnv)
 
 	if (len(envVarId) == 0) == (!KonkCmd.Flags().Changed("id")) {
 		return -1, fmt.Errorf(`Expected to set either "id" or "env"`)

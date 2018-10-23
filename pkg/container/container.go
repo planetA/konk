@@ -262,7 +262,7 @@ func (container *Container) CloseOnExec(domainType DomainType) {
 func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
 	err := container.Activate(GuestDomain)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot attach to the guest: %v")
+		return nil, fmt.Errorf("Cannot attach to the guest: %v", err)
 	}
 	defer container.Activate(HostDomain)
 

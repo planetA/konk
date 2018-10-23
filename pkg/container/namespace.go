@@ -196,14 +196,16 @@ func (namespace *Namespace) Activate(domainType DomainType) error {
 	curNs := int(namespace.getHandle(domainType))
 
 	var unixNamespace int
+	var nsTypeName string
 	for _, nsType := range []Type{Uts, Ipc, User, Net, Mount} {
 		if nsType&namespace.Type != 0 {
 			unixNamespace = unixNamespace | namespaceCodes[nsType]
+			nsTypeName = nsTypeName + namespaceNames[nsType] + "+"
 		}
 	}
 	err := unix.Setns(curNs, unixNamespace)
 	if err != nil {
-		return err
+		return fmt.Errorf("Setns failed (%v): %v", nsTypeName, err)
 	}
 
 	return nil

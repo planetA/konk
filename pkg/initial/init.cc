@@ -8,12 +8,14 @@
 #include <sys/utsname.h>
 #include <sys/prctl.h>
 
+#include <cstring>
+#include <csignal>
+#include <cerrno>
+#include <cstdlib>
+
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <cstring>
-#include <cerrno>
-#include <cstdlib>
 #include <type_traits>
 #include <filesystem>
 #include <exception>
@@ -178,6 +180,10 @@ int init_daemon_throw(void *void_arg)
 
   InitArgs init_args = read_args(arg->socket);
   // Once the configuration is read, we need to create the container
+
+  // Set default signal handler
+  std::signal(SIGABRT, SIG_DFL);
+  std::signal(SIGTRAP, SIG_DFL);
 
   create_container(init_args);
 

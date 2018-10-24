@@ -65,7 +65,7 @@ func printAllLinks() {
 	}
 }
 
-func NewContainerPath(id Id, containerPath string) (*Container, error) {
+func NewContainerPath(id Id) (*Container, error) {
 	var err error
 	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
@@ -81,6 +81,11 @@ func NewContainerPath(id Id, containerPath string) (*Container, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	containerPath := fmt.Sprintf("%v/%v%v",
+		config.GetString(config.ContainerRootDir),
+		config.GetString(config.ContainerBaseName),
+		id)
 
 	initProc := newInitProc(containerPath, cmd, outerSocket)
 

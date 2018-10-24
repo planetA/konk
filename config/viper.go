@@ -1,11 +1,11 @@
 package config
 
 import (
-	"os"
 	"log"
+	"os"
 
-	"github.com/spf13/viper"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // Type for a key, to make things more typesafe
@@ -19,7 +19,9 @@ const (
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"
 
-	ContainerIdEnv = "container.rank_env"
+	ContainerIdEnv    = "container.rank_env"
+	ContainerRootDir  = "container.root_dir"
+	ContainerBaseName = "container.base_name"
 
 	KonkSysLauncher = "konk-sys.launcher"
 	KonkSysInit     = "konk-sys.init"

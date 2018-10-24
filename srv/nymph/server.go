@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/criu"
@@ -110,19 +111,15 @@ func registerAtCoordinator(id container.Id) error {
 // to the coordinator. The function replies with a path to the init container derictory
 // Other processes need to attach to the init container using the path.
 func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
-	root := "/var/run/konk"
-	containerName := "konk"
-	containerPath := fmt.Sprintf("%v/%v%v", root, containerName, args.Id)
-
-	cont, err := container.NewContainerPath(args.Id, containerPath)
+	cont, err := container.NewContainerPath(args.Id)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
 
 	encoder := json.NewEncoder(cont.Init.Socket)
 	encoder.Encode(InitArgs{
-		Root: root,
-		Name: containerName,
+		Root: config.GetString(config.ContainerRootDir),
+		Name: config.GetString(config.ContainerBaseName),
 		Id:   args.Id,
 	})
 

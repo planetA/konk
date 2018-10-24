@@ -27,18 +27,23 @@ const (
 	KonkSysInit     = "konk-sys.init"
 )
 
-func GetString(key ViperKey) (string) {
+func GetString(key ViperKey) string {
+	if ! viper.IsSet(string(key)) {
+		log.Panicf("The key '%v' was not set and does not have a default value", key)
+	}
 	return viper.GetString(string(key))
 }
 
-func GetInt(key ViperKey) (int) {
+func GetInt(key ViperKey) int {
+	if ! viper.IsSet(string(key)) {
+		log.Panicf("The key '%v' was not set and does not have a default value", key)
+	}
 	return viper.GetInt(string(key))
 }
 
 func BindPFlag(key ViperKey, flag *pflag.Flag) {
 	viper.BindPFlag(string(key), flag)
 }
-
 
 func InitConfig() {
 	// Don't forget to read config either from cfgFile or from the default location

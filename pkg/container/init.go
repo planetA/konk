@@ -1,5 +1,5 @@
 // Struct representing init process
-package nymph
+package container
 
 import (
 	"fmt"
@@ -10,16 +10,16 @@ import (
 
 // Type representing a container init process controlled by nymph
 type InitProc struct {
-	containerPath string
-	cmd           *exec.Cmd
-	socket        *os.File
+	ContainerPath string
+	Cmd           *exec.Cmd
+	Socket        *os.File
 }
 
 func newInitProc(path string, cmd *exec.Cmd, socket *os.File) *InitProc {
 	return &InitProc{
-		containerPath: path,
-		cmd:           cmd,
-		socket:        socket,
+		ContainerPath: path,
+		Cmd:           cmd,
+		Socket:        socket,
 	}
 }
 
@@ -27,7 +27,7 @@ func newInitProc(path string, cmd *exec.Cmd, socket *os.File) *InitProc {
 func (i *InitProc) waitInit() error {
 	log.Println("Waiting init")
 	result := make([]byte, 1)
-	if n, err := i.socket.Read(result); (n != 1) || (err != nil) {
+	if n, err := i.Socket.Read(result); (n != 1) || (err != nil) {
 		return fmt.Errorf("Wait init: %v", err)
 	}
 
@@ -40,7 +40,7 @@ func (i *InitProc) notify() error {
 
 	// Need to write at least one byte
 	dummy := make([]byte, 1)
-	if n, err := i.socket.Write(dummy); (n != 1) || (err != nil) {
+	if n, err := i.Socket.Write(dummy); (n != 1) || (err != nil) {
 		return fmt.Errorf("Notify init: %v", err)
 	}
 
@@ -49,11 +49,11 @@ func (i *InitProc) notify() error {
 
 func (i *InitProc) Close() {
 	// Close the socket
-	i.socket.Close()
+	i.Socket.Close()
 
 	// Kill container init process
-	i.cmd.Process.Kill()
+	i.Cmd.Process.Kill()
 
 	// Delete container directory
-	os.RemoveAll(i.containerPath)
+	os.RemoveAll(i.ContainerPath)
 }

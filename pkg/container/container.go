@@ -16,10 +16,13 @@ import (
 	"strings"
 	"syscall"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
 	"github.com/planetA/konk/config"
+	"github.com/planetA/konk/pkg/initial"
 	"github.com/planetA/konk/pkg/util"
 )
 
@@ -27,6 +30,7 @@ type Container struct {
 	Id         Id
 	Namespaces []Namespace
 	Path       string
+	Init       *InitProc
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -59,6 +63,32 @@ func printAllLinks() {
 		}
 		index = index + 1
 	}
+}
+
+func NewContainerPath(id Id, containerPath string) (*Container, error) {
+	var err error
+	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create socket pair: %v", err)
+	}
+
+	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
+	innerSocket := os.NewFile(uintptr(fds[1]), "inner")
+	defer innerSocket.Close()
+
+	// In future, potentially, run will return the container path. For now we just construct it
+	cmd, err := initial.Run(innerSocket)
+	if err != nil {
+		return nil, err
+	}
+
+	initProc := newInitProc(containerPath, cmd, outerSocket)
+
+	return &Container{
+		Id:   id,
+		Init: initProc,
+		Path: containerPath,
+	}, nil
 }
 
 func NewContainer(id Id) (*Container, error) {
@@ -118,6 +148,18 @@ func NewContainer(id Id) (*Container, error) {
 		Id:         id,
 		Namespaces: []Namespace{*namespace},
 	}, nil
+}
+
+func (c *Container) WaitInit() error {
+	return c.Init.waitInit()
+}
+
+func (c *Container) Notify() error {
+	return c.Init.notify()
+}
+
+func (c *Container) Close() {
+	c.Init.Close()
 }
 
 func (container *Container) Delete() error {
@@ -289,7 +331,7 @@ func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
 		Credential: getCredential(),
 	}
 	cmd.Env = append(os.Environ(),
-		"KONK_INIT_PROC=" + strconv.Itoa(initProc))
+		"KONK_INIT_PROC="+strconv.Itoa(initProc))
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

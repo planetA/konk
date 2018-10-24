@@ -52,8 +52,4 @@ const (
 	InitUse   string = `init <args>`
 	InitShort string = `Container initialization operations`
 	InitLong  string = `Never use this program standalone`
-
-	PrestartUse   string = `prestart <args>`
-	PrestartShort string = `Container initialization operations`
-	PrestartLong  string = `Never use this program standalone`
 )

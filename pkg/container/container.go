@@ -295,7 +295,7 @@ func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Start()
+	err := cmd.Run()
 	if err != nil {
 		return nil, fmt.Errorf("Application exited with an error: %v", err)
 	}

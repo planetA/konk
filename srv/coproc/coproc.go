@@ -32,31 +32,33 @@ func Run(id container.Id, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	cont, err := nymph.CreateContainer(id);
-	if  err != nil {
-		return err
+	nymph, err := nymph.NewClient("localhost")
+	if err != nil {
+		return fmt.Errorf("Failed to connect to nymph: %v", err)
+	}
+	defer nymph.Close()
+
+	// Nymph returns the path to the container directory and waits until the container is created
+	path, err := nymph.CreateContainer(id)
+	if err != nil {
+		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
-	pid, err := readNumber(cont.Path, "pid")
+	pid, err := readNumber(path, "pid")
 	if err != nil {
 		return err
 	}
 
-	cmd, err := container.LaunchCommandInitProc(pid, args)
+	_, err = container.LaunchCommandInitProc(pid, args)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	log.Println("The command is launched")
 
-	cmd, err = cont.LaunchCommand(args)
-	if err != nil {
+	if err := nymph.NotifyProcess(id); err != nil {
 		return err
 	}
-
-	log.Println("Launched command. No waiting. Pid: ", cmd.Process.Pid)
-
-	cmd.Wait()
 
 	return nil
 }

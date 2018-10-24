@@ -30,13 +30,13 @@ type InitProc struct {
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
 	locationDB map[container.Id]int
-	initProcs  []*InitProc
+	initProcs  map[container.Id]*InitProc
 }
 
 func NewNymph() *Nymph {
 	return &Nymph{
 		locationDB: make(map[container.Id]int),
-		initProcs:  make([]*InitProc, 0),
+		initProcs:  make(map[container.Id]*InitProc),
 	}
 }
 
@@ -153,16 +153,21 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 	initProc := newInitProc(containerPath, cmd, outerSocket)
 
 	// Remember the init process
-	n.initProcs = append(n.initProcs, initProc)
+	n.initProcs[containerId] = initProc
 
-	if err := initProc.waitInit(outerSocket); err != nil {
+	if err := initProc.waitInit(); err != nil {
 		return fmt.Errorf("Init process was not ready (read %v): %v", n, err)
 	}
-
 
 	// Return the path to the container to the launcher
 	*path = containerPath
 	return nil
+}
+
+// The nymph is notified that the process has been launched in the container, so the init process
+// can start waiting.
+func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
+	return n.initProcs[args.Id].notify()
 }
 
 func CloseNymph(n *Nymph) {
@@ -180,11 +185,24 @@ func newInitProc(path string, cmd *exec.Cmd, socket *os.File) *InitProc {
 }
 
 // Wait until init process reports it is ready to adopt a child
-func (i *InitProc) waitInit(socket *os.File) error {
+func (i *InitProc) waitInit() error {
 	log.Println("Waiting init")
 	result := make([]byte, 1)
 	if n, err := i.socket.Read(result); (n != 1) || (err != nil) {
 		return fmt.Errorf("Wait init: %v", err)
+	}
+
+	return nil
+}
+
+// Notify the init process, that the application has started
+func (i *InitProc) notify() error {
+	log.Println("Notify init")
+
+	// Need to write at least one byte
+	dummy := make([]byte, 1)
+	if n, err := i.socket.Write(dummy); (n != 1) || (err != nil) {
+		return fmt.Errorf("Notify init: %v", err)
 	}
 
 	return nil

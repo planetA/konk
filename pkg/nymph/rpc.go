@@ -11,6 +11,7 @@ const (
 	rpcSend            = "Nymph.Send"
 	rpcRegister        = "Nymph.Register"
 	rpcCreateContainer = "Nymph.CreateContainer"
+	rpcNotifyProcess   = "Nymph.NotifyProcess"
 )
 
 // Container receiving server actually expects no parameters
@@ -29,5 +30,9 @@ type RegisterArgs struct {
 }
 
 type CreateContainerArgs struct {
+	Id container.Id
+}
+
+type NotifyProcessArgs struct {
 	Id container.Id
 }

@@ -85,6 +85,19 @@ func (c *Client) CreateContainer(containerId container.Id) (string, error) {
 	return path, nil
 }
 
+// Tell the nymph that the process has started and the container init process can enter waitpid
+func (c *Client) NotifyProcess(containerId container.Id) error {
+	args := &NotifyProcessArgs{containerId}
+
+	// Expect no reply
+	var reply bool
+	if err := c.client.Call(rpcNotifyProcess, args, &reply); err != nil {
+		return fmt.Errorf("RPC call failed: %v", err)
+	}
+
+	return nil
+}
+
 func (c *Client) Close() {
 	c.client.Close()
 }

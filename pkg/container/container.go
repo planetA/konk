@@ -65,7 +65,8 @@ func printAllLinks() {
 	}
 }
 
-func NewContainerPath(id Id) (*Container, error) {
+// Create a container with an init process inside
+func NewContainerInit(id Id) (*Container, error) {
 	var err error
 	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
@@ -88,6 +89,14 @@ func NewContainerPath(id Id) (*Container, error) {
 		id)
 
 	initProc := newInitProc(containerPath, cmd, outerSocket)
+
+	if err := initProc.sendParameters(id); err != nil {
+		return nil, fmt.Errorf("Sending parameters failed: %v", err)
+	}
+
+	if err := initProc.waitInit(); err != nil {
+		return nil, fmt.Errorf("Init process was not ready: %v", err)
+	}
 
 	return &Container{
 		Id:   id,
@@ -153,10 +162,6 @@ func NewContainer(id Id) (*Container, error) {
 		Id:         id,
 		Namespaces: []Namespace{*namespace},
 	}, nil
-}
-
-func (c *Container) WaitInit() error {
-	return c.Init.waitInit()
 }
 
 func (c *Container) Notify() error {

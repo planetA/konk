@@ -1,14 +1,12 @@
 package nymph
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strconv"
 
-	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/criu"
@@ -111,25 +109,13 @@ func registerAtCoordinator(id container.Id) error {
 // to the coordinator. The function replies with a path to the init container derictory
 // Other processes need to attach to the init container using the path.
 func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
-	cont, err := container.NewContainerPath(args.Id)
+	cont, err := container.NewContainerInit(args.Id)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
 
-	encoder := json.NewEncoder(cont.Init.Socket)
-	encoder.Encode(InitArgs{
-		Root: config.GetString(config.ContainerRootDir),
-		Name: config.GetString(config.ContainerBaseName),
-		Id:   args.Id,
-	})
-
-	// Remember the init process
+	// Remember the container object
 	n.containers[args.Id] = cont
-
-	if err := cont.WaitInit(); err != nil {
-		return fmt.Errorf("Init process was not ready (read %v): %v", n, err)
-	}
-
 	// Return the path to the container to the launcher
 	*path = cont.Path
 	return nil

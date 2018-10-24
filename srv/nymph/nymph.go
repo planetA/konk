@@ -21,6 +21,7 @@ func Run() error {
 	defer listener.Close()
 
 	nymph := NewNymph()
+	defer CloseNymph(nymph)
 
 	rpc.Register(nymph)
 

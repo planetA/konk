@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 
 	"golang.org/x/sys/unix"
@@ -19,15 +20,24 @@ import (
 	. "github.com/planetA/konk/pkg/nymph"
 )
 
-func NewNymph() *Nymph {
-	return &Nymph{
-		locationDB: make(map[container.Id]int),
-	}
+// Type representing a container init process controlled by nymph
+type InitProc struct {
+	containerPath string
+	cmd           *exec.Cmd
+	socket        *os.File
 }
 
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
 	locationDB map[container.Id]int
+	initProcs  []*InitProc
+}
+
+func NewNymph() *Nymph {
+	return &Nymph{
+		locationDB: make(map[container.Id]int),
+		initProcs:  make([]*InitProc, 0),
+	}
 }
 
 // Container receiving server has only one method
@@ -114,48 +124,79 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 	containerId := args.Id
 
 	var err error
-	*path, err = createContainer(containerId)
-	if err != nil {
-		return fmt.Errorf("Failed to create container %v: %v", containerId, err)
-	}
-
-	return nil
-}
-
-// Create container and return the path to the container control directory
-func createContainer(id container.Id) (string, error) {
 	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
-		return "", fmt.Errorf("Failed to create socket pair: %v", err)
+		return fmt.Errorf("Failed to create socket pair: %v", err)
 	}
 
 	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
-	defer outerSocket.Close()
 	innerSocket := os.NewFile(uintptr(fds[1]), "inner")
 	defer innerSocket.Close()
 
 	// In future, potentially, run will return the container path. For now we just construct it
-	err = initial.Run(innerSocket)
+	cmd, err := initial.Run(innerSocket)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	root := "/var/run/konk"
 	containerName := "konk"
-	containerPath := fmt.Sprintf("%v/%v%v", root, containerName, id)
+	containerPath := fmt.Sprintf("%v/%v%v", root, containerName, containerId)
 
 	encoder := json.NewEncoder(outerSocket)
 	encoder.Encode(InitArgs{
 		Root: root,
 		Name: containerName,
-		Id:   id,
+		Id:   containerId,
 	})
 
-	log.Println("Waiting init")
-	result := make([]byte, 1)
-	if n, err := outerSocket.Read(result); (n != 1) || (err != nil) {
-		return "", fmt.Errorf("Init process was not ready (read %v): %v", n, err)
+	initProc := newInitProc(containerPath, cmd, outerSocket)
+
+	// Remember the init process
+	n.initProcs = append(n.initProcs, initProc)
+
+	if err := initProc.waitInit(outerSocket); err != nil {
+		return fmt.Errorf("Init process was not ready (read %v): %v", n, err)
 	}
 
-	return containerPath, nil
+
+	// Return the path to the container to the launcher
+	*path = containerPath
+	return nil
+}
+
+func CloseNymph(n *Nymph) {
+	for _, initProc := range n.initProcs {
+		initProc.Close()
+	}
+}
+
+func newInitProc(path string, cmd *exec.Cmd, socket *os.File) *InitProc {
+	return &InitProc{
+		containerPath: path,
+		cmd:           cmd,
+		socket:        socket,
+	}
+}
+
+// Wait until init process reports it is ready to adopt a child
+func (i *InitProc) waitInit(socket *os.File) error {
+	log.Println("Waiting init")
+	result := make([]byte, 1)
+	if n, err := i.socket.Read(result); (n != 1) || (err != nil) {
+		return fmt.Errorf("Wait init: %v", err)
+	}
+
+	return nil
+}
+
+func (i *InitProc) Close() {
+	// Close the socket
+	i.socket.Close()
+
+	// Kill container init process
+	i.cmd.Process.Kill()
+
+	// Delete container directory
+	os.RemoveAll(i.containerPath)
 }

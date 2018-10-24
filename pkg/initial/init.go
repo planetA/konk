@@ -11,7 +11,7 @@ import (
 )
 
 // Start the init process that is also the child of the nymph
-func Run(socket *os.File) (error) {
+func Run(socket *os.File) (*exec.Cmd, error) {
 	initPath := config.GetString(config.KonkSysInit)
 	cmd := exec.Command(initPath)
 	cmd.Env = append(os.Environ(),
@@ -24,8 +24,8 @@ func Run(socket *os.File) (error) {
 
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("Application exited with an error: %v", err)
+		return nil, fmt.Errorf("Application exited with an error: %v", err)
 	}
 
-	return nil
+	return cmd, nil
 }

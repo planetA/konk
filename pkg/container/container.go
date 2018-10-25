@@ -313,9 +313,6 @@ func (container *Container) CloseOnExec(domainType DomainType) {
 func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
 	launcherPath := config.GetString(config.KonkSysLauncher)
 	cmd := exec.Command(launcherPath, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: getCredential(),
-	}
 	cmd.Env = append(os.Environ(),
 		"KONK_INIT_PROC="+strconv.Itoa(initProc))
 

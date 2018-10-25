@@ -116,6 +116,11 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 
 	// Remember the container object
 	n.containers[args.Id] = cont
+
+	if err := cont.ConfigureNetwork(); err != nil {
+		return fmt.Errorf("Configuring network failed: %v", err)
+	}
+
 	// Return the path to the container to the launcher
 	*path = cont.Path
 	return nil

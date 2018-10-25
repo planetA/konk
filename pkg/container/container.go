@@ -310,30 +310,6 @@ func (container *Container) CloseOnExec(domainType DomainType) {
 	}
 }
 
-func (container *Container) LaunchCommand(args []string) (*exec.Cmd, error) {
-	err := container.Activate(GuestDomain)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot attach to the guest: %v", err)
-	}
-	defer container.Activate(HostDomain)
-
-	cmd := exec.Command("/proc/self/exe", append([]string{"launch"}, args...)...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: getCredential(),
-	}
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Start()
-	if err != nil {
-		return nil, fmt.Errorf("Application exited with an error: %v", err)
-	}
-
-	return cmd, nil
-}
-
 func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
 	launcherPath := config.GetString(config.KonkSysLauncher)
 	cmd := exec.Command(launcherPath, args...)

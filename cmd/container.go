@@ -21,35 +21,6 @@ var containerCmd = &cobra.Command{
 	Run:              nil,
 }
 
-var containerCreateCmd = &cobra.Command{
-	Use:   docs.ContainerCreateUse,
-	Short: docs.ContainerCreateShort,
-	Long:  docs.ContainerCreateLong,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		containerId, err := GetContainerId()
-		if err != nil {
-			return err
-		}
-
-		return container.Create(containerId)
-	},
-}
-
-var containerDeleteCmd = &cobra.Command{
-	Use:   docs.ContainerDeleteUse,
-	Short: docs.ContainerDeleteShort,
-	Long:  docs.ContainerDeleteLong,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		containerId, err := GetContainerId()
-		if err != nil {
-			return err
-		}
-
-		container.Delete(containerId)
-		return nil
-	},
-}
-
 var containerRunCmd = &cobra.Command{
 	Use:   docs.ContainerRunUse,
 	Short: docs.ContainerRunShort,
@@ -72,12 +43,6 @@ func init() {
 	KonkCmd.AddCommand(containerCmd)
 
 	containerCmd.PersistentFlags().Int("id", 0, "Container id")
-
-	containerCreateCmd.MarkFlagRequired("id")
-	containerCmd.AddCommand(containerCreateCmd)
-
-	containerDeleteCmd.MarkFlagRequired("id")
-	containerCmd.AddCommand(containerDeleteCmd)
 
 	// Configure a unique Id of a container in a network
 	containerRunCmd.Flags().String("rank_env", "", "Environment variable containing id")

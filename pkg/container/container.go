@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -329,34 +328,4 @@ func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
 	}
 
 	return cmd, nil
-}
-
-/*
-Create a network namespace, a veth pair, put one end into the namespace and
-another end connect to the bridge
-*/
-func Create(id Id) error {
-	// Lock the OS Thread so we don't accidentally switch namespaces
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	_, err := NewContainer(id)
-	if err != nil {
-		return fmt.Errorf("Failed to create container %d: %v", id, err)
-	}
-
-	return nil
-}
-
-func Delete(id Id) {
-	log.Printf("Deleting container with id %v", id)
-
-	// Lock the OS Thread so we don't accidentally switch namespaces
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	container, _ := newContainerClosed(id)
-	if err := container.Delete(); err != nil {
-		log.Printf("Could not delete the container")
-	}
 }

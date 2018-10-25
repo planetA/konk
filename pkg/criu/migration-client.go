@@ -212,7 +212,7 @@ func (migration *MigrationClient) Run(ctx context.Context) error {
 				return fmt.Errorf("Failed to save a checkpoint: %v", err)
 			}
 
-			container.Delete(migration.Container.Id)
+			log.Printf("XXX: Need to ensure that container does not exists")
 
 			if err = migration.Launch(); err != nil {
 				return err

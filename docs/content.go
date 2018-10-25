@@ -17,13 +17,9 @@ const (
 	ConsoleShort string = `Access coordinator over a console`
 	ConsoleLong  string = ``
 
-	ContainerUse   string = `container <id> <subcommand> <args>`
-	ContainerShort string = `Operations on containers`
-	ContainerLong  string = ``
-
-	ContainerRunUse   string = `run <env>`
-	ContainerRunShort string = `Run a container with a prespecified id`
-	ContainerRunLong  string = ``
+	RunUse   string = `run <args>`
+	RunShort string = `Run a container with a prespecified id`
+	RunLong  string = ``
 
 	CriuUse   string = `criu <id> <subcommand> <args>`
 	CriuShort string = `Interface to CRIU`

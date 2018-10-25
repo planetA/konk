@@ -13,18 +13,10 @@ import (
 	"github.com/planetA/konk/srv/coproc"
 )
 
-var containerCmd = &cobra.Command{
-	TraverseChildren: true,
-	Use:              docs.ContainerUse,
-	Short:            docs.ContainerShort,
-	Long:             docs.ContainerLong,
-	Run:              nil,
-}
-
-var containerRunCmd = &cobra.Command{
-	Use:   docs.ContainerRunUse,
-	Short: docs.ContainerRunShort,
-	Long:  docs.ContainerRunLong,
+var RunCmd = &cobra.Command{
+	Use:   docs.RunUse,
+	Short: docs.RunShort,
+	Long:  docs.RunLong,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		containerId, err := GetContainerId()
 		if err != nil {
@@ -40,14 +32,11 @@ var containerRunCmd = &cobra.Command{
 }
 
 func init() {
-	KonkCmd.AddCommand(containerCmd)
-
-	containerCmd.PersistentFlags().Int("id", 0, "Container id")
-
 	// Configure a unique Id of a container in a network
-	containerRunCmd.Flags().String("rank_env", "", "Environment variable containing id")
-	config.BindPFlag(config.ContainerIdEnv, containerRunCmd.Flags().Lookup("rank_env"))
-	containerCmd.AddCommand(containerRunCmd)
+	RunCmd.Flags().String("rank_env", "", "Environment variable containing id")
+	config.BindPFlag(config.ContainerIdEnv, RunCmd.Flags().Lookup("rank_env"))
+
+	KonkCmd.AddCommand(RunCmd)
 }
 
 // Return a unique Id of a container in a network. It either can be set over a command line,
@@ -55,10 +44,6 @@ func init() {
 func GetContainerId() (container.Id, error) {
 	// Environment variable containing the Id
 	envVarId := config.GetString(config.ContainerIdEnv)
-
-	if (len(envVarId) == 0) == (!KonkCmd.Flags().Changed("id")) {
-		return -1, fmt.Errorf(`Expected to set either "id" or "env"`)
-	}
 
 	var containerId container.Id
 	if len(envVarId) != 0 {

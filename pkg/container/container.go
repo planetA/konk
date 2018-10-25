@@ -136,6 +136,7 @@ func NewContainer(id Id) (*Container, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not get a handle for namespace %v: %v", id, err)
 	}
+	defer nsHandle.Delete()
 
 	// Set slave-master relationships between bridge the physical interface
 	netlink.LinkSetMaster(veth, bridge)

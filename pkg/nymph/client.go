@@ -59,20 +59,8 @@ func (c *Client) Send(containerId container.Id, destHost string, destPort int) e
 	return nil
 }
 
-// A container-process connects to a local nymph and reports the pid of the root process of
-// the container
-func (c *Client) Register(containerId container.Id, pid int) error {
-	args := &RegisterArgs{containerId, pid}
-
-	var reply bool
-	err := c.client.Call(rpcRegister, args, &reply)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// A launcher connects to a local nymph and requests it to create a new container where the actual
+// application can run.
 func (c *Client) CreateContainer(containerId container.Id) (string, error) {
 	args := &CreateContainerArgs{containerId}
 

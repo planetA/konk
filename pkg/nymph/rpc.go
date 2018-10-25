@@ -9,7 +9,6 @@ import (
 const (
 	rpcPrepareReceive  = "Nymph.PrepareReceive"
 	rpcSend            = "Nymph.Send"
-	rpcRegister        = "Nymph.Register"
 	rpcCreateContainer = "Nymph.CreateContainer"
 	rpcNotifyProcess   = "Nymph.NotifyProcess"
 )
@@ -22,11 +21,6 @@ type SendArgs struct {
 	ContainerId container.Id
 	Host        string
 	Port        int
-}
-
-type RegisterArgs struct {
-	Id  container.Id
-	Pid int
 }
 
 type CreateContainerArgs struct {

@@ -17,13 +17,11 @@ import (
 
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
-	locationDB map[container.Id]int
 	containers map[container.Id]*container.Container
 }
 
 func NewNymph() *Nymph {
 	return &Nymph{
-		locationDB: make(map[container.Id]int),
 		containers: make(map[container.Id]*container.Container),
 	}
 }
@@ -57,7 +55,9 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
 
 	address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
-	pid := n.locationDB[args.ContainerId]
+	// pid := n.locationDB[args.ContainerId]
+	panic("XXX unimplemented")
+	pid := 4
 	if err := criu.Migrate(pid, address); err != nil {
 		*reply = false
 		return err
@@ -67,25 +67,9 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	return nil
 }
 
-func (n *Nymph) Register(args RegisterArgs, reply *bool) error {
-
-	containerId := args.Id
-	containerPid := args.Pid
-
-	n.locationDB[containerId] = containerPid
-	if err := registerAtCoordinator(containerId); err != nil {
-		return fmt.Errorf("Failed to register container at the coordinator: %v", err)
-	}
-
-	log.Println("XXX: Should attach to the container now")
-
-	*reply = true
-	return nil
-}
-
 // Forward the registration request from the container to the coordinator
 // and tell it the location of the container
-func registerAtCoordinator(id container.Id) error {
+func (n *Nymph) register(id container.Id) error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to get hostname: %v", err)
@@ -129,7 +113,19 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 // The nymph is notified that the process has been launched in the container, so the init process
 // can start waiting.
 func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
-	return n.containers[args.Id].Notify()
+	var err error
+
+	err = n.containers[args.Id].Notify()
+	if err != nil {
+		return fmt.Errorf("Notifying the init process failed: %v", err)
+	}
+
+	err = n.register(args.Id)
+	if err != nil {
+		return fmt.Errorf("Registering at the coordinator failed: %v", err)
+	}
+
+	return nil
 }
 
 func CloseNymph(n *Nymph) {

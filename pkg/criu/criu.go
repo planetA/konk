@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os/exec"
 	"runtime"
 
 	"google.golang.org/grpc"
@@ -57,48 +56,6 @@ func getPidfilePath(pid int) string {
 
 func getImagePath(pid int) string {
 	return fmt.Sprintf("%s/pid.%v", util.CriuImageDir, pid)
-}
-
-func Dump(pid int) error {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	criu, err := criuFromPid(pid)
-	if err != nil {
-		return fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
-	}
-	defer criu.cleanup()
-
-	cont, err := container.ContainerAttachPid(pid)
-	if err != nil {
-		return fmt.Errorf("Could not attach to a container: %v", err)
-	}
-
-	var cmd *exec.Cmd
-	// XXX: false is very bad style
-	if cmd, err = criu.launch(cont, false); err != nil {
-		return fmt.Errorf("Failed to launch criu service: %v", err)
-	}
-
-	err = criu.sendDumpRequest()
-	if err != nil {
-		return fmt.Errorf("Write to socket failed: %v", err)
-	}
-
-	for {
-		event, err := criu.nextEvent()
-		switch event.Type {
-		case Success:
-			cmd.Wait()
-			cont.Delete()
-			log.Printf("Dump completed: %v", event.Response)
-			return nil
-		case Error:
-			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
-		}
-
-		criu.respond()
-	}
 }
 
 func Migrate(pid int, recipient string) error {

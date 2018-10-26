@@ -21,22 +21,6 @@ const (
 	RunShort string = `Run a container with a prespecified id`
 	RunLong  string = ``
 
-	CriuUse   string = `criu <id> <subcommand> <args>`
-	CriuShort string = `Interface to CRIU`
-	CriuLong  string = ``
-
-	CriuDumpUse   string = `dump`
-	CriuDumpShort string = `Dump a process in a CRIU`
-	CriuDumpLong  string = ``
-
-	CriuMigrateUse   string = `migrate`
-	CriuMigrateShort string = `Migrate a process to another node using CRIU`
-	CriuMigrateLong  string = ``
-
-	CriuReceiveUse   string = `receive`
-	CriuReceiveShort string = `Receive a process from another node using CRIU`
-	CriuReceiveLong  string = ``
-
 	InitUse   string = `init <args>`
 	InitShort string = `Container initialization operations`
 	InitLong  string = `Never use this program standalone`

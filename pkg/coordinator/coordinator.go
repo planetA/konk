@@ -8,10 +8,10 @@ import (
 )
 
 // The scheduler coordinates the migration process between container process and a node-daemon.
-// First, the scheduler connects to a nymph daemon and receives a port number. Then, the scheduler
-// connects to a container-process, tells it the destination (hostname and port number), and asks
-// to do the migration. Port of the source should correspond to the container-process of
-// the container we want to migrate.
+// First, the scheduler connects to the destination nymph and asks to prepare for receiving the
+// checkpoint. The nymph returns the port number that should be used specifically for transferring
+// this particular checkpoint. Then, the coordinator contacts the source nymph, tells it the
+// destination hostname and port number, and asks to send the checkpoint.
 func Migrate(containerId container.Id, srcHost, destHost string) error {
 	destClient, err := nymph.NewClient(destHost)
 	if err != nil {

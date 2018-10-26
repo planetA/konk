@@ -30,7 +30,7 @@ func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo
 		return fmt.Errorf("Could not create image directory (%s): %v", srv.imageDir, err)
 	}
 
-	srv.container, err = container.NewContainer(containerId)
+	srv.container, err = container.NewContainerInit(containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to create container at the destination: %v", err)
 	}

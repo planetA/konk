@@ -160,66 +160,6 @@ func (c *Container) ConfigureNetwork() error {
 	return nil
 }
 
-func NewContainer(id Id) (*Container, error) {
-	oldContainer, _ := newContainerClosed(id)
-	oldContainer.Delete()
-
-	// First get the bridge
-	bridge := getBridge(util.BridgeName)
-
-	// Only then create anything
-	namespace, err := newNamespace(Net|Pid|Uts, id)
-	if err != nil {
-		return nil, err
-	}
-
-	veth, vpeer, err := createVethPair(id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Put end of the pair into corresponding namespaces
-	if err := netlink.LinkSetNsFd(veth, int(namespace.Host)); err != nil {
-		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
-	}
-
-	if err := netlink.LinkSetNsFd(vpeer, int(namespace.Guest)); err != nil {
-		return nil, fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
-	}
-
-	// Get handle to new namespace
-	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(namespace.Guest))
-	if err != nil {
-		return nil, fmt.Errorf("Could not get a handle for namespace %v: %v", id, err)
-	}
-	defer nsHandle.Delete()
-
-	// Set slave-master relationships between bridge the physical interface
-	netlink.LinkSetMaster(veth, bridge)
-
-	// Put links up
-	if err := nsHandle.LinkSetUp(vpeer); err != nil {
-		return nil, fmt.Errorf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
-	}
-	if err := netlink.LinkSetUp(veth); err != nil {
-		return nil, fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
-	}
-	nsHandle.AddrAdd(vpeer, createContainerAddr(id))
-
-	lo, err := nsHandle.LinkByName("lo")
-	if err != nil {
-		return nil, fmt.Errorf("Cannot acquire loopback: %v", err)
-	}
-	if err := nsHandle.LinkSetUp(lo); err != nil {
-		return nil, fmt.Errorf("Could not set interface %s up: %v", lo.Attrs().Name, err)
-	}
-
-	return &Container{
-		Id:         id,
-		Namespaces: []Namespace{*namespace},
-	}, nil
-}
-
 func (c *Container) Notify() error {
 	return c.Init.notify()
 }

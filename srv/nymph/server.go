@@ -67,7 +67,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 
 // Forward the registration request from the container to the coordinator
 // and tell it the location of the container
-func (n *Nymph) register(id container.Id) error {
+func (n *Nymph) _Register(id container.Id) error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to get hostname: %v", err)
@@ -118,7 +118,7 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 		return fmt.Errorf("Notifying the init process failed: %v", err)
 	}
 
-	err = n.register(args.Id)
+	err = n._Register(args.Id)
 	if err != nil {
 		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}
@@ -126,7 +126,7 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 	return nil
 }
 
-func CloseNymph(n *Nymph) {
+func (n *Nymph) _Close() {
 	for _, cont := range n.containers {
 		cont.Close()
 	}

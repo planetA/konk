@@ -18,24 +18,24 @@ type konkMigrationServer struct {
 	imageDir    string
 	criu        *CriuService
 	container   *container.Container
-	containerId container.Id
 	curFile     *os.File
 	curFilePath string
 	Ready       chan bool
 }
 
-func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) error {
-	srv.containerId = container.Id(imageInfo.ContainerId)
-	srv.imageDir = imageInfo.ImagePath
-
-	log.Printf("Local directory: %v", srv.imageDir)
+func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
+	containerId := container.Id(imageInfo.ContainerId)
 
 	if err := os.MkdirAll(srv.imageDir, os.ModeDir|os.ModePerm); err != nil {
 		return fmt.Errorf("Could not create image directory (%s): %v", srv.imageDir, err)
 	}
 
-	var err error
-	srv.criu, err = criuFromContainer(srv.containerId, srv.imageDir)
+	srv.container, err = container.NewContainer(containerId)
+	if err != nil {
+		return fmt.Errorf("Failed to create container at the destination: %v", err)
+	}
+
+	srv.criu, err = criuFromContainer(srv.container)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
 	}
@@ -88,12 +88,6 @@ func (srv *konkMigrationServer) closeFile(fileEnd *konk.FileData_FileEnd) error 
 func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-
-	var err error
-	srv.container, err = container.NewContainer(srv.containerId)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create a container: %v", err)
-	}
 
 	log.Printf("Received launch request\n")
 

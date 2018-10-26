@@ -46,24 +46,24 @@ func isValid(e EventType) bool {
 	return e != Error
 }
 
-func getSocketPath(pid int) string {
-	return fmt.Sprintf("/var/run/criu.service.%v", pid)
+func getSocketPath(id container.Id) string {
+	return fmt.Sprintf("/var/run/criu.service.%v", id)
 }
 
-func getPidfilePath(pid int) string {
-	return fmt.Sprintf("/var/run/criu.pidfile.%v", pid)
+func getPidfilePath(id container.Id) string {
+	return fmt.Sprintf("/var/run/criu.pidfile.%v", id)
 }
 
-func getImagePath(pid int) string {
-	return fmt.Sprintf("%s/pid.%v", util.CriuImageDir, pid)
+func getImagePath(id container.Id) string {
+	return fmt.Sprintf("%s/konk.%v", util.CriuImageDir, id)
 }
 
-func Migrate(pid int, recipient string) error {
+func Migrate(cont *container.Container, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	ctx, cancel := util.NewContext()
-	migration, err := newMigrationClient(ctx, recipient, pid)
+	migration, err := newMigrationClient(ctx, recipient, cont)
 	if err != nil {
 		return err
 	}

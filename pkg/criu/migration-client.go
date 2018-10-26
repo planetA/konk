@@ -28,7 +28,6 @@ func (migration *MigrationClient) SendImageInfo(containerId container.Id) error 
 
 	err := migration.Send(&konk.FileData{
 		ImageInfo: &konk.FileData_ImageInfo{
-			ImagePath:   migration.LocalDir,
 			ContainerId: int32(containerId),
 		},
 	})
@@ -247,7 +246,7 @@ func (migration *MigrationClient) Close() {
 	migration.Container.Delete()
 }
 
-func newMigrationClient(ctx context.Context, recipient string, pid int) (*MigrationClient, error) {
+func newMigrationClient(ctx context.Context, recipient string, cont *container.Container) (*MigrationClient, error) {
 	log.Println("Connecting to", recipient)
 
 	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
@@ -264,15 +263,9 @@ func newMigrationClient(ctx context.Context, recipient string, pid int) (*Migrat
 	}
 
 	// Create Criu object that is configure to start the real service
-	criu, err := criuFromPid(pid)
+	criu, err := criuFromContainer(cont)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
-	}
-
-	// Get handlers to container host and guest namespaces
-	cont, err := container.ContainerAttachPid(pid)
-	if err != nil {
-		return nil, fmt.Errorf("Could not attach to a container: %v", err)
 	}
 
 	return &MigrationClient{

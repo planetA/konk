@@ -166,22 +166,11 @@ func (criu *CriuService) cleanup() {
 	criu = nil
 }
 
-func criuFromPid(target int) (*CriuService, error) {
+func criuFromContainer(cont *container.Container) (*CriuService, error) {
 	criu := &CriuService{
-		targetPid:    target,
-		pidfilePath:  getPidfilePath(target),
-		socketPath:   getSocketPath(target),
-		imageDirPath: getImagePath(target),
-	}
-
-	return criu, nil
-}
-
-func criuFromContainer(containerId container.Id, imageDir string) (*CriuService, error) {
-	criu := &CriuService{
-		pidfilePath:  getPidfilePath(int(containerId)),
-		socketPath:   getSocketPath(int(containerId)),
-		imageDirPath: imageDir,
+		pidfilePath:  getPidfilePath(cont.Id),
+		socketPath:   getSocketPath(cont.Id),
+		imageDirPath: getImagePath(cont.Id),
 	}
 
 	return criu, nil

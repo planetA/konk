@@ -55,10 +55,8 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
 
 	address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
-	// pid := n.locationDB[args.ContainerId]
-	panic("XXX unimplemented")
-	pid := 4
-	if err := criu.Migrate(pid, address); err != nil {
+	container := n.containers[args.ContainerId]
+	if err := criu.Migrate(container, address); err != nil {
 		*reply = false
 		return err
 	}

@@ -15,13 +15,10 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
 	"github.com/planetA/konk/config"
-	"github.com/planetA/konk/pkg/initial"
 	"github.com/planetA/konk/pkg/util"
 )
 
@@ -67,27 +64,10 @@ func printAllLinks() {
 // Create a container with an init process inside
 func NewContainerInit(id Id) (*Container, error) {
 	var err error
-	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create socket pair: %v", err)
-	}
-
-	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
-	innerSocket := os.NewFile(uintptr(fds[1]), "inner")
-	defer innerSocket.Close()
-
-	// In future, potentially, run will return the container path. For now we just construct it
-	cmd, err := initial.Run(innerSocket)
+	initProc, err := NewInitProc(id)
 	if err != nil {
 		return nil, err
 	}
-
-	containerPath := fmt.Sprintf("%v/%v%v",
-		config.GetString(config.ContainerRootDir),
-		config.GetString(config.ContainerBaseName),
-		id)
-
-	initProc := newInitProc(containerPath, cmd, outerSocket)
 
 	if err := initProc.sendParameters(id); err != nil {
 		return nil, fmt.Errorf("Sending parameters failed: %v", err)
@@ -96,6 +76,11 @@ func NewContainerInit(id Id) (*Container, error) {
 	if err := initProc.waitInit(); err != nil {
 		return nil, fmt.Errorf("Init process was not ready: %v", err)
 	}
+
+	containerPath := fmt.Sprintf("%v/%v%v",
+		config.GetString(config.ContainerRootDir),
+		config.GetString(config.ContainerBaseName),
+		id)
 
 	return &Container{
 		Id:   id,
@@ -166,6 +151,9 @@ func (c *Container) Notify() error {
 
 func (c *Container) Close() {
 	c.Init.Close()
+
+	// Delete container directory
+	os.RemoveAll(c.Path)
 }
 
 func (container *Container) Delete() error {

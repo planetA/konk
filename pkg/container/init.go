@@ -8,22 +8,38 @@ import (
 	"os"
 	"os/exec"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/planetA/konk/config"
+	"github.com/planetA/konk/pkg/initial"
 )
 
 // Type representing a container init process controlled by nymph
 type InitProc struct {
-	ContainerPath string
 	Cmd           *exec.Cmd
 	Socket        *os.File
 }
 
-func newInitProc(path string, cmd *exec.Cmd, socket *os.File) *InitProc {
-	return &InitProc{
-		ContainerPath: path,
-		Cmd:           cmd,
-		Socket:        socket,
+func NewInitProc(id Id) (*InitProc, error) {
+	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create socket pair: %v", err)
 	}
+
+	outerSocket := os.NewFile(uintptr(fds[0]), "outer")
+	innerSocket := os.NewFile(uintptr(fds[1]), "inner")
+	defer innerSocket.Close()
+
+	// In future, potentially, run will return the container path. For now we just construct it
+	cmd, err := initial.Run(innerSocket)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to start init process: %v", err)
+	}
+
+	return &InitProc{
+		Cmd:           cmd,
+		Socket:        outerSocket,
+	}, nil
 }
 
 type InitArgs struct {
@@ -71,7 +87,4 @@ func (i *InitProc) Close() {
 
 	// Kill container init process
 	i.Cmd.Process.Kill()
-
-	// Delete container directory
-	os.RemoveAll(i.ContainerPath)
 }

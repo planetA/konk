@@ -10,39 +10,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func createVethPair(id Id) (netlink.Link, netlink.Link, error) {
-	vethNameId := getDevName(util.VethName, id)
-	vpeerNameId := getDevName(util.VpeerName, id)
-
-	// Set appropriate MAC address for the container interface
-	hwAddr := CreateNewHardwareAddr(id)
-
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:         vethNameId,
-			HardwareAddr: hwAddr,
-		},
-		PeerName: vpeerNameId,
-	}
-
-	err := netlink.LinkAdd(veth)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to create veth pair: %v", err)
-	}
-
-	vethLink, err := netlink.LinkByName(vethNameId)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Can' get a veth link %s: %v", vethNameId, err)
-	}
-
-	vpeer, err := netlink.LinkByName(vpeerNameId)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Can't get a peer link %s: %v", vpeerNameId, err)
-	}
-
-	return vethLink, vpeer, nil
-}
-
 func getNetNsPath(id Id) string {
 	panic("Should not be used anymore")
 	return fmt.Sprintf("/var/run/netns/%s", getNameId(Net, id))

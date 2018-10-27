@@ -93,7 +93,9 @@ func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := cont.ConfigureNetwork(); err != nil {
+	var err error
+	cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
+	if err != nil {
 		return nil, err
 	}
 
@@ -127,8 +129,7 @@ func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.
 		Setctty: setctty,
 	}
 
-	err := cmd.Start()
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("CRIU did not finish properly: %v", err)
 	}

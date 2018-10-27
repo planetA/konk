@@ -101,7 +101,8 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 	// Remember the container object
 	n.containers[args.Id] = cont
 
-	if err := cont.ConfigureNetwork(); err != nil {
+	cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
+	if err != nil {
 		return fmt.Errorf("Configuring network failed: %v", err)
 	}
 

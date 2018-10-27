@@ -16,7 +16,6 @@ import (
 	"syscall"
 
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/util"
@@ -27,6 +26,7 @@ type Container struct {
 	Namespaces []Namespace
 	Path       string
 	Init       *InitProc
+	Network    *Network
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -89,68 +89,14 @@ func NewContainerInit(id Id) (*Container, error) {
 	}, nil
 }
 
-func (c *Container) ConfigureNetwork() error {
-
-	// First get the bridge
-	bridge := getBridge(util.BridgeName)
-
-	// Only then create anything
-	namespace, err := attachNamespaceInit(c.Path, Net)
-	if err != nil {
-		return err
-	}
-	defer namespace.Close()
-
-	veth, vpeer, err := createVethPair(c.Id)
-	if err != nil {
-		return err
-	}
-
-	// Put end of the pair into corresponding namespaces
-	if err := netlink.LinkSetNsFd(veth, int(namespace.Host)); err != nil {
-		return fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
-	}
-
-	if err := netlink.LinkSetNsFd(vpeer, int(namespace.Guest)); err != nil {
-		return fmt.Errorf("Could not set a namespace for %s: %v", veth.Attrs().Name, err)
-	}
-
-	// Get handle to new namespace
-	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(namespace.Guest))
-	if err != nil {
-		return fmt.Errorf("Could not get a handle for namespace %v: %v", c.Id, err)
-	}
-	defer nsHandle.Delete()
-
-	// Set slave-master relationships between bridge the physical interface
-	netlink.LinkSetMaster(veth, bridge)
-
-	// Put links up
-	if err := nsHandle.LinkSetUp(vpeer); err != nil {
-		return fmt.Errorf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
-	}
-	if err := netlink.LinkSetUp(veth); err != nil {
-		return fmt.Errorf("Could not set interface %s up: %v", veth.Attrs().Name, err)
-	}
-	nsHandle.AddrAdd(vpeer, createContainerAddr(c.Id))
-
-	lo, err := nsHandle.LinkByName("lo")
-	if err != nil {
-		return fmt.Errorf("Cannot acquire loopback: %v", err)
-	}
-	if err := nsHandle.LinkSetUp(lo); err != nil {
-		return fmt.Errorf("Could not set interface %s up: %v", lo.Attrs().Name, err)
-	}
-
-	return nil
-}
-
 func (c *Container) Notify() error {
 	return c.Init.notify()
 }
 
 func (c *Container) Close() {
 	c.Init.Close()
+
+	c.Network.Close()
 
 	// Delete container directory
 	os.RemoveAll(c.Path)

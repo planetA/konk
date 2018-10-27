@@ -100,6 +100,8 @@ func (i *InitProc) Close() {
 	// Close the socket
 	i.Socket.Close()
 
+	i.Proc.Signal(os.Interrupt)
+
 	// Kill container init process
 	i.Cmd.Process.Kill()
 }

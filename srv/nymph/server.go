@@ -17,11 +17,13 @@ import (
 
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
+	reaper     *Reaper
 	containers map[container.Id]*container.Container
 }
 
 func NewNymph() *Nymph {
 	return &Nymph{
+		reaper:     NewReaper(),
 		containers: make(map[container.Id]*container.Container),
 	}
 }
@@ -130,4 +132,6 @@ func (n *Nymph) _Close() {
 	for _, cont := range n.containers {
 		cont.Close()
 	}
+
+	n.reaper.Close()
 }

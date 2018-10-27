@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"golang.org/x/sys/unix"
 
@@ -16,8 +17,9 @@ import (
 
 // Type representing a container init process controlled by nymph
 type InitProc struct {
-	Cmd           *exec.Cmd
-	Socket        *os.File
+	Proc   *os.Process
+	Cmd    *exec.Cmd
+	Socket *os.File
 }
 
 func NewInitProc(id Id) (*InitProc, error) {
@@ -37,8 +39,8 @@ func NewInitProc(id Id) (*InitProc, error) {
 	}
 
 	return &InitProc{
-		Cmd:           cmd,
-		Socket:        outerSocket,
+		Cmd:    cmd,
+		Socket: outerSocket,
 	}, nil
 }
 
@@ -60,9 +62,22 @@ func (i *InitProc) sendParameters(id Id) error {
 // Wait until init process reports it is ready to adopt a child
 func (i *InitProc) waitInit() error {
 	log.Println("Waiting init")
-	result := make([]byte, 1)
-	if n, err := i.Socket.Read(result); (n != 1) || (err != nil) {
+	const buf_size int = 20
+	buf := make([]byte, buf_size)
+
+	n, err := i.Socket.Read(buf)
+	if err != nil {
 		return fmt.Errorf("Wait init (read %v): %v", n, err)
+	}
+
+	pid, err := strconv.Atoi(string(buf[:n]))
+	if err != nil {
+		return fmt.Errorf("Failed to receive init PID: %v", err)
+	}
+
+	i.Proc, err = os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("Failed to find init by PID: %v", err)
 	}
 
 	return nil

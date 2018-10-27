@@ -4,6 +4,7 @@
 package nymph
 
 import (
+	"log"
 	"net/rpc"
 
 	"github.com/planetA/konk/config"
@@ -20,8 +21,14 @@ func Run() error {
 	}
 	defer listener.Close()
 
+	ctx, cancel := util.NewContext()
+	defer cancel()
+
 	nymph := NewNymph()
-	defer nymph._Close()
+	util.CrashHandler(ctx, func() {
+		log.Println("Nymph is exiting")
+		nymph._Close()
+	})
 
 	rpc.Register(nymph)
 

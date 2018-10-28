@@ -280,7 +280,7 @@ func (criu *CriuService) sendDumpRequest(init *os.Process) error {
 	return nil
 }
 
-func (criu *CriuService) createRestoreRequest() []byte {
+func (criu *CriuService) sendRestoreRequest() error {
 	fd := int32(criu.imageDir.Fd())
 	tcpEstablished := true
 	shellJob := true
@@ -306,18 +306,16 @@ func (criu *CriuService) createRestoreRequest() []byte {
 	}
 	log.Println(criuReq)
 
-	out, err := proto.Marshal(criuReq)
+	req, err := proto.Marshal(criuReq)
 	if err != nil {
-		log.Panicf("Could not marshal criu options: %v", err)
+		return fmt.Errorf("Could not marshal criu options: %v", err)
 	}
 
-	return out
-}
+	if n, err := criu.conn.Write(req); err != nil {
+		return fmt.Errorf("Writing to socket failed (%v): %v", n, err)
+	}
 
-func (criu *CriuService) sendRestoreRequest() error {
-	req := criu.createRestoreRequest()
-	_, err := criu.conn.Write(req)
-	return err
+	return nil
 }
 
 func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {

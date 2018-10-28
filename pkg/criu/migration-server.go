@@ -15,7 +15,6 @@ import (
 
 type konkMigrationServer struct {
 	// Compose the directory where the image is stored
-	imageDir    string
 	criu        *CriuService
 	container   *container.Container
 	curFile     *os.File
@@ -26,10 +25,6 @@ type konkMigrationServer struct {
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
 	containerId := container.Id(imageInfo.ContainerId)
 
-	if err := os.MkdirAll(srv.imageDir, os.ModeDir|os.ModePerm); err != nil {
-		return fmt.Errorf("Could not create image directory (%s): %v", srv.imageDir, err)
-	}
-
 	srv.container, err = container.NewContainerInit(containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to create container at the destination: %v", err)
@@ -38,6 +33,10 @@ func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo
 	srv.criu, err = criuFromContainer(srv.container)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
+	}
+
+	if err := os.MkdirAll(srv.criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
+		return fmt.Errorf("Could not create image directory (%s): %v", srv.criu.imageDirPath, err)
 	}
 
 	return nil
@@ -50,7 +49,7 @@ func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error 
 			return fmt.Errorf("Could not create image directory (%s): %v", dir, err)
 		}
 	} else {
-		srv.curFilePath = fmt.Sprintf("%s/%s", srv.imageDir, fileInfo.GetFilename())
+		srv.curFilePath = fmt.Sprintf("%s/%s", srv.criu.imageDirPath, fileInfo.GetFilename())
 	}
 
 	log.Printf("Creating file: %s\n", srv.curFilePath)

@@ -179,7 +179,8 @@ func (migration *MigrationClient) sendCheckpoint() error {
 		return err
 	}
 
-	if err := migration.sendOpenFiles(migration.Criu.targetPid, "/tmp"); err != nil {
+	panic("XXX: migration.Criu.targetPid is not valid anymore")
+	if err := migration.sendOpenFiles(0, "/tmp"); err != nil {
 		return err
 	}
 
@@ -193,7 +194,7 @@ func (migration *MigrationClient) Run(ctx context.Context) error {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
-	err := migration.Criu.sendDumpRequest()
+	err := migration.Criu.sendDumpRequest(migration.Container.Init.Proc)
 	if err != nil {
 		return fmt.Errorf("Write to socket failed: %v", err)
 	}

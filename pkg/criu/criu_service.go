@@ -39,7 +39,6 @@ func createNotifyResponse(notifySuccess bool) []byte {
 
 type CriuService struct {
 	pid          int
-	targetPid    int
 	socketPath   string
 	pidfilePath  string
 	imageDirPath string
@@ -142,7 +141,7 @@ func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.
 		return nil, fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
 	}
 
-	if err = criu.connectRetry(); err != nil {
+	if err := criu.connectRetry(); err != nil {
 		return nil, fmt.Errorf("Could not establish connection to criu service: %v", err)
 	}
 
@@ -249,9 +248,9 @@ func (criu *CriuService) nextEvent() (CriuEvent, error) {
 	}, fmt.Errorf("Unexpected response: %v", resp)
 }
 
-func (criu *CriuService) createDumpRequest() []byte {
+func (criu *CriuService) sendDumpRequest(init *os.Process) error {
 	fd := int32(criu.imageDir.Fd())
-	pid := int32(criu.targetPid)
+	pid := int32(init.Pid)
 	leaveRunning := false
 	tcpEstablished := true
 	shellJob := true
@@ -275,20 +274,18 @@ func (criu *CriuService) createDumpRequest() []byte {
 		Type: &reqType,
 		Opts: criuOpts,
 	}
-	log.Println(criuReq)
+	log.Println("Creating dump request: ", criuReq)
 
-	out, err := proto.Marshal(criuReq)
+	req, err := proto.Marshal(criuReq)
 	if err != nil {
-		log.Panicf("Could not marshal criu options: %v", err)
+		return fmt.Errorf("Could not marshal criu options: %v", err)
 	}
 
-	return out
-}
+	if n, err := criu.conn.Write(req); err != nil {
+		return fmt.Errorf("Writing to socket failed (%v): %v", n, err)
+	}
 
-func (criu *CriuService) sendDumpRequest() error {
-	req := criu.createDumpRequest()
-	_, err := criu.conn.Write(req)
-	return err
+	return nil
 }
 
 func (criu *CriuService) createRestoreRequest() []byte {

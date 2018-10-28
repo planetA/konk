@@ -29,6 +29,8 @@ const (
 	PostResume
 	SetupNamespaces
 	PostSetupNamespaces
+	NetworkLock
+	NetworkUnlock
 	Success
 	Error
 )

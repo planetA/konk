@@ -340,6 +340,10 @@ func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 		return SetupNamespaces
 	case "post-setup-namespaces":
 		return PostSetupNamespaces
+	case "network-lock":
+		return NetworkLock
+	case "network-unlock":
+		return NetworkUnlock
 	}
 
 	log.Panicf("Unexpected notification type: %v", notify.GetScript())

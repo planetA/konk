@@ -92,17 +92,9 @@ func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	var err error
-	cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
-	if err != nil {
-		return nil, err
-	}
-
 	cont.Activate(container.GuestDomain)
 	defer cont.Activate(container.HostDomain)
 
-	log.Printf("Ns id %v\n", cont.Namespaces[0].Guest.UniqueId())
-	log.Printf("Ns id %v\n", cont.Namespaces[0].Host.UniqueId())
 	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4", "--log-pid")
 
 	log.Printf("Launching criu: %v\n", cmd)

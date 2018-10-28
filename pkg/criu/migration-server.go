@@ -91,6 +91,12 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 
 	log.Printf("Received launch request\n")
 
+	var err error
+	srv.container.Network, err = container.NewNetwork(srv.container.Id, srv.container.Path)
+	if err != nil {
+		return nil, err
+	}
+
 	// XXX: true is very bad style
 	cmd, err := srv.criu.launch(srv.container, true)
 	if err != nil {

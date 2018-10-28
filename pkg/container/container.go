@@ -94,50 +94,16 @@ func (c *Container) Notify() error {
 }
 
 func (c *Container) Close() {
+	for _, ns := range c.Namespaces {
+		ns.Close()
+	}
+
 	c.Init.Close()
 
 	c.Network.Close()
 
 	// Delete container directory
 	os.RemoveAll(c.Path)
-}
-
-func (container *Container) Delete() error {
-	// Container does not exist, hence nothing to delete
-	if container == nil {
-		return nil
-	}
-
-	// Delete namespace
-	nsPath := getNetNsPath(container.Id)
-
-	if err := syscall.Unmount(nsPath, syscall.MNT_DETACH); err != nil {
-		if err == syscall.ENOENT {
-			return nil
-		}
-		return fmt.Errorf("Could not unmount the container %s: %v", nsPath, err)
-	}
-
-	if err := syscall.Unlink(nsPath); err != nil {
-		return fmt.Errorf("Could not delete the container %s: %v", nsPath, err)
-	}
-
-	/* Theoretically we should not kill these two, because deleting a namespace should delete veth the ns contains. Deleting a veth should delete vpeer. But we delete everything to be on the safe side. */
-	vethId, err := netlink.LinkByName(getDevName(util.VethName, container.Id))
-	if err == nil {
-		netlink.LinkDel(vethId)
-	}
-
-	vpeerId, err := netlink.LinkByName(getDevName(util.VpeerName, container.Id))
-	if err == nil {
-		netlink.LinkDel(vpeerId)
-	}
-
-	for _, ns := range container.Namespaces {
-		ns.Close()
-	}
-
-	return nil
 }
 
 func getContainerId(pid int) (Id, error) {

@@ -10,11 +10,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func getNetNsPath(id Id) string {
-	panic("Should not be used anymore")
-	return fmt.Sprintf("/var/run/netns/%s", getNameId(Net, id))
-}
-
 func getDevName(devType string, id Id) string {
 	return fmt.Sprintf("%s%v", devType, id)
 }

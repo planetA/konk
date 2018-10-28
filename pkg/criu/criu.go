@@ -114,7 +114,6 @@ func ReceiveListener(listener net.Listener) error {
 
 	go func() {
 		<-migrationServer.Ready
-		migrationServer.container.Delete()
 		grpcServer.Stop()
 	}()
 

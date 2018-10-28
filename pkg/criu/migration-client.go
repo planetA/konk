@@ -243,7 +243,7 @@ func (migration *MigrationClient) Close() {
 
 	migration.ServerConn.Close()
 	migration.Criu.cleanup()
-	migration.Container.Delete()
+	migration.Container.Close()
 }
 
 func newMigrationClient(ctx context.Context, recipient string, cont *container.Container) (*MigrationClient, error) {

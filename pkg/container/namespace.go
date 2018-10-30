@@ -146,12 +146,12 @@ func attachNamespaceInit(containerPath string, nsType Type) (*Namespace, error) 
 
 	hostNs, err := openNamespace(nsType)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get host network namespace: %v", err)
+		return nil, fmt.Errorf("Could not get host namespace: %v", err)
 	}
 
 	guestNs, err := openNamespacePid(nsType, pid)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
+		return nil, fmt.Errorf("Could not get namespace for process %v: %v", pid, err)
 	}
 
 	log.Println("About to attach to the container")

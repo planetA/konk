@@ -3,7 +3,6 @@ package criu
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,6 +20,7 @@ type MigrationClient struct {
 	Container  *container.Container
 	ServerConn *grpc.ClientConn // Connection to the migration server
 	Criu       *CriuService
+	openFiles  []string
 }
 
 func (migration *MigrationClient) SendImageInfo(containerId container.Id) error {
@@ -131,23 +131,10 @@ func (migration *MigrationClient) SendFileDir(path string, dir string) error {
 	return nil
 }
 
-func (migration *MigrationClient) sendOpenFiles(pid int, prefix string) error {
-	linksDirPath := fmt.Sprintf("/proc/%d/map_files/", pid)
-
-	files, err := ioutil.ReadDir(linksDirPath)
-	if err != nil {
-		return fmt.Errorf("Failed to open directory %s: %v", linksDirPath, err)
-	}
-
-	prefixLen := len(prefix)
-	for _, fdName := range files {
-		fdPath := fmt.Sprintf("%s/%s", linksDirPath, fdName.Name())
-		filePath, err := os.Readlink(fdPath)
-		if filePath[:prefixLen] != prefix {
-			continue
-		}
-
-		err = migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
+func (migration *MigrationClient) sendOpenFiles() error {
+	log.Println("Open files: ", migration.openFiles)
+	for _, filePath := range migration.openFiles {
+		err := migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
 		if err != nil {
 			return fmt.Errorf("Failed to transfer the file %s: %v", filePath, err)
 		}
@@ -179,17 +166,25 @@ func (migration *MigrationClient) sendCheckpoint() error {
 		return err
 	}
 
-	panic("XXX: migration.Criu.targetPid is not valid anymore")
-	if err := migration.sendOpenFiles(0, "/tmp"); err != nil {
+	if err := migration.sendOpenFiles(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (migration *MigrationClient) rememberOpenFiles(prefix string) (err error) {
+	migration.openFiles, err = getOpenFilesPrefix(migration.Container.Init.Proc.Pid, prefix)
+	return err
+}
+
 func (migration *MigrationClient) Run(ctx context.Context) error {
 	// Launch actual CRIU process
 	// XXX: false is very bad style
+	if err := migration.rememberOpenFiles("/tmp"); err != nil {
+		return fmt.Errorf("Could not remember open files: %v", err)
+	}
+
 	if _, err := migration.Criu.launch(migration.Container, false); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}

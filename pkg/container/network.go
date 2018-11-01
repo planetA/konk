@@ -32,11 +32,11 @@ func NewNetwork(id Id, path string) (*Network, error) {
 	}
 
 	// Put end of the pair into corresponding namespaces
-	if err := netlink.LinkSetNsFd(vethPair.veth, int(namespace.Host)); err != nil {
+	if err := netlink.LinkSetNsFd(vethPair.veth, int(namespace.Guest)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", vethPair.veth.Attrs().Name, err)
 	}
 
-	if err := netlink.LinkSetNsFd(vethPair.vpeer, int(namespace.Guest)); err != nil {
+	if err := netlink.LinkSetNsFd(vethPair.vpeer, int(namespace.Host)); err != nil {
 		return nil, fmt.Errorf("Could not set a namespace for %s: %v", vethPair.vpeer.Attrs().Name, err)
 	}
 
@@ -48,16 +48,16 @@ func NewNetwork(id Id, path string) (*Network, error) {
 	defer nsHandle.Delete()
 
 	// Set slave-master relationships between bridge the physical interface
-	netlink.LinkSetMaster(vethPair.veth, bridge)
+	netlink.LinkSetMaster(vethPair.vpeer, bridge)
 
 	// Put links up
-	if err := nsHandle.LinkSetUp(vethPair.vpeer); err != nil {
-		return nil, fmt.Errorf("Could not set interface %s up: %v", vethPair.vpeer.Attrs().Name, err)
-	}
-	if err := netlink.LinkSetUp(vethPair.veth); err != nil {
+	if err := nsHandle.LinkSetUp(vethPair.veth); err != nil {
 		return nil, fmt.Errorf("Could not set interface %s up: %v", vethPair.veth.Attrs().Name, err)
 	}
-	nsHandle.AddrAdd(vethPair.vpeer, createContainerAddr(id))
+	if err := netlink.LinkSetUp(vethPair.vpeer); err != nil {
+		return nil, fmt.Errorf("Could not set interface %s up: %v", vethPair.vpeer.Attrs().Name, err)
+	}
+	nsHandle.AddrAdd(vethPair.veth, createContainerAddr(id))
 
 	lo, err := nsHandle.LinkByName("lo")
 	if err != nil {

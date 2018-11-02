@@ -10,7 +10,6 @@ import (
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
-	"github.com/planetA/konk/pkg/util"
 )
 
 type konkMigrationServer struct {
@@ -139,15 +138,10 @@ func isLaunchInfo(chunk *konk.FileData) bool {
 func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) error {
 	var cmd *exec.Cmd
 
-	ctx, cancel := util.NewContext()
-	go func() {
-		select {
-		case <-ctx.Done():
-			srv.criu.cleanup()
-			srv.Ready <- true
-		}
+	defer func() {
+		srv.criu.cleanup()
+		srv.Ready <- true
 	}()
-	defer cancel()
 
 loop:
 	for {

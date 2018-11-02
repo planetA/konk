@@ -2,7 +2,6 @@ package criu
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"runtime"
 
@@ -64,7 +63,7 @@ func Migrate(cont *container.Container, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	ctx, cancel := util.NewContext()
+	ctx, _ := util.NewContext()
 	migration, err := newMigrationClient(ctx, recipient, cont)
 	if err != nil {
 		return err
@@ -75,9 +74,7 @@ func Migrate(cont *container.Container, recipient string) error {
 			migration.Close()
 		}
 	}()
-	defer cancel()
 	defer func () {
-		log.Printf("XXX: I should close the stream only once, but somehow cancel() does not cancel the context")
 		migration.Close()
 	}()
 
@@ -85,8 +82,6 @@ func Migrate(cont *container.Container, recipient string) error {
 	if err != nil {
 		return fmt.Errorf("Migration failed: %v", err)
 	}
-
-	cancel()
 
 	return nil
 }

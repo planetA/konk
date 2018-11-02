@@ -181,10 +181,6 @@ func (migration *MigrationClient) rememberOpenFiles(prefix string) (err error) {
 func (migration *MigrationClient) Run(ctx context.Context) error {
 	// Launch actual CRIU process
 	// XXX: false is very bad style
-	if err := migration.rememberOpenFiles("/tmp"); err != nil {
-		return fmt.Errorf("Could not remember open files: %v", err)
-	}
-
 	if _, err := migration.Criu.launch(false); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
@@ -199,6 +195,10 @@ func (migration *MigrationClient) Run(ctx context.Context) error {
 		switch event.Type {
 		case PreDump:
 			log.Printf("@pre-dump")
+			if err := migration.rememberOpenFiles("/tmp"); err != nil {
+				return fmt.Errorf("Could not remember open files: %v", err)
+			}
+
 		case PostDump:
 			log.Printf("@pre-move")
 

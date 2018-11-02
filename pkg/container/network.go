@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 	"log"
+	"runtime"
 
 	"github.com/planetA/konk/pkg/util"
 
@@ -15,6 +16,8 @@ type Network struct {
 }
 
 func NewNetwork(id Id, path string) (*Network, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	// First get the bridge
 	bridge := getBridge(util.BridgeName)

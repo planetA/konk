@@ -45,9 +45,10 @@ func NewInitProc(id Id) (*InitProc, error) {
 }
 
 type InitArgs struct {
-	Root string
-	Name string
-	Id   Id
+	Root   string
+	Name   string
+	Id     Id
+	Mounts []MountPoint
 }
 
 func (i *InitProc) sendParameters(id Id) error {
@@ -56,6 +57,10 @@ func (i *InitProc) sendParameters(id Id) error {
 		Root: config.GetString(config.ContainerRootDir),
 		Name: config.GetString(config.ContainerBaseName),
 		Id:   id,
+		Mounts: []MountPoint{
+			// {"proc", "/proc", "proc"},
+			{"tmp", "/tmp", "tmpfs"},
+		},
 	})
 }
 

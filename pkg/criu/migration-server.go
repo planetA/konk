@@ -96,7 +96,6 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 
 	for {
 		event, err := srv.criu.nextEvent()
-		log.Println("3", event, err)
 		switch event.Type {
 		case PreRestore:
 			log.Println("@pre-restore")

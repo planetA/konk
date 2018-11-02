@@ -292,6 +292,13 @@ func (c *CriuService) sendDumpRequest(init *os.Process) error {
 	return nil
 }
 
+func (c *CriuService) getExternalString() string {
+	bridgeNameId := util.BridgeName
+	vethNameId := container.GetDevName(util.VethName, c.Id)
+	vpeerNameId := container.GetDevName(util.VpeerName, c.Id)
+	return fmt.Sprintf("veth[%v]:%v@%v", vethNameId, vpeerNameId, bridgeNameId)
+}
+
 func (c *CriuService) sendRestoreRequest() error {
 	fd := int32(c.imageDir.Fd())
 	tcpEstablished := true
@@ -308,7 +315,7 @@ func (c *CriuService) sendRestoreRequest() error {
 		LogLevel:       &logLevel,
 		LogFile:        &logFile,
 		NotifyScripts:  &notifyScripts,
-		External:       []string{"veth[veth0]:vpeer0@br0"},
+		External:       []string{c.getExternalString()},
 		// OrphanPtsMaster: &orphanPtsMaster,
 	}
 

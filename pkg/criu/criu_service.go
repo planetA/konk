@@ -47,52 +47,52 @@ type CriuService struct {
 	targetNs     netns.NsHandle
 }
 
-func (criu *CriuService) connect() error {
-	b, err := ioutil.ReadFile(criu.pidfilePath)
+func (c *CriuService) connect() error {
+	b, err := ioutil.ReadFile(c.pidfilePath)
 	if err != nil {
-		return fmt.Errorf("Could not read pid file (%s): %v", criu.pidfilePath, err)
+		return fmt.Errorf("Could not read pid file (%s): %v", c.pidfilePath, err)
 	}
 
 	pidStr := string(b)
-	criu.pid, err = strconv.Atoi(pidStr)
+	c.pid, err = strconv.Atoi(pidStr)
 	if err != nil {
 		return fmt.Errorf("Could not parse pid file (%s): %v", pidStr, err)
 	}
 
-	criu.imageDir, err = os.Open(criu.imageDirPath)
+	c.imageDir, err = os.Open(c.imageDirPath)
 	if err != nil {
-		return fmt.Errorf("Could not open the directory (%s): %v", criu.imageDirPath, err)
+		return fmt.Errorf("Could not open the directory (%s): %v", c.imageDirPath, err)
 	}
 
-	criu.conn, err = net.Dial("unixpacket", criu.socketPath)
+	c.conn, err = net.Dial("unixpacket", c.socketPath)
 	if err != nil {
-		return fmt.Errorf("Could not connect to the socket (%s): %v", criu.socketPath, err)
+		return fmt.Errorf("Could not connect to the socket (%s): %v", c.socketPath, err)
 	}
 
 	return nil
 }
 
-func (criu *CriuService) connectRetry() error {
+func (c *CriuService) connectRetry() error {
 	start := time.Now()
 	for {
-		err := criu.connect()
+		err := c.connect()
 		if err == nil {
 			return nil
 		}
 
 		if time.Now().Sub(start) > time.Second {
-			return fmt.Errorf("Could not connect to the socket (%s): %v", criu.socketPath, err)
+			return fmt.Errorf("Could not connect to the socket (%s): %v", c.socketPath, err)
 		}
 
 		time.Sleep(time.Millisecond * time.Duration(100))
 	}
 }
 
-func (criu *CriuService) launch(setctty bool) (*exec.Cmd, error) {
+func (c *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4", "--log-pid")
+	cmd := exec.Command(util.CriuPath, "service", "--address", c.socketPath, "--pidfile", c.pidfilePath, "-v4", "--log-pid")
 
 	log.Printf("Launching criu: %v\n", cmd)
 
@@ -126,30 +126,30 @@ func (criu *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 	// defer syscall.Kill(-pgid, 15)
 	// cmd.Wait()
 
-	if err := os.MkdirAll(criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return nil, fmt.Errorf("Could not create image directory (%s): %v", criu.imageDirPath, err)
+	if err := os.MkdirAll(c.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
+		return nil, fmt.Errorf("Could not create image directory (%s): %v", c.imageDirPath, err)
 	}
 
-	if err := criu.connectRetry(); err != nil {
+	if err := c.connectRetry(); err != nil {
 		return nil, fmt.Errorf("Could not establish connection to criu service: %v", err)
 	}
 
 	return cmd, nil
 }
 
-func (criu *CriuService) cleanup() {
-	log.Printf("Removing: %v %v %v", criu.pidfilePath, criu.socketPath, criu.imageDirPath)
-	os.Remove(criu.pidfilePath)
-	os.Remove(criu.socketPath)
-	os.RemoveAll(criu.imageDirPath)
+func (c *CriuService) cleanup() {
+	log.Printf("Removing: %v %v %v", c.pidfilePath, c.socketPath, c.imageDirPath)
+	os.Remove(c.pidfilePath)
+	os.Remove(c.socketPath)
+	os.RemoveAll(c.imageDirPath)
 
-	proc, err := os.FindProcess(criu.pid)
+	proc, err := os.FindProcess(c.pid)
 	if err == nil {
 		proc.Kill()
 	}
 
-	if criu.conn != nil {
-		criu.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
 	}
 }
 
@@ -163,10 +163,10 @@ func criuFromContainer(id container.Id) (*CriuService, error) {
 	return criu, nil
 }
 
-func (criu *CriuService) getResponse() (*rpc.CriuResp, error) {
+func (c *CriuService) getResponse() (*rpc.CriuResp, error) {
 	buf := make([]byte, 0, 4096) // big buffer
 	tmp := make([]byte, 256)     // using small tmo buffer for demonstrating
-	n, err := criu.conn.Read(tmp)
+	n, err := c.conn.Read(tmp)
 	if err != nil && err != io.EOF {
 		var input string
 		fmt.Println("Press Enter:")
@@ -186,9 +186,9 @@ func (criu *CriuService) getResponse() (*rpc.CriuResp, error) {
 	return resp, err
 }
 
-func (criu *CriuService) respond() error {
+func (c *CriuService) respond() error {
 	req := createNotifyResponse(true)
-	_, err := criu.conn.Write(req)
+	_, err := c.conn.Write(req)
 	if err != nil {
 		return fmt.Errorf("Writing notification to socket failed: %v", err)
 	}
@@ -196,8 +196,8 @@ func (criu *CriuService) respond() error {
 	return nil
 }
 
-func (criu *CriuService) nextEvent() (CriuEvent, error) {
-	resp, err := criu.getResponse()
+func (c *CriuService) nextEvent() (CriuEvent, error) {
+	resp, err := c.getResponse()
 	if err != nil {
 		return CriuEvent{
 			Type:     Error,
@@ -208,7 +208,7 @@ func (criu *CriuService) nextEvent() (CriuEvent, error) {
 	switch resp.GetType() {
 	case rpc.CriuReqType_NOTIFY:
 		return CriuEvent{
-			Type:     criu.getEventType(resp),
+			Type:     c.getEventType(resp),
 			Response: resp,
 		}, nil
 	case rpc.CriuReqType_DUMP, rpc.CriuReqType_RESTORE:
@@ -231,8 +231,8 @@ func (criu *CriuService) nextEvent() (CriuEvent, error) {
 	}, fmt.Errorf("Unexpected response: %v", resp)
 }
 
-func (criu *CriuService) sendDumpRequest(init *os.Process) error {
-	fd := int32(criu.imageDir.Fd())
+func (c *CriuService) sendDumpRequest(init *os.Process) error {
+	fd := int32(c.imageDir.Fd())
 	pid := int32(init.Pid)
 	leaveRunning := false
 	tcpEstablished := true
@@ -264,15 +264,15 @@ func (criu *CriuService) sendDumpRequest(init *os.Process) error {
 		return fmt.Errorf("Could not marshal criu options: %v", err)
 	}
 
-	if n, err := criu.conn.Write(req); err != nil {
+	if n, err := c.conn.Write(req); err != nil {
 		return fmt.Errorf("Writing to socket failed (%v): %v", n, err)
 	}
 
 	return nil
 }
 
-func (criu *CriuService) sendRestoreRequest() error {
-	fd := int32(criu.imageDir.Fd())
+func (c *CriuService) sendRestoreRequest() error {
+	fd := int32(c.imageDir.Fd())
 	tcpEstablished := true
 	shellJob := true
 	logLevel := int32(10)
@@ -303,14 +303,14 @@ func (criu *CriuService) sendRestoreRequest() error {
 		return fmt.Errorf("Could not marshal criu options: %v", err)
 	}
 
-	if n, err := criu.conn.Write(req); err != nil {
+	if n, err := c.conn.Write(req); err != nil {
 		return fmt.Errorf("Writing to socket failed (%v): %v", n, err)
 	}
 
 	return nil
 }
 
-func (criu *CriuService) getEventType(resp *rpc.CriuResp) EventType {
+func (c *CriuService) getEventType(resp *rpc.CriuResp) EventType {
 	notify := resp.GetNotify()
 
 	switch notify.GetScript() {

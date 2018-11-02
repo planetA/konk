@@ -1,10 +1,13 @@
 package nymph
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Process reaper for init processes launched by the nymph
@@ -55,10 +58,16 @@ func reaperLoop(done chan bool, notifications chan os.Signal) {
 	}
 }
 
-func NewReaper() *Reaper {
+func NewReaper() (*Reaper, error) {
 	done := make(chan bool)
 	var notifications = make(chan os.Signal)
 	signal.Notify(notifications, syscall.SIGCHLD)
+
+	// Become subreaper
+	err := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
+	if err != nil {
+		return nil, fmt.Errorf("Prctl: %v", err)
+	}
 
 	go reaperStopper(done, notifications)
 
@@ -66,7 +75,7 @@ func NewReaper() *Reaper {
 
 	return &Reaper{
 		done: done,
-	}
+	}, nil
 }
 
 func (r *Reaper) Close() {

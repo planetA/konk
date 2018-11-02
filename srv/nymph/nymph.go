@@ -4,6 +4,7 @@
 package nymph
 
 import (
+	"fmt"
 	"log"
 	"net/rpc"
 
@@ -24,7 +25,11 @@ func Run() error {
 	ctx, cancel := util.NewContext()
 	defer cancel()
 
-	nymph := NewNymph()
+	nymph, err := NewNymph()
+	if err != nil {
+		return fmt.Errorf("NewNymph")
+	}
+
 	util.CrashHandler(ctx, func() {
 		log.Println("Nymph is exiting")
 		nymph._Close()

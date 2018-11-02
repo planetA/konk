@@ -21,11 +21,16 @@ type Nymph struct {
 	containers map[container.Id]*container.Container
 }
 
-func NewNymph() *Nymph {
-	return &Nymph{
-		reaper:     NewReaper(),
-		containers: make(map[container.Id]*container.Container),
+func NewNymph() (*Nymph, error) {
+	reaper, err := NewReaper()
+	if err != nil {
+		return nil, fmt.Errorf("NewReper: %v", err)
 	}
+
+	return &Nymph{
+		reaper:     reaper,
+		containers: make(map[container.Id]*container.Container),
+	}, nil
 }
 
 // Container receiving server has only one method

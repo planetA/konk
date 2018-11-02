@@ -138,11 +138,7 @@ func (criu *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 }
 
 func (criu *CriuService) cleanup() {
-	if criu == nil {
-		return
-	}
-
-	log.Print("Removing: ", criu.pidfilePath, criu.socketPath, criu.imageDirPath)
+	log.Printf("Removing: %v %v %v", criu.pidfilePath, criu.socketPath, criu.imageDirPath)
 	os.Remove(criu.pidfilePath)
 	os.Remove(criu.socketPath)
 	os.RemoveAll(criu.imageDirPath)
@@ -155,8 +151,6 @@ func (criu *CriuService) cleanup() {
 	if criu.conn != nil {
 		criu.conn.Close()
 	}
-
-	criu = nil
 }
 
 func criuFromContainer(id container.Id) (*CriuService, error) {

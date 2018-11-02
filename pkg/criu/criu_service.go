@@ -38,19 +38,45 @@ func createNotifyResponse(notifySuccess bool) []byte {
 }
 
 type CriuService struct {
-	pid          int
-	socketPath   string
-	pidfilePath  string
-	imageDirPath string
-	imageDir     *os.File
-	conn         net.Conn
-	targetNs     netns.NsHandle
+	pid      int
+	imageDir *os.File
+	conn     net.Conn
+	targetNs netns.NsHandle
+
+	Id       container.Id
+
+	SocketPath   string
+	PidFilePath  string
+	ImageDirPath string
+}
+
+func getSocketPath(id container.Id) string {
+	return fmt.Sprintf("/var/run/criu.service.%v", id)
+}
+
+func getPidFilePath(id container.Id) string {
+	return fmt.Sprintf("/var/run/criu.pidfile.%v", id)
+}
+
+func getImageDirPath(id container.Id) string {
+	return fmt.Sprintf("%s/konk.%v", util.CriuImageDir, id)
+}
+
+func NewCriuService(id container.Id) (*CriuService, error) {
+	criu := &CriuService{
+		Id:           id,
+		SocketPath:   getSocketPath(id),
+		PidFilePath:  getPidFilePath(id),
+		ImageDirPath: getImageDirPath(id),
+	}
+
+	return criu, nil
 }
 
 func (c *CriuService) connect() error {
-	b, err := ioutil.ReadFile(c.pidfilePath)
+	b, err := ioutil.ReadFile(c.PidFilePath)
 	if err != nil {
-		return fmt.Errorf("Could not read pid file (%s): %v", c.pidfilePath, err)
+		return fmt.Errorf("Could not read pid file (%s): %v", c.PidFilePath, err)
 	}
 
 	pidStr := string(b)
@@ -59,14 +85,14 @@ func (c *CriuService) connect() error {
 		return fmt.Errorf("Could not parse pid file (%s): %v", pidStr, err)
 	}
 
-	c.imageDir, err = os.Open(c.imageDirPath)
+	c.imageDir, err = os.Open(c.ImageDirPath)
 	if err != nil {
-		return fmt.Errorf("Could not open the directory (%s): %v", c.imageDirPath, err)
+		return fmt.Errorf("Could not open the directory (%s): %v", c.ImageDirPath, err)
 	}
 
-	c.conn, err = net.Dial("unixpacket", c.socketPath)
+	c.conn, err = net.Dial("unixpacket", c.SocketPath)
 	if err != nil {
-		return fmt.Errorf("Could not connect to the socket (%s): %v", c.socketPath, err)
+		return fmt.Errorf("Could not connect to the socket (%s): %v", c.SocketPath, err)
 	}
 
 	return nil
@@ -81,7 +107,7 @@ func (c *CriuService) connectRetry() error {
 		}
 
 		if time.Now().Sub(start) > time.Second {
-			return fmt.Errorf("Could not connect to the socket (%s): %v", c.socketPath, err)
+			return fmt.Errorf("Could not connect to the socket (%s): %v", c.SocketPath, err)
 		}
 
 		time.Sleep(time.Millisecond * time.Duration(100))
@@ -92,7 +118,7 @@ func (c *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	cmd := exec.Command(util.CriuPath, "service", "--address", c.socketPath, "--pidfile", c.pidfilePath, "-v4", "--log-pid")
+	cmd := exec.Command(util.CriuPath, "service", "--address", c.SocketPath, "--pidfile", c.PidFilePath, "-v4", "--log-pid")
 
 	log.Printf("Launching criu: %v\n", cmd)
 
@@ -126,8 +152,8 @@ func (c *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 	// defer syscall.Kill(-pgid, 15)
 	// cmd.Wait()
 
-	if err := os.MkdirAll(c.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return nil, fmt.Errorf("Could not create image directory (%s): %v", c.imageDirPath, err)
+	if err := os.MkdirAll(c.ImageDirPath, os.ModeDir|os.ModePerm); err != nil {
+		return nil, fmt.Errorf("Could not create image directory (%s): %v", c.ImageDirPath, err)
 	}
 
 	if err := c.connectRetry(); err != nil {
@@ -137,11 +163,16 @@ func (c *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (c *CriuService) cleanup() {
-	log.Printf("Removing: %v %v %v", c.pidfilePath, c.socketPath, c.imageDirPath)
-	os.Remove(c.pidfilePath)
-	os.Remove(c.socketPath)
-	os.RemoveAll(c.imageDirPath)
+func (c *CriuService) Close() {
+	log.Printf("Removing: %v %v %v", c.PidFilePath, c.SocketPath, c.ImageDirPath)
+
+	if c.imageDir != nil {
+		c.imageDir.Close()
+	}
+
+	os.Remove(c.PidFilePath)
+	os.Remove(c.SocketPath)
+	os.RemoveAll(c.ImageDirPath)
 
 	proc, err := os.FindProcess(c.pid)
 	if err == nil {
@@ -151,16 +182,6 @@ func (c *CriuService) cleanup() {
 	if c.conn != nil {
 		c.conn.Close()
 	}
-}
-
-func criuFromContainer(id container.Id) (*CriuService, error) {
-	criu := &CriuService{
-		pidfilePath:  getPidfilePath(id),
-		socketPath:   getSocketPath(id),
-		imageDirPath: getImagePath(id),
-	}
-
-	return criu, nil
 }
 
 func (c *CriuService) getResponse() (*rpc.CriuResp, error) {

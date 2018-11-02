@@ -16,7 +16,6 @@ import (
 
 type MigrationClient struct {
 	konk.Migration_MigrateClient
-	LocalDir   string
 	Container  *container.Container
 	ServerConn *grpc.ClientConn // Connection to the migration server
 	Criu       *CriuService
@@ -71,7 +70,7 @@ func (migration *MigrationClient) SendFileDir(path string, dir string) error {
 	localDir := dir
 	if len(localDir) == 0 {
 		// If the path is relative the file is looked up in the image directory
-		localDir = migration.LocalDir
+		localDir = migration.Criu.ImageDirPath
 	}
 	localPath := fmt.Sprintf("%s/%s", localDir, path)
 
@@ -238,7 +237,7 @@ func (migration *MigrationClient) Close() {
 	}
 
 	migration.ServerConn.Close()
-	migration.Criu.cleanup()
+	migration.Criu.Close()
 	migration.Container.Close()
 }
 
@@ -259,14 +258,13 @@ func newMigrationClient(ctx context.Context, recipient string, cont *container.C
 	}
 
 	// Create Criu object that is configure to start the real service
-	criu, err := criuFromContainer(cont.Id)
+	criu, err := NewCriuService(cont.Id)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}
 
 	return &MigrationClient{
 		Migration_MigrateClient: stream,
-		LocalDir:                criu.imageDirPath,
 		ServerConn:              conn,
 		Container:               cont,
 		Criu:                    criu,

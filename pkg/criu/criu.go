@@ -47,18 +47,6 @@ func isValid(e EventType) bool {
 	return e != Error
 }
 
-func getSocketPath(id container.Id) string {
-	return fmt.Sprintf("/var/run/criu.service.%v", id)
-}
-
-func getPidfilePath(id container.Id) string {
-	return fmt.Sprintf("/var/run/criu.pidfile.%v", id)
-}
-
-func getImagePath(id container.Id) string {
-	return fmt.Sprintf("%s/konk.%v", util.CriuImageDir, id)
-}
-
 func Migrate(cont *container.Container, recipient string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

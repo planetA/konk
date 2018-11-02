@@ -23,13 +23,13 @@ type konkMigrationServer struct {
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
 	containerId := container.Id(imageInfo.ContainerId)
 
-	srv.criu, err = criuFromContainer(containerId)
+	srv.criu, err = NewCriuService(containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
 	}
 
-	if err := os.MkdirAll(srv.criu.imageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return fmt.Errorf("Could not create image directory (%s): %v", srv.criu.imageDirPath, err)
+	if err := os.MkdirAll(srv.criu.ImageDirPath, os.ModeDir|os.ModePerm); err != nil {
+		return fmt.Errorf("Could not create image directory (%s): %v", srv.criu.ImageDirPath, err)
 	}
 
 	return nil
@@ -42,7 +42,7 @@ func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error 
 			return fmt.Errorf("Could not create image directory (%s): %v", dir, err)
 		}
 	} else {
-		srv.curFilePath = fmt.Sprintf("%s/%s", srv.criu.imageDirPath, fileInfo.GetFilename())
+		srv.curFilePath = fmt.Sprintf("%s/%s", srv.criu.ImageDirPath, fileInfo.GetFilename())
 	}
 
 	log.Printf("Creating file: %s\n", srv.curFilePath)
@@ -138,7 +138,7 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 	var cmd *exec.Cmd
 
 	defer func() {
-		srv.criu.cleanup()
+		srv.criu.Close()
 		srv.Ready <- true
 	}()
 

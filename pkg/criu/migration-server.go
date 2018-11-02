@@ -183,8 +183,6 @@ loop:
 		}
 
 		if err != nil {
-			log.Printf("Failure at processing the next frame: %v", err)
-			os.Exit(1)
 			return fmt.Errorf("Failure at processing the next frame: %v", err)
 		}
 	}

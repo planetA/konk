@@ -88,12 +88,9 @@ func (criu *CriuService) connectRetry() error {
 	}
 }
 
-func (criu *CriuService) launch(cont *container.Container, setctty bool) (*exec.Cmd, error) {
+func (criu *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-
-	cont.Activate(container.GuestDomain)
-	defer cont.Activate(container.HostDomain)
 
 	cmd := exec.Command(util.CriuPath, "service", "--address", criu.socketPath, "--pidfile", criu.pidfilePath, "-v4", "--log-pid")
 
@@ -162,11 +159,11 @@ func (criu *CriuService) cleanup() {
 	criu = nil
 }
 
-func criuFromContainer(cont *container.Container) (*CriuService, error) {
+func criuFromContainer(id container.Id) (*CriuService, error) {
 	criu := &CriuService{
-		pidfilePath:  getPidfilePath(cont.Id),
-		socketPath:   getSocketPath(cont.Id),
-		imageDirPath: getImagePath(cont.Id),
+		pidfilePath:  getPidfilePath(id),
+		socketPath:   getSocketPath(id),
+		imageDirPath: getImagePath(id),
 	}
 
 	return criu, nil
@@ -296,6 +293,7 @@ func (criu *CriuService) sendRestoreRequest() error {
 		LogLevel:       &logLevel,
 		LogFile:        &logFile,
 		NotifyScripts:  &notifyScripts,
+		External:       []string{"veth[veth0]:vpeer0@br0"},
 		// OrphanPtsMaster: &orphanPtsMaster,
 	}
 

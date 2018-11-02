@@ -185,7 +185,7 @@ func (migration *MigrationClient) Run(ctx context.Context) error {
 		return fmt.Errorf("Could not remember open files: %v", err)
 	}
 
-	if _, err := migration.Criu.launch(migration.Container, false); err != nil {
+	if _, err := migration.Criu.launch(false); err != nil {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
@@ -259,7 +259,7 @@ func newMigrationClient(ctx context.Context, recipient string, cont *container.C
 	}
 
 	// Create Criu object that is configure to start the real service
-	criu, err := criuFromContainer(cont)
+	criu, err := criuFromContainer(cont.Id)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
 	}

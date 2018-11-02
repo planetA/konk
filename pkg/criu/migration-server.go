@@ -16,7 +16,6 @@ import (
 type konkMigrationServer struct {
 	// Compose the directory where the image is stored
 	criu        *CriuService
-	container   *container.Container
 	curFile     *os.File
 	curFilePath string
 	Ready       chan bool
@@ -25,12 +24,7 @@ type konkMigrationServer struct {
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
 	containerId := container.Id(imageInfo.ContainerId)
 
-	srv.container, err = container.NewContainerInit(containerId)
-	if err != nil {
-		return fmt.Errorf("Failed to create container at the destination: %v", err)
-	}
-
-	srv.criu, err = criuFromContainer(srv.container)
+	srv.criu, err = criuFromContainer(containerId)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
 	}
@@ -90,14 +84,8 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 
 	log.Printf("Received launch request\n")
 
-	var err error
-	srv.container.Network, err = container.NewNetwork(srv.container.Id, srv.container.Path)
-	if err != nil {
-		return nil, err
-	}
-
 	// XXX: true is very bad style
-	cmd, err := srv.criu.launch(srv.container, true)
+	cmd, err := srv.criu.launch(true)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
 	}

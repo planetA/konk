@@ -10,7 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func getDevName(devType string, id Id) string {
+func GetDevName(devType string, id Id) string {
 	return fmt.Sprintf("%s%v", devType, id)
 }
 

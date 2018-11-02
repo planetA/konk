@@ -15,8 +15,8 @@ type VethPair struct {
 }
 
 func NewVethPair(id Id) (*VethPair, error) {
-	vethNameId := getDevName(util.VethName, id)
-	vpeerNameId := getDevName(util.VpeerName, id)
+	vethNameId := GetDevName(util.VethName, id)
+	vpeerNameId := GetDevName(util.VpeerName, id)
 
 	// Set appropriate MAC address for the container interface
 	hwAddr := CreateNewHardwareAddr(id)

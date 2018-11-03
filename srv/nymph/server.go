@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strconv"
 
 	"github.com/planetA/konk/pkg/container"
@@ -72,28 +71,6 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	return nil
 }
 
-// Forward the registration request from the container to the coordinator
-// and tell it the location of the container
-func (n *Nymph) _Register(id container.Id) error {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("Failed to get hostname: %v", err)
-	}
-
-	coord, err := coordinator.NewClient()
-	if err != nil {
-		return fmt.Errorf("Failed to connect to the coordinator: %v", err)
-	}
-	defer coord.Close()
-
-	err = coord.RegisterContainer(id, hostname)
-	if err != nil {
-		return fmt.Errorf("Container announcement failed: %v", err)
-	}
-
-	return nil
-}
-
 // Nymph creates a container, starts an init process inside and reports about the new container
 // to the coordinator. The function replies with a path to the init container derictory
 // Other processes need to attach to the init container using the path.
@@ -126,7 +103,7 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 		return fmt.Errorf("Notifying the init process failed: %v", err)
 	}
 
-	err = n._Register(args.Id)
+	err = coordinator.Register(args.Id)
 	if err != nil {
 		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}

@@ -9,10 +9,13 @@ import (
 	"runtime"
 
 	"github.com/planetA/konk/pkg/container"
+	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/konk"
 )
 
 type konkMigrationServer struct {
+	Id container.Id
+
 	// Compose the directory where the image is stored
 	criu        *CriuService
 	curFile     *os.File
@@ -21,9 +24,9 @@ type konkMigrationServer struct {
 }
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
-	containerId := container.Id(imageInfo.ContainerId)
+	srv.Id = container.Id(imageInfo.ContainerId)
 
-	srv.criu, err = NewCriuService(containerId)
+	srv.criu, err = NewCriuService(srv.Id)
 	if err != nil {
 		return fmt.Errorf("Failed to start criu service: %v", err)
 	}

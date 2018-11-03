@@ -40,27 +40,6 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
-func newContainerClosed(id Id) (*Container, error) {
-	return &Container{
-		Id: id,
-	}, nil
-}
-
-func printAllLinks() {
-	index := 1
-	for {
-		link, err := netlink.LinkByIndex(index)
-		if index > 10 {
-			break
-		}
-
-		if err == nil {
-			fmt.Println(index, link)
-		}
-		index = index + 1
-	}
-}
-
 // Create a container with an init process inside
 func NewContainerInit(id Id) (*Container, error) {
 	var err error
@@ -138,40 +117,6 @@ func getContainerId(pid int) (Id, error) {
 	return -1, fmt.Errorf("Container ID variable is not found")
 }
 
-func ContainerAttachPid(pid int) (*Container, error) {
-	namespace, err := attachPidNamespace(Uts, pid)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to attach to a container: %v", err)
-	}
-
-	return &Container{
-		Id:         namespace.Id,
-		Namespaces: []Namespace{*namespace},
-	}, nil
-}
-
-// Attach to the container by the PID of the init process
-func ContainerAttachInit(path string, nsTypesRequested Type) (*Container, error) {
-	AllTypes := [...]Type{Uts, Ipc, User, Net, Pid, Mount}
-	namespaces := make([]Namespace, 0, len(AllTypes))
-	for _, nsTypeCur := range AllTypes {
-		if (nsTypeCur & nsTypesRequested) == 0 {
-			continue
-		}
-		curNamespace, err := attachNamespaceInit(path, nsTypeCur)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to attach to a container: %v", err)
-		}
-
-		namespaces = append(namespaces, *curNamespace)
-	}
-
-	return &Container{
-		Id:         namespaces[0].Id,
-		Namespaces: namespaces,
-	}, nil
-}
-
 func getCredential() *syscall.Credential {
 	grp, _ := os.Getgroups()
 	grp32 := func(b []int) []uint32 {
@@ -198,12 +143,6 @@ func (container *Container) Activate(domainType DomainType) error {
 		}
 	}
 	return nil
-}
-
-func (container *Container) CloseOnExec(domainType DomainType) {
-	for _, ns := range container.Namespaces {
-		ns.CloseOnExec(domainType)
-	}
 }
 
 func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {

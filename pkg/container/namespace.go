@@ -92,30 +92,6 @@ func newNamespace(nsType Type, id Id) (*Namespace, error) {
 
 }
 
-func attachPidNamespace(nsType Type, pid int) (*Namespace, error) {
-	hostNs, err := openNamespace(nsType)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get host network namespace: %v", err)
-	}
-
-	guestNs, err := openNamespacePid(nsType, pid)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get network namespace for process %v: %v", pid, err)
-	}
-
-	id, err := getContainerId(pid)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get container id for pid %v: %v", pid, err)
-	}
-
-	return &Namespace{
-		Id:    id,
-		Host:  hostNs,
-		Guest: guestNs,
-		Type:  nsType,
-	}, nil
-}
-
 func readNumber(containerPath, fileName string) (int, error) {
 	filePath := path.Join(containerPath, fileName)
 	buffer, err := ioutil.ReadFile(filePath)
@@ -209,10 +185,6 @@ func (namespace *Namespace) Activate(domainType DomainType) error {
 	}
 
 	return nil
-}
-
-func (namespace *Namespace) CloseOnExec(domainType DomainType) {
-	namespace.getHandle(domainType).CloseOnExec()
 }
 
 func (namespace *Namespace) TypeString() string {

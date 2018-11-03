@@ -23,7 +23,6 @@ import (
 
 type Container struct {
 	Id         Id
-	Namespaces []Namespace
 	Path       string
 	Init       *InitProc
 	Network    *Network
@@ -73,10 +72,6 @@ func (c *Container) Notify() error {
 }
 
 func (c *Container) Close() {
-	for _, ns := range c.Namespaces {
-		ns.Close()
-	}
-
 	c.Init.Close()
 
 	c.Network.Close()
@@ -133,16 +128,6 @@ func getCredential() *syscall.Credential {
 		Groups: grp32,
 	}
 
-}
-
-// Make host or guest container active
-func (container *Container) Activate(domainType DomainType) error {
-	for _, ns := range container.Namespaces {
-		if err := ns.Activate(domainType); err != nil {
-			return fmt.Errorf("Cannot activate %v: %v", ns.TypeString(), err)
-		}
-	}
-	return nil
 }
 
 func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {

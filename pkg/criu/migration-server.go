@@ -187,7 +187,6 @@ loop:
 		return fmt.Errorf("The container was not relaunched")
 	}
 
-	cmd.Wait()
 	return nil
 }
 

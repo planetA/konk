@@ -14,7 +14,8 @@ import (
 )
 
 type konkMigrationServer struct {
-	Id container.Id
+	Id      container.Id
+	InitPid int
 
 	// Compose the directory where the image is stored
 	criu        *CriuService
@@ -104,6 +105,8 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 			log.Println("@pre-restore")
 		case PostRestore:
 			log.Println("@post-restore")
+		case SetupNamespaces:
+			srv.InitPid = int(*event.Response.Notify.Pid)
 		case Success:
 			log.Printf("Restore completed: %v", event.Response)
 			return cmd, nil

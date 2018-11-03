@@ -187,6 +187,10 @@ loop:
 		return fmt.Errorf("The container was not relaunched")
 	}
 
+	if err := coordinator.Register(srv.Id); err != nil {
+		return fmt.Errorf("Regiter: %v", err)
+	}
+
 	return nil
 }
 

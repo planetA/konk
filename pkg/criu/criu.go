@@ -74,20 +74,6 @@ func Migrate(cont *container.Container, recipient string) error {
 	return nil
 }
 
-// The recovery server open a port and waits for the dumping server to pass all relevant information
-func Receive(portDumper int) error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", portDumper))
-	if err != nil {
-		return fmt.Errorf("Failed to open the port: %v", err)
-	}
-
-	if err := ReceiveListener(listener); err != nil {
-		return err
-	}
-
-	return nil;
-}
-
 // Receive the checkpoint over a created listener
 func ReceiveListener(listener net.Listener) error {
 	grpcServer := grpc.NewServer()

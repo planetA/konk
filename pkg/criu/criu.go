@@ -62,7 +62,7 @@ func Migrate(cont *container.Container, recipient string) error {
 			migration.Close()
 		}
 	}()
-	defer func () {
+	defer func() {
 		migration.Close()
 	}()
 
@@ -75,23 +75,21 @@ func Migrate(cont *container.Container, recipient string) error {
 }
 
 // Receive the checkpoint over a created listener
-func ReceiveListener(listener net.Listener) error {
+func ReceiveListener(listener net.Listener) (*container.Container, error) {
 	grpcServer := grpc.NewServer()
 	migrationServer, err := newServer()
 	if err != nil {
-		return fmt.Errorf("Failed to create migration server: %v", err)
+		return nil, fmt.Errorf("Failed to create migration server: %v", err)
 	}
 	konk.RegisterMigrationServer(grpcServer, migrationServer)
 
+	cont := make(chan *container.Container, 1)
 	go func() {
-		<-migrationServer.Ready
+		cont<- <-migrationServer.Ready
 		grpcServer.Stop()
 	}()
 
 	grpcServer.Serve(listener)
 
-	// XXX: Should be reached when the connection terminates
-	// Not reached
-
-	return nil
+	return <-cont, nil
 }

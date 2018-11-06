@@ -44,6 +44,17 @@ func NewInitProc(id Id) (*InitProc, error) {
 	}, nil
 }
 
+func NewInitAttach(pid int) (*InitProc, error) {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to find init by PID: %v", err)
+	}
+
+	return &InitProc{
+		Proc: proc,
+	}, nil
+}
+
 type InitArgs struct {
 	Root   string
 	Name   string

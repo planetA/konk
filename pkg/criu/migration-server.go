@@ -21,7 +21,7 @@ type konkMigrationServer struct {
 	criu        *CriuService
 	curFile     *os.File
 	curFilePath string
-	Ready       chan bool
+	Ready       chan *container.Container
 }
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
@@ -145,7 +145,11 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 
 	defer func() {
 		srv.criu.Close()
-		srv.Ready <- true
+		cont, err := container.NewContainerInitAttach(srv.Id, srv.InitPid)
+		if err != nil {
+			log.Panic("NewContainerInitAttach: %v", err)
+		}
+		srv.Ready <- cont
 	}()
 
 loop:
@@ -199,7 +203,7 @@ loop:
 
 func newServer() (*konkMigrationServer, error) {
 	s := &konkMigrationServer{
-		Ready: make(chan bool, 1),
+		Ready: make(chan *container.Container, 1),
 	}
 
 	return s, nil

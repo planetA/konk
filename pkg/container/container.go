@@ -22,10 +22,10 @@ import (
 )
 
 type Container struct {
-	Id         Id
-	Path       string
-	Init       *InitProc
-	Network    *Network
+	Id      Id
+	Path    string
+	Init    *InitProc
+	Network *Network
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {
@@ -64,6 +64,19 @@ func NewContainerInit(id Id) (*Container, error) {
 		Id:   id,
 		Init: initProc,
 		Path: containerPath,
+	}, nil
+}
+
+// Attach to an existing container and return an object representing it
+func NewContainerInitAttach(id Id, initPid int) (*Container, error) {
+	initProc, err := NewInitAttach(initPid)
+	if err != nil {
+		return nil, fmt.Errorf("NewInitAttach: %v", err)
+	}
+
+	return &Container{
+		Id:   id,
+		Init: initProc,
 	}, nil
 }
 

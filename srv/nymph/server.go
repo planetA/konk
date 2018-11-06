@@ -48,10 +48,12 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 		defer listener.Close()
 
 		log.Println("Receiver is preparing for the migration. Start listening.")
-		err := criu.ReceiveListener(listener)
+		cont, err := criu.ReceiveListener(listener)
 		if err != nil {
 			log.Panicf("Connection failed: %v", err)
 		}
+
+		n.containers[cont.Id] = cont
 	}()
 	return nil
 }

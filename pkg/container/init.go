@@ -108,5 +108,7 @@ func (i *InitProc) Close() {
 	i.Proc.Signal(os.Interrupt)
 
 	// Kill container init process
-	i.Cmd.Process.Kill()
+	if i.Cmd != nil {
+		i.Cmd.Process.Kill()
+	}
 }

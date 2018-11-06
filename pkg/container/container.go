@@ -74,10 +74,14 @@ func (c *Container) Notify() error {
 func (c *Container) Close() {
 	c.Init.Close()
 
-	c.Network.Close()
+	if c.Network != nil {
+		c.Network.Close()
+	}
 
 	// Delete container directory
-	os.RemoveAll(c.Path)
+	if c.Path != "" {
+		os.RemoveAll(c.Path)
+	}
 }
 
 func getContainerId(pid int) (Id, error) {

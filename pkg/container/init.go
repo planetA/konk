@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
@@ -107,6 +108,18 @@ func (i *InitProc) notify() error {
 	dummy := make([]byte, 1)
 	if n, err := i.Socket.Write(dummy); (n != 1) || (err != nil) {
 		return fmt.Errorf("Notify init: %v", err)
+	}
+
+	return nil
+}
+
+func (i *InitProc) signal(signal syscall.Signal) error {
+	log.Printf("Signal %v received\n", signal)
+
+	i.Proc.Signal(signal)
+
+	if i.Cmd != nil {
+		i.Cmd.Process.Signal(signal)
 	}
 
 	return nil

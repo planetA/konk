@@ -1,12 +1,15 @@
 package mpirun
 
 import (
-	"os"
-	"log"
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 
 	"github.com/planetA/konk/config"
+	"github.com/planetA/konk/pkg/coordinator"
 )
 
 // Compose the params, it consists of three parts:
@@ -41,21 +44,64 @@ func composeParams(freeArgs []string) []string {
 	return params
 }
 
+func forwardSignal(process *os.Process, signal os.Signal) error {
+	// We send local signal anyway
+	defer process.Signal(signal)
+
+	// Try to create connection to the coordinator
+	coord, err := coordinator.NewClient()
+	if err != nil {
+		return fmt.Errorf("Cannot reach the coordinator: %v", err)
+	}
+
+	switch signal.(type) {
+	case syscall.Signal:
+		// Send a signal
+		if err := coord.Signal(signal.(syscall.Signal)); err != nil {
+			return fmt.Errorf("Could not send signal to the coordinator: %v", err)
+		}
+	default:
+		return fmt.Errorf("Signal type is not supported")
+	}
+
+	return nil
+}
+
 func Run(args []string) error {
 	mpiBinpath := config.GetString(config.MpirunBinpath)
 
 	params := composeParams(args)
 	cmd := exec.Command(mpiBinpath, params...)
 
-	fmt.Println(cmd)
-
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("MPI terminated with an error: %v", err)
+	// Wait until command ends
+	cmdDone := make(chan error, 1)
+	go func() {
+		err := cmd.Run()
+		if err != nil {
+			cmdDone <- fmt.Errorf("MPI terminated with an error: %v", err)
+		} else {
+			cmdDone <- nil
+		}
+	}()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan)
+
+	for {
+		select {
+		case signal := <-sigChan:
+			fmt.Println("Forward signal")
+			if err := forwardSignal(cmd.Process, signal); err != nil {
+				return fmt.Errorf("Signal forwarding failed: %v", err)
+			}
+		case res := <-cmdDone:
+			fmt.Println("Finished with: ", res)
+			return nil
+		}
 	}
 
 	return nil

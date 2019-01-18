@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"syscall"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -48,6 +49,20 @@ func (c *Client) Migrate(id container.Id, destHost string) error {
 	log.Println(args)
 	var reply bool
 	err := c.client.Call(rpcMigrate, args, &reply)
+
+	return err
+}
+
+// Send signal to all registered containers via nymphs
+//
+// XXX: This break single responsibility principle, because migrate and signal interfaces
+// are independent, but as long as it is just a single call, it is OK
+func (c *Client) Signal(signal syscall.Signal) error {
+	args := &SignalArgs{signal}
+
+	log.Println("Sending signal", signal)
+	var reply bool
+	err := c.client.Call(rpcSignal, args, &reply)
 
 	return err
 }

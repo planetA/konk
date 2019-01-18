@@ -1,6 +1,8 @@
 package coordinator
 
 import (
+	"syscall"
+
 	"github.com/planetA/konk/pkg/container"
 )
 
@@ -9,6 +11,7 @@ import (
 const (
 	rpcRegisterContainer = "Coordinator.RegisterContainer"
 	rpcMigrate           = "Coordinator.Migrate"
+	rpcSignal            = "Coordinator.Signal"
 )
 
 type RegisterContainerArgs struct {
@@ -19,4 +22,8 @@ type RegisterContainerArgs struct {
 type MigrateArgs struct {
 	Id       container.Id
 	DestHost string
+}
+
+type SignalArgs struct {
+	Signal syscall.Signal
 }

@@ -4,6 +4,7 @@ package nymph
 import (
 	"fmt"
 	"net/rpc"
+	"syscall"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -80,6 +81,17 @@ func (c *Client) NotifyProcess(containerId container.Id) error {
 	// Expect no reply
 	var reply bool
 	if err := c.client.Call(rpcNotifyProcess, args, &reply); err != nil {
+		return fmt.Errorf("RPC call failed: %v", err)
+	}
+
+	return nil
+}
+
+func (c *Client) Signal(containerId container.Id, signal syscall.Signal) error {
+	args := &SignalArgs{containerId, signal}
+
+	var reply bool
+	if err := c.client.Call(rpcSignal, args, &reply); err != nil {
 		return fmt.Errorf("RPC call failed: %v", err)
 	}
 

@@ -1,8 +1,9 @@
 package coordinator
 
 import (
-	"os"
 	"fmt"
+	"os"
+	"syscall"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/nymph"
@@ -40,7 +41,6 @@ func Migrate(containerId container.Id, srcHost, destHost string) error {
 	return nil
 }
 
-
 // Forward the registration request from the container to the coordinator
 // and tell it the location of the container
 func Register(id container.Id) error {
@@ -58,6 +58,21 @@ func Register(id container.Id) error {
 	err = coord.RegisterContainer(id, hostname)
 	if err != nil {
 		return fmt.Errorf("Container announcement failed: %v", err)
+	}
+
+	return nil
+}
+
+func Signal(containerId container.Id, host string, signal syscall.Signal) error {
+	client, err := nymph.NewClient(host)
+	if err != nil {
+		return fmt.Errorf("Failed to connect to the nymph %v: %v", host, err)
+	}
+	defer client.Close()
+
+	err = client.Signal(containerId, signal)
+	if err != nil {
+		return fmt.Errorf("Sending signal to the coordinator failed: %v", err)
 	}
 
 	return nil

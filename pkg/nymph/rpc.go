@@ -1,6 +1,8 @@
 package nymph
 
 import (
+	"syscall"
+
 	"github.com/planetA/konk/pkg/container"
 )
 
@@ -11,6 +13,8 @@ const (
 	rpcSend            = "Nymph.Send"
 	rpcCreateContainer = "Nymph.CreateContainer"
 	rpcNotifyProcess   = "Nymph.NotifyProcess"
+
+	rpcSignal = "Nymph.Signal"
 )
 
 // Container receiving server actually expects no parameters
@@ -29,4 +33,9 @@ type CreateContainerArgs struct {
 
 type NotifyProcessArgs struct {
 	Id container.Id
+}
+
+type SignalArgs struct {
+	Id     container.Id
+	Signal syscall.Signal
 }

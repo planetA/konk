@@ -124,6 +124,19 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 	return nil
 }
 
+func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
+	var err error
+
+	n.containerMutex.Lock()
+	err = n.containers[args.Id].Signal(args.Signal)
+	n.containerMutex.Unlock()
+	if err != nil {
+		return fmt.Errorf("Notifying the init process %v failed: %v", args.Id, err)
+	}
+
+	return nil
+}
+
 func (n *Nymph) _Close() {
 	n.containerMutex.Lock()
 	for _, cont := range n.containers {

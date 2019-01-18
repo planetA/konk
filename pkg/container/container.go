@@ -84,6 +84,10 @@ func (c *Container) Notify() error {
 	return c.Init.notify()
 }
 
+func (c *Container) Signal(signal syscall.Signal) error {
+	return c.Init.signal(signal)
+}
+
 func (c *Container) Close() {
 	c.Init.Close()
 

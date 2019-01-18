@@ -25,6 +25,14 @@ const (
 
 	KonkSysLauncher = "konk-sys.launcher"
 	KonkSysInit     = "konk-sys.init"
+
+	MpirunNumproc = "mpirun.numproc"
+	MpirunHosts   = "mpirun.hosts"
+	MpirunBinpath = "mpirun.binpath"
+	MpirunParams  = "mpirun.params"
+
+	MpirunNameNumproc = "mpirun.name.numproc"
+	MpirunNameHosts   = "mpirun.name.hosts"
 )
 
 func GetString(key ViperKey) string {

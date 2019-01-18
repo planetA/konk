@@ -17,6 +17,10 @@ const (
 	ConsoleShort string = `Access coordinator over a console`
 	ConsoleLong  string = ``
 
+	MpirunUse   string = `mpirun <args>`
+	MpirunShort string = `Wrapper for the mpirun command`
+	MpirunLong  string = ``
+
 	RunUse   string = `run <args>`
 	RunShort string = `Run a container with a prespecified id`
 	RunLong  string = ``

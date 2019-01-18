@@ -34,6 +34,13 @@ func GetString(key ViperKey) string {
 	return viper.GetString(string(key))
 }
 
+func GetStringSlice(key ViperKey) []string {
+	if !viper.IsSet(string(key)) {
+		log.Panicf("The key '%v' was not set and does not have a default value", key)
+	}
+	return viper.GetStringSlice(string(key))
+}
+
 func GetInt(key ViperKey) int {
 	if ! viper.IsSet(string(key)) {
 		log.Panicf("The key '%v' was not set and does not have a default value", key)

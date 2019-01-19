@@ -164,6 +164,10 @@ func (c *CriuService) launch(setctty bool) (*exec.Cmd, error) {
 }
 
 func (c *CriuService) Close() {
+	if c == nil {
+		return
+	}
+
 	log.Printf("Removing: %v %v %v", c.PidFilePath, c.SocketPath, c.ImageDirPath)
 
 	if c.imageDir != nil {

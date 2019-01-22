@@ -15,6 +15,10 @@ import (
 // this particular checkpoint. Then, the coordinator contacts the source nymph, tells it the
 // destination hostname and port number, and asks to send the checkpoint.
 func Migrate(containerId container.Id, srcHost, destHost string) error {
+	if srcHost == destHost {
+		return fmt.Errorf("The container is already at the destination")
+	}
+
 	destClient, err := nymph.NewClient(destHost)
 	if err != nil {
 		return fmt.Errorf("Failed to reach nymph process: %v", err)

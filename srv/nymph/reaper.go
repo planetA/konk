@@ -32,7 +32,7 @@ func reaperStopper(done chan bool, notifications chan os.Signal) {
 // but I do not consider this case. The reason is that the reaper is only supposed to watch
 // init-processes that are expected to react to SIGINT correctly. When an init process stops, all
 // of its children should die automatically.
-func reaperLoop(done chan bool, notifications chan os.Signal) {
+func reaperLoop(notifications chan os.Signal) {
 	for {
 		_, more := <-notifications
 		if !more {
@@ -71,7 +71,7 @@ func NewReaper() (*Reaper, error) {
 
 	go reaperStopper(done, notifications)
 
-	go reaperLoop(done, notifications)
+	go reaperLoop(notifications)
 
 	return &Reaper{
 		done: done,

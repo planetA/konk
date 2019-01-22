@@ -14,15 +14,16 @@ import (
 // XXX: Implement the reaper in the way that it will actually call all of its children, when
 // nymph decides to exit, but the children are not done yet.
 type Reaper struct {
-	done chan bool
+	done          chan bool
+	notifications chan os.Signal
 }
 
 // Stops the reaper one the nymph exits
-func reaperStopper(done chan bool, notifications chan os.Signal) {
-	<-done
+func (r *Reaper) Stopper() {
+	<-r.done
 	log.Println("Stopping the reaper")
-	signal.Stop(notifications)
-	close(notifications)
+	signal.Stop(r.notifications)
+	close(r.notifications)
 }
 
 // Reaper waits for SIGCHLD on a notification channel in a loop, and then calls waitpid.
@@ -32,9 +33,9 @@ func reaperStopper(done chan bool, notifications chan os.Signal) {
 // but I do not consider this case. The reason is that the reaper is only supposed to watch
 // init-processes that are expected to react to SIGINT correctly. When an init process stops, all
 // of its children should die automatically.
-func reaperLoop(notifications chan os.Signal) {
+func (r *Reaper) Loop() {
 	for {
-		_, more := <-notifications
+		_, more := <-r.notifications
 		if !more {
 			log.Println("No more children. Leaving the reaper")
 			return
@@ -59,9 +60,12 @@ func reaperLoop(notifications chan os.Signal) {
 }
 
 func NewReaper() (*Reaper, error) {
-	done := make(chan bool)
-	var notifications = make(chan os.Signal)
-	signal.Notify(notifications, syscall.SIGCHLD)
+	reaper := &Reaper{
+		done:          make(chan bool),
+		notifications: make(chan os.Signal),
+	}
+
+	signal.Notify(reaper.notifications, syscall.SIGCHLD)
 
 	// Become subreaper
 	err := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
@@ -69,13 +73,11 @@ func NewReaper() (*Reaper, error) {
 		return nil, fmt.Errorf("Prctl: %v", err)
 	}
 
-	go reaperStopper(done, notifications)
+	go reaper.Stopper()
 
-	go reaperLoop(notifications)
+	go reaper.Loop()
 
-	return &Reaper{
-		done: done,
-	}, nil
+	return reaper, nil
 }
 
 func (r *Reaper) Close() {

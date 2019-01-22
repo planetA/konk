@@ -9,14 +9,19 @@ import (
 // RPC method names
 
 const (
-	rpcRegisterContainer = "Coordinator.RegisterContainer"
-	rpcMigrate           = "Coordinator.Migrate"
-	rpcSignal            = "Coordinator.Signal"
+	rpcRegisterContainer   = "Coordinator.RegisterContainer"
+	rpcUnregisterContainer = "Coordinator.UnregisterContainer"
+	rpcMigrate             = "Coordinator.Migrate"
+	rpcSignal              = "Coordinator.Signal"
 )
 
 type RegisterContainerArgs struct {
 	Id       container.Id
 	Hostname string
+}
+
+type UnregisterContainerArgs struct {
+	Id container.Id
 }
 
 type MigrateArgs struct {

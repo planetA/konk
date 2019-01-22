@@ -37,6 +37,25 @@ func (c *Coordinator) RegisterContainer(args *RegisterContainerArgs, reply *bool
 	return nil
 }
 
+// Delete the record about the container location in the database
+func (c *Coordinator) UnregisterContainer(args *UnregisterContainerArgs, reply *bool) error {
+	c.locationMutex.Lock()
+	_, ok := c.locationDB[args.Id]
+	if ok {
+		delete(c.locationDB, args.Id)
+	}
+	log.Println(c.locationDB)
+	c.locationMutex.Unlock()
+
+	if ! ok {
+		*reply = false
+		return fmt.Errorf("Container %v was not registered", args.Id)
+	}
+
+	*reply = true
+	return nil
+}
+
 // Coordinator can receive a migration request from an external entity.
 func (c *Coordinator) Migrate(args *MigrateArgs, reply *bool) error {
 	log.Printf("Received a request to move rank %v to %v\n", args.Id, args.DestHost)

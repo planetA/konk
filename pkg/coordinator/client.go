@@ -42,6 +42,17 @@ func (c *Client) RegisterContainer(id container.Id, hostname string) error {
 	return err
 }
 
+// The container-process tells the coordinator that the container is exiting
+func (c *Client) UnregisterContainer(id container.Id) error {
+	args := &UnregisterContainerArgs{id}
+
+	log.Println("client coord Unregister", args)
+	var reply bool
+	err := c.client.Call(rpcUnregisterContainer, args, &reply)
+
+	return err
+}
+
 // Request the coordinator to coordinate migration of a process to another node
 func (c *Client) Migrate(id container.Id, destHost string) error {
 	args := &MigrateArgs{id, destHost}

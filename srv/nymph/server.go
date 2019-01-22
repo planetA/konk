@@ -20,6 +20,7 @@ type Nymph struct {
 	reaper         *Reaper
 	containerMutex *sync.Mutex
 	containers     map[container.Id]*container.Container
+	containerIds   map[int]container.Id // Map of PIDs to container Ids
 }
 
 func NewNymph() (*Nymph, error) {
@@ -28,11 +29,69 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("NewReper: %v", err)
 	}
 
-	return &Nymph{
+	nymph := &Nymph{
 		reaper:         reaper,
 		containerMutex: &sync.Mutex{},
 		containers:     make(map[container.Id]*container.Container),
-	}, nil
+		containerIds:   make(map[int]container.Id),
+	}
+
+	go func() {
+		for {
+			pid, more := <-reaper.deadChildren
+			if !more {
+				log.Println("Reaper died")
+				return
+			}
+
+			if id, ok := nymph.forgetContainerPid(pid); ok {
+				log.Println("Unregistering the container", id)
+				err := coordinator.Unregister(id)
+				if err != nil {
+					log.Fatal("Failed to unregister the container: ", err)
+				}
+			}
+		}
+	}()
+
+	return nymph, nil
+}
+
+func (n *Nymph) rememberContainer(cont *container.Container) {
+	n.containerMutex.Lock()
+	n.containers[cont.Id] = cont
+	n.containerIds[cont.Init.Proc.Pid] = cont.Id
+	log.Println(n.containers)
+	n.containerMutex.Unlock()
+}
+
+func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
+	log.Println("forgetContainerId", id)
+	n.containerMutex.Lock()
+	cont, ok := n.containers[id]
+	if !ok {
+		return -1, false
+	}
+
+	pid := cont.Init.Proc.Pid
+	delete(n.containers, id)
+	delete(n.containerIds, pid)
+
+	n.containerMutex.Unlock()
+	return pid, true
+}
+
+func (n *Nymph) forgetContainerPid(pid int) (container.Id, bool) {
+	log.Println("forgetContainerPid", pid)
+	n.containerMutex.Lock()
+	id, ok := n.containerIds[pid]
+	if ok {
+		delete(n.containers, id)
+		delete(n.containerIds, pid)
+	}
+	n.containerMutex.Unlock()
+
+	return id, ok
 }
 
 // Container receiving server has only one method
@@ -56,9 +115,7 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 			log.Panicf("Connection failed: %v", err)
 		}
 
-		n.containerMutex.Lock()
-		n.containers[cont.Id] = cont
-		n.containerMutex.Unlock()
+		n.rememberContainer(cont)
 	}()
 	return nil
 }
@@ -76,6 +133,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
+	n.forgetContainerId(args.ContainerId)
 	*reply = true
 	return nil
 }
@@ -90,9 +148,7 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 	}
 
 	// Remember the container object
-	n.containerMutex.Lock()
-	n.containers[args.Id] = cont
-	n.containerMutex.Unlock()
+	n.rememberContainer(cont)
 
 	cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
 	if err != nil {

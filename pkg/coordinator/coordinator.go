@@ -67,6 +67,21 @@ func Register(id container.Id) error {
 	return nil
 }
 
+func Unregister(id container.Id) error {
+	coord, err := NewClient()
+	if err != nil {
+		return fmt.Errorf("Failed to connect to the coordinator: %v", err)
+	}
+	defer coord.Close()
+
+	err = coord.UnregisterContainer(id)
+	if err != nil {
+		return fmt.Errorf("Container unregistering failed: %v", err)
+	}
+
+	return nil
+}
+
 func Signal(containerId container.Id, host string, signal syscall.Signal) error {
 	client, err := nymph.NewClient(host)
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 type Reaper struct {
 	done          chan bool
 	notifications chan os.Signal
+	deadChildren  chan int
 }
 
 // Stops the reaper one the nymph exits
@@ -52,6 +53,7 @@ func (r *Reaper) Loop() {
 				break waitpidLoop
 			case nil:
 				log.Printf("Reaped a child: %v", pid)
+				r.deadChildren <- pid
 			default:
 				log.Panicf("Unexpected signal in reaper (pid=%v): %v", pid, err)
 			}
@@ -63,6 +65,7 @@ func NewReaper() (*Reaper, error) {
 	reaper := &Reaper{
 		done:          make(chan bool),
 		notifications: make(chan os.Signal),
+		deadChildren:  make(chan int),
 	}
 
 	signal.Notify(reaper.notifications, syscall.SIGCHLD)

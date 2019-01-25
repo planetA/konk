@@ -15,7 +15,11 @@ func Run() error {
 	}
 	defer listener.Close()
 
-	coord := NewCoordinator()
+	control := NewControl()
+
+	go control.Start()
+
+	coord := NewCoordinator(control)
 	rpc.Register(coord)
 
 	if err := util.ServerLoop(listener); err != nil {

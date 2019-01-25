@@ -1,37 +1,24 @@
 package coordinator
 
 import (
-	"fmt"
-	"log"
-	"sync"
-
-	"github.com/planetA/konk/pkg/container"
-
 	. "github.com/planetA/konk/pkg/coordinator"
 )
 
-type Location struct {
-	Hostname string
-}
-
 type Coordinator struct {
-	locationMutex *sync.Mutex
-	locationDB    map[container.Id]Location
+	control *Control
 }
 
-func NewCoordinator() *Coordinator {
+func NewCoordinator(control *Control) *Coordinator {
 	return &Coordinator{
-		locationMutex: &sync.Mutex{},
-		locationDB:    make(map[container.Id]Location),
+		control: control,
 	}
 }
 
 func (c *Coordinator) RegisterContainer(args *RegisterContainerArgs, reply *bool) error {
-	c.locationMutex.Lock()
-	c.locationDB[args.Id] = Location{args.Hostname}
-
-	log.Println(c.locationDB)
-	c.locationMutex.Unlock()
+	if err := c.control.Request(args); err != nil {
+		*reply = false
+		return err
+	}
 
 	*reply = true
 	return nil
@@ -39,17 +26,9 @@ func (c *Coordinator) RegisterContainer(args *RegisterContainerArgs, reply *bool
 
 // Delete the record about the container location in the database
 func (c *Coordinator) UnregisterContainer(args *UnregisterContainerArgs, reply *bool) error {
-	c.locationMutex.Lock()
-	_, ok := c.locationDB[args.Id]
-	if ok {
-		delete(c.locationDB, args.Id)
-	}
-	log.Println(c.locationDB)
-	c.locationMutex.Unlock()
-
-	if ! ok {
+	if err := c.control.Request(args); err != nil {
 		*reply = false
-		return fmt.Errorf("Container %v was not registered", args.Id)
+		return err
 	}
 
 	*reply = true
@@ -58,15 +37,9 @@ func (c *Coordinator) UnregisterContainer(args *UnregisterContainerArgs, reply *
 
 // Coordinator can receive a migration request from an external entity.
 func (c *Coordinator) Migrate(args *MigrateArgs, reply *bool) error {
-	log.Printf("Received a request to move rank %v to %v\n", args.Id, args.DestHost)
-
-	c.locationMutex.Lock()
-	src := c.locationDB[args.Id]
-	c.locationMutex.Unlock()
-
-	if err := Migrate(args.Id, src.Hostname, args.DestHost); err != nil {
+	if err := c.control.Request(args); err != nil {
 		*reply = false
-		return fmt.Errorf("Failed to migrate: %v", err)
+		return err
 	}
 
 	*reply = true
@@ -74,18 +47,10 @@ func (c *Coordinator) Migrate(args *MigrateArgs, reply *bool) error {
 }
 
 func (c *Coordinator) Signal(args *SignalArgs, anyErr *error) error {
-	signal := args.Signal
-
-	log.Printf("Received a signal notification: %v\n", signal)
-
-	c.locationMutex.Lock()
-	for id, loc := range c.locationDB {
-		log.Printf("Sending signal %v to %v\n", signal, id)
-		if err := Signal(id, loc.Hostname, signal); err != nil {
-			*anyErr = err
-		}
+	if err := c.control.Request(args); err != nil {
+		*anyErr = err
+		return err
 	}
-	c.locationMutex.Unlock()
 
-	return *anyErr
+	return nil
 }

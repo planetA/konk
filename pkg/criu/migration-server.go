@@ -9,7 +9,6 @@ import (
 	"runtime"
 
 	"github.com/planetA/konk/pkg/container"
-	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/konk"
 )
 
@@ -192,10 +191,6 @@ loop:
 
 	if cmd == nil {
 		return fmt.Errorf("The container was not relaunched")
-	}
-
-	if err := coordinator.Register(srv.Id); err != nil {
-		return fmt.Errorf("Regiter: %v", err)
 	}
 
 	return nil

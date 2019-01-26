@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 
@@ -17,10 +18,11 @@ import (
 
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
-	reaper         *Reaper
-	containerMutex *sync.Mutex
-	containers     map[container.Id]*container.Container
-	containerIds   map[int]container.Id // Map of PIDs to container Ids
+	reaper            *Reaper
+	containerMutex    *sync.Mutex
+	containers        map[container.Id]*container.Container
+	containerIds      map[int]container.Id // Map of PIDs to container Ids
+	coordinatorClient *coordinator.Client
 }
 
 func NewNymph() (*Nymph, error) {
@@ -29,11 +31,17 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("NewReper: %v", err)
 	}
 
+	coord, err := coordinator.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
+	}
+
 	nymph := &Nymph{
-		reaper:         reaper,
-		containerMutex: &sync.Mutex{},
-		containers:     make(map[container.Id]*container.Container),
-		containerIds:   make(map[int]container.Id),
+		reaper:            reaper,
+		containerMutex:    &sync.Mutex{},
+		containers:        make(map[container.Id]*container.Container),
+		containerIds:      make(map[int]container.Id),
+		coordinatorClient: coord,
 	}
 
 	go func() {
@@ -46,7 +54,7 @@ func NewNymph() (*Nymph, error) {
 
 			if id, ok := nymph.forgetContainerPid(pid); ok {
 				log.Println("Unregistering the container", id)
-				err := coordinator.Unregister(id)
+				err := nymph.coordinatorClient.UnregisterContainer(id)
 				if err != nil {
 					log.Fatal("Failed to unregister the container: ", err)
 				}
@@ -116,7 +124,18 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 		}
 
 		n.rememberContainer(cont)
+
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Panicf("Failed to get hostname: %v", err)
+		}
+
+		err = n.coordinatorClient.RegisterContainer(cont.Id, hostname)
+		if err != nil {
+			log.Panicf("Registering at the coordinator failed: %v", err)
+		}
 	}()
+
 	return nil
 }
 
@@ -172,7 +191,12 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 		return fmt.Errorf("Notifying the init process failed: %v", err)
 	}
 
-	err = coordinator.Register(args.Id)
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("Failed to get hostname: %v", err)
+	}
+
+	err = n.coordinatorClient.RegisterContainer(args.Id, hostname)
 	if err != nil {
 		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}
@@ -200,5 +224,6 @@ func (n *Nymph) _Close() {
 	}
 	n.containerMutex.Unlock()
 
+	n.coordinatorClient.Close()
 	n.reaper.Close()
 }

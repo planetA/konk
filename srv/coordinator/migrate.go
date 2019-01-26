@@ -2,7 +2,6 @@ package coordinator
 
 import (
 	"fmt"
-	"os"
 	"syscall"
 
 	"github.com/planetA/konk/pkg/container"
@@ -40,43 +39,6 @@ func Migrate(containerId container.Id, srcHost, destHost string) error {
 	err = srcClient.Send(containerId, destHost, destPort)
 	if err != nil {
 		return fmt.Errorf("Container-process did not migrate: %v", err)
-	}
-
-	return nil
-}
-
-// Forward the registration request from the container to the coordinator
-// and tell it the location of the container
-func Register(id container.Id) error {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("Failed to get hostname: %v", err)
-	}
-
-	coord, err := NewClient()
-	if err != nil {
-		return fmt.Errorf("Failed to connect to the coordinator: %v", err)
-	}
-	defer coord.Close()
-
-	err = coord.RegisterContainer(id, hostname)
-	if err != nil {
-		return fmt.Errorf("Container announcement failed: %v", err)
-	}
-
-	return nil
-}
-
-func Unregister(id container.Id) error {
-	coord, err := NewClient()
-	if err != nil {
-		return fmt.Errorf("Failed to connect to the coordinator: %v", err)
-	}
-	defer coord.Close()
-
-	err = coord.UnregisterContainer(id)
-	if err != nil {
-		return fmt.Errorf("Container unregistering failed: %v", err)
 	}
 
 	return nil

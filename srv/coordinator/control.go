@@ -4,14 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/planetA/konk/pkg/container"
-
 	. "github.com/planetA/konk/pkg/coordinator"
 )
-
-type Location struct {
-	Hostname string
-}
 
 type Request struct {
 	args interface{}
@@ -19,13 +13,13 @@ type Request struct {
 }
 
 type Control struct {
-	locationDB map[container.Id]Location
+	locationDB *LocationDB
 	requests   chan Request
 }
 
 func NewControl() *Control {
 	return &Control{
-		locationDB: make(map[container.Id]Location),
+		locationDB: NewLocationDB(),
 		requests:   make(chan Request),
 	}
 }
@@ -66,23 +60,18 @@ func (c *Control) Request(args interface{}) error {
 }
 
 func (c *Control) registerImpl(args *RegisterContainerArgs) error {
-	c.locationDB[args.Id] = Location{args.Hostname}
-	log.Printf("Request to register: %v\n\t\t%v", args, c.locationDB)
+	c.locationDB.Set(args.Id, Location{args.Hostname})
+	log.Printf("Request to register: %v\n\t\t%v", args, c.locationDB.Dump().db)
 
 	return nil
 }
 
 func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
-	curHost, ok := c.locationDB[args.Id]
-	fromHost := Location{args.Hostname}
-	if ok && curHost == fromHost {
-		delete(c.locationDB, args.Id)
+	curHost := Location{args.Hostname}
+	if err := c.locationDB.Unset(args.Id, curHost); err != nil {
+		log.Println(err)
 	}
-	log.Printf("Request to unregister: %v (%v) -- %v\n\t\t%v", curHost, ok, args, c.locationDB)
-
-	if !ok {
-		return fmt.Errorf("Container %v was not registered", args.Id)
-	}
+	log.Printf("Request to unregister: %v -- %v\n\t\t%v", curHost, args, c.locationDB.Dump().db)
 
 	return nil
 }
@@ -90,7 +79,10 @@ func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
 func (c *Control) migrateImpl(args *MigrateArgs) error {
 	log.Printf("Received a request to move rank %v to %v\n", args.Id, args.DestHost)
 
-	src := c.locationDB[args.Id]
+	src, ok := c.locationDB.Get(args.Id)
+	if !ok {
+		return fmt.Errorf("Container %v is not known", args.Id)
+	}
 
 	if err := Migrate(args.Id, src.Hostname, args.DestHost); err != nil {
 		return fmt.Errorf("Failed to migrate: %v", err)
@@ -105,7 +97,7 @@ func (c *Control) signalImpl(args *SignalArgs) error {
 	log.Printf("Received a signal notification: %v\n", signal)
 
 	var anyErr error
-	for id, loc := range c.locationDB {
+	for id, loc := range c.locationDB.Dump().db {
 		log.Printf("Sending signal %v to %v\n", signal, id)
 		if err := Signal(id, loc.Hostname, signal); err != nil {
 			anyErr = err

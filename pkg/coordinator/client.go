@@ -51,7 +51,7 @@ func (c *Client) UnregisterContainer(id container.Id) error {
 	}
 	args := &UnregisterContainerArgs{id, hostname}
 
-	log.Println("client coord Unregister", args)
+	log.Printf("Client coord Unregister: %v\n", args)
 	var reply bool
 	err = c.client.Call(rpcUnregisterContainer, args, &reply)
 

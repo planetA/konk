@@ -32,7 +32,6 @@ func NewControl() *Control {
 
 func (c *Control) Start() {
 	for req := range c.requests {
-		log.Println("Register: ", req)
 		var err error
 		switch args := req.args.(type) {
 		case *RegisterContainerArgs:
@@ -68,7 +67,7 @@ func (c *Control) Request(args interface{}) error {
 
 func (c *Control) registerImpl(args *RegisterContainerArgs) error {
 	c.locationDB[args.Id] = Location{args.Hostname}
-	log.Println(c.locationDB)
+	log.Printf("Request to register: %v\n\t\t%v", args, c.locationDB)
 
 	return nil
 }
@@ -79,7 +78,7 @@ func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
 	if ok && curHost == fromHost {
 		delete(c.locationDB, args.Id)
 	}
-	log.Println(c.locationDB)
+	log.Printf("Request to unregister: %v (%v) -- %v\n\t\t%v", curHost, ok, args, c.locationDB)
 
 	if !ok {
 		return fmt.Errorf("Container %v was not registered", args.Id)

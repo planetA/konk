@@ -85,7 +85,7 @@ func ReceiveListener(listener net.Listener) (*container.Container, error) {
 
 	cont := make(chan *container.Container, 1)
 	go func() {
-		cont<- <-migrationServer.Ready
+		cont <- <-migrationServer.Ready
 		grpcServer.Stop()
 	}()
 

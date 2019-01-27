@@ -16,8 +16,10 @@ func Run() error {
 	defer listener.Close()
 
 	control := NewControl()
-
 	go control.Start()
+
+	scheduler := NewScheduler(control)
+	go scheduler.Start()
 
 	coord := NewCoordinator(control)
 	rpc.Register(coord)

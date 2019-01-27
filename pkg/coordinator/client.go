@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"os"
 	"syscall"
 
 	"github.com/planetA/konk/config"
@@ -44,11 +45,15 @@ func (c *Client) RegisterContainer(id container.Id, hostname string) error {
 
 // The container-process tells the coordinator that the container is exiting
 func (c *Client) UnregisterContainer(id container.Id) error {
-	args := &UnregisterContainerArgs{id}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("Failed to get hostname: %v", err)
+	}
+	args := &UnregisterContainerArgs{id, hostname}
 
 	log.Println("client coord Unregister", args)
 	var reply bool
-	err := c.client.Call(rpcUnregisterContainer, args, &reply)
+	err = c.client.Call(rpcUnregisterContainer, args, &reply)
 
 	return err
 }

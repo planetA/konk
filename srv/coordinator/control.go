@@ -74,8 +74,9 @@ func (c *Control) registerImpl(args *RegisterContainerArgs) error {
 }
 
 func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
-	_, ok := c.locationDB[args.Id]
-	if ok {
+	curHost, ok := c.locationDB[args.Id]
+	fromHost := Location{args.Hostname}
+	if ok && curHost == fromHost {
 		delete(c.locationDB, args.Id)
 	}
 	log.Println(c.locationDB)

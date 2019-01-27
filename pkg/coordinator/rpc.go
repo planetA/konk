@@ -21,7 +21,8 @@ type RegisterContainerArgs struct {
 }
 
 type UnregisterContainerArgs struct {
-	Id container.Id
+	Id       container.Id
+	Hostname string
 }
 
 type MigrateArgs struct {

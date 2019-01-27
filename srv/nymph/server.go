@@ -65,17 +65,30 @@ func NewNymph() (*Nymph, error) {
 	return nymph, nil
 }
 
+func (n *Nymph) getContainer(id container.Id) (*container.Container, bool) {
+	n.containerMutex.Lock()
+	defer n.containerMutex.Unlock()
+
+	cont, ok := n.containers[id]
+
+	return cont, ok
+}
+
 func (n *Nymph) rememberContainer(cont *container.Container) {
 	n.containerMutex.Lock()
+	defer n.containerMutex.Unlock()
+
 	n.containers[cont.Id] = cont
 	n.containerIds[cont.Init.Proc.Pid] = cont.Id
 	log.Println(n.containers)
-	n.containerMutex.Unlock()
 }
 
 func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
 	log.Println("forgetContainerId", id)
+
 	n.containerMutex.Lock()
+	defer n.containerMutex.Unlock()
+
 	cont, ok := n.containers[id]
 	if !ok {
 		return -1, false
@@ -85,19 +98,20 @@ func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
 	delete(n.containers, id)
 	delete(n.containerIds, pid)
 
-	n.containerMutex.Unlock()
 	return pid, true
 }
 
 func (n *Nymph) forgetContainerPid(pid int) (container.Id, bool) {
 	log.Println("forgetContainerPid", pid)
+
 	n.containerMutex.Lock()
+	defer n.containerMutex.Unlock()
+
 	id, ok := n.containerIds[pid]
 	if ok {
 		delete(n.containers, id)
 		delete(n.containerIds, pid)
 	}
-	n.containerMutex.Unlock()
 
 	return id, ok
 }
@@ -144,9 +158,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
 
 	address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
-	n.containerMutex.Lock()
-	container := n.containers[args.ContainerId]
-	n.containerMutex.Unlock()
+	container, _ := n.getContainer(args.ContainerId)
 	if err := criu.Migrate(container, address); err != nil {
 		*reply = false
 		return err
@@ -182,11 +194,12 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 // The nymph is notified that the process has been launched in the container, so the init process
 // can start waiting.
 func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
-	var err error
+	cont, ok := n.getContainer(args.Id)
+	if !ok {
+		return fmt.Errorf("Container %v is not known\n", args.Id)
+	}
 
-	n.containerMutex.Lock()
-	err = n.containers[args.Id].Notify()
-	n.containerMutex.Unlock()
+	err := cont.Notify()
 	if err != nil {
 		return fmt.Errorf("Notifying the init process failed: %v", err)
 	}
@@ -207,9 +220,12 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 	var err error
 
-	n.containerMutex.Lock()
-	err = n.containers[args.Id].Signal(args.Signal)
-	n.containerMutex.Unlock()
+	cont, ok := n.getContainer(args.Id)
+	if !ok {
+		return fmt.Errorf("Receiver %v is not known\n", args.Id)
+	}
+
+	err = cont.Signal(args.Signal)
 	if err != nil {
 		return fmt.Errorf("Notifying the init process %v failed: %v", args.Id, err)
 	}

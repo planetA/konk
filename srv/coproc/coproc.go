@@ -2,11 +2,11 @@
 package coproc
 
 import (
-	"log"
-	"runtime"
-	"path"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"path"
+	"runtime"
 	"strconv"
 
 	"github.com/planetA/konk/pkg/container"
@@ -28,6 +28,7 @@ func readNumber(containerPath, fileName string) (int, error) {
 	return number, nil
 }
 
+// Start a container process
 func Run(id container.Id, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -56,10 +57,10 @@ func Run(id container.Id, args []string) error {
 
 	log.Println("The command is launched")
 
+	// Notify the nymph that the command has been launched
 	if err := nymph.NotifyProcess(id); err != nil {
 		return err
 	}
 
 	return nil
 }
-

@@ -31,8 +31,8 @@ func Run() error {
 	}
 
 	util.CrashHandler(ctx, func() {
-		log.Println("Nymph is exiting")
 		nymph._Close()
+		log.Println("Nymph is exiting")
 	})
 
 	rpc.Register(nymph)

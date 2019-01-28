@@ -114,13 +114,13 @@ func (c *Control) signalImpl(args *SignalArgs) error {
 }
 
 func (c *Control) registerNymphImpl(args *RegisterNymphArgs) error {
-	c.nymphSet.Add(args.Hostname)
+	c.nymphSet.Add(Location{args.Hostname})
 	log.Printf("Registered a nymph: %v\n\t\t%v\n", args, c.nymphSet.GetNymphs())
 	return nil
 }
 
 func (c *Control) unregisterNymphImpl(args *UnregisterNymphArgs) error {
-	ok := c.nymphSet.Del(args.Hostname)
+	ok := c.nymphSet.Del(Location{args.Hostname})
 	log.Printf("Unregistered a nymph: %v\n\t\t%v\n", args, c.nymphSet.GetNymphs())
 
 	if !ok {

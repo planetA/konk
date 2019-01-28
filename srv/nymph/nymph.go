@@ -37,6 +37,8 @@ func Run() error {
 
 	rpc.Register(nymph)
 
+	nymph.registerNymph()
+
 	if err := util.ServerLoop(listener); err != nil {
 		return err
 	}

@@ -83,6 +83,26 @@ func (c *Client) Signal(signal syscall.Signal) error {
 	return err
 }
 
+func (c *Client) RegisterNymph(hostname string) error {
+	args := &RegisterNymphArgs{hostname}
+
+	log.Println("Registering nymph ", hostname)
+	var reply bool
+	err := c.client.Call(rpcRegisterNymph, args, &reply)
+
+	return err
+}
+
+func (c *Client) UnregisterNymph(hostname string) error {
+	args := &UnregisterNymphArgs{hostname}
+
+	log.Println("Unregistering nymph ", hostname)
+	var reply bool
+	err := c.client.Call(rpcUnregisterNymph, args, &reply)
+
+	return err
+}
+
 func (c *Client) Close() {
 	c.client.Close()
 }

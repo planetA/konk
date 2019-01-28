@@ -233,12 +233,38 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 	return nil
 }
 
+func (n *Nymph) registerNymph() error {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("Failed to get hostaname: %v", err)
+	}
+
+	if err := n.coordinatorClient.RegisterNymph(hostname); err != nil {
+		return fmt.Errorf("Failed to register nymph: %v", err)
+	}
+
+	return nil
+}
+
+func (n *Nymph) unregisterNymph() {
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Printf("Failed to get hostaname: %v", err)
+	}
+
+	if err := n.coordinatorClient.UnregisterNymph(hostname); err != nil {
+		log.Printf("Failed to unregister nymph: %v", err)
+	}
+}
+
 func (n *Nymph) _Close() {
 	n.containerMutex.Lock()
 	for _, cont := range n.containers {
 		cont.Close()
 	}
 	n.containerMutex.Unlock()
+
+	n.unregisterNymph()
 
 	n.coordinatorClient.Close()
 	n.reaper.Close()

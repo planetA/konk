@@ -14,12 +14,14 @@ type Request struct {
 
 type Control struct {
 	locationDB *LocationDB
+	nymphSet   *NymphSet
 	requests   chan Request
 }
 
 func NewControl() *Control {
 	return &Control{
 		locationDB: NewLocationDB(),
+		nymphSet:   NewNymphSet(),
 		requests:   make(chan Request),
 	}
 }
@@ -36,6 +38,10 @@ func (c *Control) Start() {
 			err = c.migrateImpl(args)
 		case *SignalArgs:
 			err = c.signalImpl(args)
+		case *RegisterNymphArgs:
+			err = c.registerNymphImpl(args)
+		case *UnregisterNymphArgs:
+			err = c.unregisterNymphImpl(args)
 		default:
 			log.Printf("Arg: %v %T\n", args, args)
 			panic("Unknown argument")
@@ -105,4 +111,21 @@ func (c *Control) signalImpl(args *SignalArgs) error {
 	}
 
 	return anyErr
+}
+
+func (c *Control) registerNymphImpl(args *RegisterNymphArgs) error {
+	c.nymphSet.Add(args.Hostname)
+	log.Printf("Registered a nymph: %v\n\t\t%v\n", args, c.nymphSet.GetNymphs())
+	return nil
+}
+
+func (c *Control) unregisterNymphImpl(args *UnregisterNymphArgs) error {
+	ok := c.nymphSet.Del(args.Hostname)
+	log.Printf("Unregistered a nymph: %v\n\t\t%v\n", args, c.nymphSet.GetNymphs())
+
+	if !ok {
+		return fmt.Errorf("Nymph was not registered")
+	}
+
+	return nil
 }

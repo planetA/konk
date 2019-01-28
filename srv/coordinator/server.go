@@ -54,3 +54,23 @@ func (c *Coordinator) Signal(args *SignalArgs, anyErr *error) error {
 
 	return nil
 }
+
+func (c *Coordinator) RegisterNymph(args *RegisterNymphArgs, reply *bool) error {
+	if err := c.control.Request(args); err != nil {
+		*reply = false
+		return err
+	}
+
+	*reply = true
+	return nil
+}
+
+func (c *Coordinator) UnregisterNymph(args *UnregisterNymphArgs, reply *bool) error {
+	if err := c.control.Request(args); err != nil {
+		*reply = false
+		return err
+	}
+
+	*reply = true
+	return nil
+}

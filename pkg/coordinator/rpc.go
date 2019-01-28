@@ -13,6 +13,9 @@ const (
 	rpcUnregisterContainer = "Coordinator.UnregisterContainer"
 	rpcMigrate             = "Coordinator.Migrate"
 	rpcSignal              = "Coordinator.Signal"
+
+	rpcRegisterNymph   = "Coordinator.RegisterNymph"
+	rpcUnregisterNymph = "Coordinator.UnregisterNymph"
 )
 
 type RegisterContainerArgs struct {
@@ -32,4 +35,12 @@ type MigrateArgs struct {
 
 type SignalArgs struct {
 	Signal syscall.Signal
+}
+
+type RegisterNymphArgs struct {
+	Hostname string
+}
+
+type UnregisterNymphArgs struct {
+	Hostname string
 }

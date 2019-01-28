@@ -19,12 +19,10 @@ func NewScheduler(control *Control) *Scheduler {
 	}
 }
 
-func getIdsNodes(locDB LocationDB) ([]container.Id, []Location) {
+func getIds(locDB LocationDB) ([]container.Id) {
 	ids := make(map[container.Id]bool)
-	locs := make(map[Location]bool)
-	for id, loc := range locDB.db {
+	for id := range locDB.db {
 		ids[id] = true
-		locs[loc] = true
 	}
 
 	idsV := make([]container.Id, len(ids))
@@ -34,14 +32,7 @@ func getIdsNodes(locDB LocationDB) ([]container.Id, []Location) {
 		i = i + 1
 	}
 
-	locsV := make([]Location, len(locs))
-	i = 0
-	for loc := range locs {
-		locsV[i] = loc
-		i = i + 1
-	}
-
-	return idsV, locsV
+	return idsV
 }
 
 func (s *Scheduler) Start() {
@@ -49,7 +40,8 @@ func (s *Scheduler) Start() {
 	lastLen := 0
 	for t := range ticker.C {
 		log.Printf("About to reschedule @%v\n", t)
-		ids, locs := getIdsNodes(s.control.locationDB.Dump())
+		ids := getIds(s.control.locationDB.Dump())
+		locs := s.control.nymphSet.GetNymphs()
 		log.Printf("ID: %v LOCATION: %v\n", ids, locs)
 
 		curLen := len(ids)

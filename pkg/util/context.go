@@ -28,19 +28,21 @@ func NewContext() (context.Context, context.CancelFunc) {
 
 	go func() {
 		c := make(chan os.Signal)
-		signal.Notify(c, os.Interrupt)
+		signal.Notify(c)
 		defer signal.Stop(c)
 
-		log.Println("Expect signal")
-		select {
-		case <-c:
-			log.Println("Received Ctrl-C")
-			cancel()
-		case <-ctx.Done():
-			log.Println("Got cancel")
-			wg.Wait()
-			log.Println("Wg ready")
-			os.Exit(0)
+		for {
+			log.Println("Expect signal")
+			select {
+			case sig := <-c:
+				log.Println("Received signal: ", sig)
+				cancel()
+			case <-ctx.Done():
+				log.Println("Got cancel")
+				wg.Wait()
+				log.Println("Wg ready")
+				os.Exit(0)
+			}
 		}
 	}()
 

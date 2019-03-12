@@ -103,6 +103,4 @@ func Run(args []string) error {
 			return nil
 		}
 	}
-
-	return nil
 }

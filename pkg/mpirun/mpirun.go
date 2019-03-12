@@ -31,7 +31,7 @@ func composeParams(freeArgs []string) []string {
 	// Find arguments to konk-suid
 	konkPath, err := os.Executable()
 	if err != nil {
-		log.Fatal("Error when computing absolute path: %v", err)
+		log.Fatalf("Error when computing absolute path: %v", err)
 	}
 	konkSuidPath := fmt.Sprintf("%v-suid", konkPath)
 

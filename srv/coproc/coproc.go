@@ -22,7 +22,7 @@ func readNumber(containerPath, fileName string) (int, error) {
 
 	number, err := strconv.Atoi(string(buffer))
 	if err != nil {
-		return 0, fmt.Errorf("Failed to read file %v: %v", err)
+		return 0, fmt.Errorf("Failed to read file %v: %v", fileName, err)
 	}
 
 	return number, nil

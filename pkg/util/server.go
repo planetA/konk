@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	"time"
 
 	"github.com/ugorji/go/codec"
 )
@@ -22,7 +23,7 @@ func CreateListener(port int) (net.Listener, error) {
 	return listener, err
 }
 
-func ServerLoop(listener net.Listener) (error) {
+func ServerLoop(listener net.Listener) error {
 	var handle codec.MsgpackHandle
 
 	for {
@@ -59,7 +60,7 @@ func Serve(listener net.Listener) (net.Conn, error) {
 	return conn, nil
 }
 
-func DialRpcServer(hostname string, port int) (*rpc.Client, error) {
+func DialRpcServerOnce(hostname string, port int) (*rpc.Client, error) {
 	address := fmt.Sprintf("%v:%v", hostname, port)
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
@@ -71,4 +72,17 @@ func DialRpcServer(hostname string, port int) (*rpc.Client, error) {
 	rpcClient := rpc.NewClientWithCodec(rpcCodec)
 
 	return rpcClient, nil
+}
+
+func DialRpcServer(hostname string, port int) (*rpc.Client, error) {
+	for {
+		rpcClient, err := DialRpcServerOnce(hostname, port)
+		if err == nil {
+			return rpcClient, nil
+		}
+
+		log.Println("Failed to dial server: ", err)
+		time.Sleep(5 * time.Second)
+		log.Println("Trying to dial once again")
+	}
 }

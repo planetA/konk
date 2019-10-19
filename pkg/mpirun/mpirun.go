@@ -16,7 +16,7 @@ import (
 //   1. Path and arguments to mpirun
 //   2. Path and arguments to konk-suid
 //   3. Path and arguments to the actual program (provided as freeArgs)
-func composeParams(freeArgs []string) []string {
+func composeParams(image string, freeArgs []string) []string {
 	// Find arguments to mpirun
 	numproc := config.GetInt(config.MpirunNumproc)
 	hosts := config.GetString(config.MpirunHosts)
@@ -37,6 +37,8 @@ func composeParams(freeArgs []string) []string {
 
 	// forward config file
 	params = append(params, konkSuidPath, "--config", config.CfgFile, "run")
+
+	params = append(params, "--image", image)
 
 	// Put everything together
 	params = append(params, freeArgs...)
@@ -67,10 +69,10 @@ func forwardSignal(process *os.Process, signal os.Signal) error {
 	return nil
 }
 
-func Run(args []string) error {
+func Run(image string, args []string) error {
 	mpiBinpath := config.GetString(config.MpirunBinpath)
 
-	params := composeParams(args)
+	params := composeParams(image, args)
 	cmd := exec.Command(mpiBinpath, params...)
 
 	cmd.Stdin = os.Stdin

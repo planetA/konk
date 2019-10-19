@@ -39,6 +39,34 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
+// Create a libcontainer-based container
+func NewContainer(id Id, image string) (*Container, error) {
+	var err error
+	initProc, err := NewInitProc(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := initProc.sendParameters(id); err != nil {
+		return nil, fmt.Errorf("Sending parameters failed: %v", err)
+	}
+
+	if err := initProc.waitInit(); err != nil {
+		return nil, fmt.Errorf("Init process was not ready: %v", err)
+	}
+
+	containerPath := fmt.Sprintf("%v/%v%v",
+		config.GetString(config.ContainerRootDir),
+		config.GetString(config.ContainerBaseName),
+		id)
+
+	return &Container{
+		Id:   id,
+		Init: initProc,
+		Path: containerPath,
+	}, nil
+}
+
 // Create a container with an init process inside
 func NewContainerInit(id Id) (*Container, error) {
 	var err error

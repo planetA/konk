@@ -29,7 +29,7 @@ func readNumber(containerPath, fileName string) (int, error) {
 }
 
 // Start a container process
-func Run(id container.Id, args []string) error {
+func Run(id container.Id, image string, args []string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -40,7 +40,7 @@ func Run(id container.Id, args []string) error {
 	defer nymph.Close()
 
 	// Nymph returns the path to the container directory and waits until the container is created
-	path, err := nymph.CreateContainer(id)
+	path, err := nymph.CreateContainer(id, image)
 	if err != nil {
 		return fmt.Errorf("Container creation failed: %v", err)
 	}

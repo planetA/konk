@@ -5,9 +5,15 @@ import (
 	"log"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"sync"
 
+	logrus "github.com/sirupsen/logrus"
+
+	"github.com/opencontainers/runc/libcontainer"
+
+	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/criu"
@@ -19,13 +25,36 @@ import (
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
 	reaper            *Reaper
-	containerMutex    *sync.Mutex
-	containers        map[container.Id]*container.Container
 	containerIds      map[int]container.Id // Map of PIDs to container Ids
 	coordinatorClient *coordinator.Client
+	containerFactory  libcontainer.Factory
+
+	containerMutex *sync.Mutex
+	containers     map[container.Id]*container.Container
+
+	imagesMutex *sync.Mutex
+	images      map[string]*container.Image
+
+	tmpDir string
 }
 
 func NewNymph() (*Nymph, error) {
+	tmpDir := config.GetString(config.NymphTmpDir)
+
+	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
+		logrus.WithFields(logrus.Fields{
+			"path": tmpDir,
+		}).Info("Temp directory already exists. Purging.")
+		os.RemoveAll(tmpDir)
+	}
+	logrus.WithFields(logrus.Fields{
+		"path": tmpDir,
+	}).Trace("Creating temporary directory")
+
+	if err := os.MkdirAll(tmpDir, 0770); err != nil {
+		return nil, fmt.Errorf("Failed to create temporary directory %v: %v", tmpDir, err)
+	}
+
 	reaper, err := NewReaper()
 	if err != nil {
 		return nil, fmt.Errorf("NewReper: %v", err)
@@ -36,12 +65,22 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
 	}
 
+	containersPath := path.Join(tmpDir, "containers")
+	factory, err := libcontainer.New(containersPath, libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create container factory: %v", err)
+	}
+
 	nymph := &Nymph{
 		reaper:            reaper,
-		containerMutex:    &sync.Mutex{},
-		containers:        make(map[container.Id]*container.Container),
 		containerIds:      make(map[int]container.Id),
 		coordinatorClient: coord,
+		containerFactory:  factory,
+		containerMutex:    &sync.Mutex{},
+		containers:        make(map[container.Id]*container.Container),
+		imagesMutex:       &sync.Mutex{},
+		images:            make(map[string]*container.Image),
+		tmpDir:            tmpDir,
 	}
 
 	go func() {
@@ -169,14 +208,53 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	return nil
 }
 
+func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
+	n.imagesMutex.Lock()
+	logrus.WithFields(logrus.Fields{
+		"path": imagePath,
+	}).Trace("Enter getImage")
+
+	image, ok := n.images[imagePath]
+
+	defer logrus.WithFields(logrus.Fields{
+		"path": imagePath,
+		"ok":   ok,
+		"map":  n.images,
+	}).Trace("Leave getImage")
+	defer n.imagesMutex.Unlock()
+
+	if ok {
+		return image, nil
+	}
+
+	image, err := container.NewImage(n.tmpDir, imagePath)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open a container image %v: %v", imagePath, err)
+	}
+
+	n.images[imagePath] = image
+
+	return image, nil
+}
+
 // Nymph creates a container, starts an init process inside and reports about the new container
 // to the coordinator. The function replies with a path to the init container derictory
 // Other processes need to attach to the init container using the path.
 func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
-	cont, err := container.NewContainerInit(args.Id)
+
+	image, err := n.getImage(args.Image)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Panic("Didn't get the image")
+		return err
+	}
+	cont, err := image.NewContainer(args.Id)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
+
+	panic("Unimplemented")
 
 	// Remember the container object
 	n.rememberContainer(cont)
@@ -264,8 +342,16 @@ func (n *Nymph) _Close() {
 	}
 	n.containerMutex.Unlock()
 
+	n.imagesMutex.Lock()
+	for _, image := range n.images {
+		image.Close()
+	}
+	n.imagesMutex.Unlock()
+
 	n.unregisterNymph()
 
 	n.coordinatorClient.Close()
 	n.reaper.Close()
+
+	os.RemoveAll(n.tmpDir)
 }

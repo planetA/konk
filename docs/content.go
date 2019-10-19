@@ -17,7 +17,7 @@ const (
 	ConsoleShort string = `Access coordinator over a console`
 	ConsoleLong  string = ``
 
-	MpirunUse   string = `mpirun <args>`
+	MpirunUse   string = `mpirun <image> <program> <args>`
 	MpirunShort string = `Wrapper for the mpirun command`
 	MpirunLong  string = ``
 

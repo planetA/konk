@@ -12,8 +12,9 @@ var MpirunCmd = &cobra.Command{
 	Use:   docs.MpirunUse,
 	Short: docs.MpirunShort,
 	Long:  docs.MpirunLong,
+	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := mpirun.Run(args); err != nil {
+		if err := mpirun.Run(args[0], args[1:]); err != nil {
 			return err
 		}
 

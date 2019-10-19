@@ -23,7 +23,9 @@ var RunCmd = &cobra.Command{
 			return err
 		}
 
-		if err = coproc.Run(containerId, args); err != nil {
+		image := config.GetString(config.ContainerImage)
+
+		if err = coproc.Run(containerId, image, args); err != nil {
 			return err
 		}
 
@@ -35,6 +37,10 @@ func init() {
 	// Configure a unique Id of a container in a network
 	RunCmd.Flags().String("rank_env", "", "Environment variable containing id")
 	config.BindPFlag(config.ContainerIdEnv, RunCmd.Flags().Lookup("rank_env"))
+
+	RunCmd.Flags().String("image", "", "Location of the container image")
+	RunCmd.MarkFlagRequired("image")
+	config.BindPFlag(config.ContainerImage, RunCmd.Flags().Lookup("image"))
 
 	KonkCmd.AddCommand(RunCmd)
 }

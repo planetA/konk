@@ -28,7 +28,8 @@ type SendArgs struct {
 }
 
 type CreateContainerArgs struct {
-	Id container.Id
+	Id    container.Id
+	Image string
 }
 
 type NotifyProcessArgs struct {

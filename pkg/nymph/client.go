@@ -62,8 +62,8 @@ func (c *Client) Send(containerId container.Id, destHost string, destPort int) e
 
 // A launcher connects to a local nymph and requests it to create a new container where the actual
 // application can run.
-func (c *Client) CreateContainer(containerId container.Id) (string, error) {
-	args := &CreateContainerArgs{containerId}
+func (c *Client) CreateContainer(containerId container.Id, image string) (string, error) {
+	args := &CreateContainerArgs{containerId, image}
 
 	var path string
 	err := c.client.Call(rpcCreateContainer, args, &path)

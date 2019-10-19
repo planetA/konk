@@ -13,9 +13,10 @@ type ViperKey string
 
 // Constants used by viper to lookup configuration
 const (
-	NymphHost   ViperKey = "nymph.host"
-	NymphPort            = "nymph.port"
-	NymphTmpDir          = "nymph.tmp_dir"
+	NymphHost    ViperKey = "nymph.host"
+	NymphPort             = "nymph.port"
+	NymphTmpDir           = "nymph.tmp_dir"
+	NymphCniPath          = "nymph.cni_path"
 
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"

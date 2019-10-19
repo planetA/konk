@@ -27,7 +27,7 @@ func Run() error {
 
 	nymph, err := NewNymph()
 	if err != nil {
-		return fmt.Errorf("NewNymph")
+		return fmt.Errorf("NewNymph: %v", err)
 	}
 
 	util.CrashHandler(ctx, func() {
@@ -37,7 +37,9 @@ func Run() error {
 
 	rpc.Register(nymph)
 
-	nymph.registerNymph()
+	if err := nymph.registerNymph(); err != nil {
+		return fmt.Errorf("Nymph registration has failed: %v", err)
+	}
 
 	if err := util.ServerLoop(listener); err != nil {
 		return err

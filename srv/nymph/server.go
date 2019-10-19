@@ -6,8 +6,10 @@ import (
 	"net"
 	"os"
 	"path"
-	"strconv"
 	"sync"
+	"time"
+
+	// "strconv"
 
 	logrus "github.com/sirupsen/logrus"
 
@@ -30,7 +32,7 @@ type Nymph struct {
 	containerFactory  libcontainer.Factory
 
 	containerMutex *sync.Mutex
-	containers     map[container.Id]*container.Container
+	containers     map[container.Id]libcontainer.Container
 
 	imagesMutex *sync.Mutex
 	images      map[string]*container.Image
@@ -77,7 +79,7 @@ func NewNymph() (*Nymph, error) {
 		coordinatorClient: coord,
 		containerFactory:  factory,
 		containerMutex:    &sync.Mutex{},
-		containers:        make(map[container.Id]*container.Container),
+		containers:        make(map[container.Id]libcontainer.Container),
 		imagesMutex:       &sync.Mutex{},
 		images:            make(map[string]*container.Image),
 		tmpDir:            tmpDir,
@@ -104,7 +106,7 @@ func NewNymph() (*Nymph, error) {
 	return nymph, nil
 }
 
-func (n *Nymph) getContainer(id container.Id) (*container.Container, bool) {
+func (n *Nymph) getContainer(id container.Id) (libcontainer.Container, bool) {
 	n.containerMutex.Lock()
 	defer n.containerMutex.Unlock()
 
@@ -113,12 +115,11 @@ func (n *Nymph) getContainer(id container.Id) (*container.Container, bool) {
 	return cont, ok
 }
 
-func (n *Nymph) rememberContainer(cont *container.Container) {
+func (n *Nymph) rememberContainer(id container.Id, cont libcontainer.Container) {
 	n.containerMutex.Lock()
 	defer n.containerMutex.Unlock()
 
-	n.containers[cont.Id] = cont
-	n.containerIds[cont.Init.Proc.Pid] = cont.Id
+	n.containers[id] = cont
 	log.Println(n.containers)
 }
 
@@ -128,16 +129,18 @@ func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
 	n.containerMutex.Lock()
 	defer n.containerMutex.Unlock()
 
-	cont, ok := n.containers[id]
-	if !ok {
-		return -1, false
-	}
+	// cont, ok := n.containers[id]
+	// if !ok {
+	// 	return -1, false
+	// }
 
-	pid := cont.Init.Proc.Pid
+	panic("Unimplemented")
+
+	// pid := cont.Init.Proc.Pid
 	delete(n.containers, id)
-	delete(n.containerIds, pid)
+	// delete(n.containerIds, pid)
 
-	return pid, true
+	return 0, true
 }
 
 func (n *Nymph) forgetContainerPid(pid int) (container.Id, bool) {
@@ -176,7 +179,8 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 			log.Panicf("Connection failed: %v", err)
 		}
 
-		n.rememberContainer(cont)
+		panic("Unimplemented")
+		// n.rememberContainer(cont)
 
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -196,12 +200,13 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
 
-	address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
-	container, _ := n.getContainer(args.ContainerId)
-	if err := criu.Migrate(container, address); err != nil {
-		*reply = false
-		return err
-	}
+	// address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
+	// container, _ := n.getContainer(args.ContainerId)
+	panic("Unimplemented")
+	// if err := criu.Migrate(container, address); err != nil {
+	// 	*reply = false
+	// 	return err
+	// }
 
 	n.forgetContainerId(args.ContainerId)
 	*reply = true
@@ -249,38 +254,47 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 		}).Panic("Didn't get the image")
 		return err
 	}
-	cont, err := image.NewContainer(args.Id)
+
+	containerName := fmt.Sprintf(image.Name, args.Id)
+
+	config, err := instantiateConfig(image)
+	if err != nil {
+		fmt.Errorf("Failed to create container config: %v", err)
+	}
+
+	cont, err := n.containerFactory.Create(containerName, config)
 	if err != nil {
 		return fmt.Errorf("Failed to create a container: %v", err)
 	}
 
-	panic("Unimplemented")
+	// cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
+	// if err != nil {
+	// 	return fmt.Errorf("Configuring network failed: %v", err)
+	// }
 
 	// Remember the container object
-	n.rememberContainer(cont)
+	n.rememberContainer(args.Id, cont)
 
-	cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
-	if err != nil {
-		return fmt.Errorf("Configuring network failed: %v", err)
-	}
+	panic("Unimplemented")
 
-	// Return the path to the container to the launcher
-	*path = cont.Path
-	return nil
+	// // Return the path to the container to the launcher
+	// *path = cont.Path
+	// return nil
 }
 
 // The nymph is notified that the process has been launched in the container, so the init process
 // can start waiting.
 func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
-	cont, ok := n.getContainer(args.Id)
-	if !ok {
-		return fmt.Errorf("Container %v is not known\n", args.Id)
-	}
+	// cont, ok := n.getContainer(args.Id)
+	// if !ok {
+	// 	return fmt.Errorf("Container %v is not known\n", args.Id)
+	// }
 
-	err := cont.Notify()
-	if err != nil {
-		return fmt.Errorf("Notifying the init process failed: %v", err)
-	}
+	panic("Unimplemented")
+	// err := cont.Notify()
+	// if err != nil {
+	// 	return fmt.Errorf("Notifying the init process failed: %v", err)
+	// }
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -296,22 +310,23 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 }
 
 func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
-	var err error
+	// var err error
 
-	cont, ok := n.getContainer(args.Id)
-	if !ok {
-		return fmt.Errorf("Receiver %v is not known\n", args.Id)
-	}
+	// cont, ok := n.getContainer(args.Id)
+	// if !ok {
+	// 	return fmt.Errorf("Receiver %v is not known\n", args.Id)
+	// }
 
-	err = cont.Signal(args.Signal)
-	if err != nil {
-		return fmt.Errorf("Notifying the init process %v failed: %v", args.Id, err)
-	}
+	panic("Unimplemented")
+	// err = cont.Signal(args.Signal)
+	// if err != nil {
+	// 	return fmt.Errorf("Notifying the init process %v failed: %v", args.Id, err)
+	// }
 
 	return nil
 }
 
-func (n *Nymph) registerNymph() error {
+func (n *Nymph) registerNymphOnce() error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to get hostaname: %v", err)
@@ -322,6 +337,19 @@ func (n *Nymph) registerNymph() error {
 	}
 
 	return nil
+}
+
+func (n *Nymph) registerNymph() error {
+	for {
+		if err := n.registerNymphOnce(); err != nil {
+			log.Println("Registration has failed: %v", err)
+		} else {
+			return nil
+		}
+
+		time.Sleep(5 * time.Second)
+		log.Println("Trying to register once again")
+	}
 }
 
 func (n *Nymph) unregisterNymph() {
@@ -337,9 +365,10 @@ func (n *Nymph) unregisterNymph() {
 
 func (n *Nymph) _Close() {
 	n.containerMutex.Lock()
-	for _, cont := range n.containers {
-		cont.Close()
-	}
+	panic("Unimplemented")
+	// for _, cont := range n.containers {
+	// 	cont.Close()
+	// }
 	n.containerMutex.Unlock()
 
 	n.imagesMutex.Lock()

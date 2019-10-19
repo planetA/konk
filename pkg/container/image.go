@@ -2,20 +2,28 @@ package container
 
 import (
 	"archive/tar"
+	"strings"
 	"compress/gzip"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"path"
-	"os"
 	"io"
+	"io/ioutil"
+	"os"
+	"path"
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/opencontainers/runc/libcontainer/configs"
 	"golang.org/x/sys/unix"
 )
 
 // Class representing container image
 type Image struct {
-	path string
+	RootPath string
+	Name     string
+	Config   *configs.Config
 }
 
 // Convert permission and mode from tar to os.FileMode. Potentially need
@@ -36,7 +44,7 @@ func setFileAttributes(fullPath string, header *tar.Header) error {
 	if len(header.PAXRecords) > 0 {
 		log.WithFields(log.Fields{
 			"records": len(header.PAXRecords),
-			"path": fullPath,
+			"path":    fullPath,
 		}).Debug("Skipping PAX records")
 	}
 
@@ -58,7 +66,7 @@ func createDir(extractDir string, header *tar.Header) error {
 
 func writeFile(extractDir string, header *tar.Header, reader io.Reader) error {
 	fullPath := path.Join(extractDir, header.Name)
-	file, err := os.OpenFile(fullPath, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, tarToOsMode(header))
+	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, tarToOsMode(header))
 	if err != nil {
 		return fmt.Errorf("Failed to create file %v: %v", fullPath, err)
 	}
@@ -81,7 +89,7 @@ func createSymLink(extractDir string, header *tar.Header) error {
 
 	log.WithFields(log.Fields{
 		"linkname": header.Linkname,
-		"path": fullPath,
+		"path":     fullPath,
 	}).Trace("Creating a symlink")
 
 	if err := os.Symlink(header.Linkname, fullPath); err != nil {
@@ -97,7 +105,7 @@ func createHardLink(extractDir string, header *tar.Header) error {
 
 	log.WithFields(log.Fields{
 		"linkname": linkPath,
-		"path": fullPath,
+		"path":     fullPath,
 	}).Trace("Creating a hard link")
 
 	if err := os.Link(linkPath, fullPath); err != nil {
@@ -107,21 +115,23 @@ func createHardLink(extractDir string, header *tar.Header) error {
 	return nil
 }
 
-func NewImage(imageDir string, image string) (*Image, error) {
-	log.WithFields(log.Fields{
-		"path": imageDir,
-		"image": image,
-	}).Debug("Creating an image")
+// TempFileName generates a temporary filename for use in testing or whatever
+func tempFileName(prefix string) string {
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	return prefix + hex.EncodeToString(randBytes)
+}
 
+func unpackImage(extractDir, image string) error {
 	imageFile, err := os.Open(image)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to open container image file %v: %v", image, err)
+		return fmt.Errorf("Failed to open container image file %v: %v", image, err)
 	}
 	defer imageFile.Close()
 
 	gzipFile, err := gzip.NewReader(imageFile)
 	if err != nil {
-		return nil, fmt.Errorf("File %v is not in gzip format: %v", image, err)
+		return fmt.Errorf("File %v is not in gzip format: %v", image, err)
 	}
 
 	tarReader := tar.NewReader(gzipFile)
@@ -133,38 +143,90 @@ func NewImage(imageDir string, image string) (*Image, error) {
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("Failed reading the archive %v: %v", image, err)
+			return fmt.Errorf("Failed reading the archive %v: %v", image, err)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := createDir(imageDir, header); err != nil {
-				return nil, fmt.Errorf("Failed to create directory from image %v: %v", image, err)
+			if err := createDir(extractDir, header); err != nil {
+				return fmt.Errorf("Failed to create directory from image %v: %v", image, err)
 			}
 		case tar.TypeReg:
-			if err := writeFile(imageDir, header, tarReader); err != nil {
-				return nil, fmt.Errorf("Failed to write file from image %v: %v", image, err)
+			if err := writeFile(extractDir, header, tarReader); err != nil {
+				return fmt.Errorf("Failed to write file from image %v: %v", image, err)
 			}
 		case tar.TypeSymlink:
-			if err := createSymLink(imageDir, header); err != nil {
-				return nil, fmt.Errorf("Failed to create a symlink from image %v: %v", image, err)
+			if err := createSymLink(extractDir, header); err != nil {
+				return fmt.Errorf("Failed to create a symlink from image %v: %v", image, err)
 			}
 		case tar.TypeLink:
-			if err := createHardLink(imageDir, header); err != nil {
-				return nil, fmt.Errorf("Failed to create a hardlink from image %v: %v", image, err)
+			if err := createHardLink(extractDir, header); err != nil {
+				return fmt.Errorf("Failed to create a hardlink from image %v: %v", image, err)
 			}
 		default:
-			return nil, fmt.Errorf("Unsupported file type %v for %v", header.Typeflag, header.Name)
+			return fmt.Errorf("Unsupported file type %v for %v", header.Typeflag, header.Name)
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
-func (image *Image) NewContainer(id Id) (*Container, error) {
-	return nil, nil
+func readConfig(imageDir string) (*configs.Config, error) {
+	configFilePath := path.Join(imageDir, "config.json")
+
+	log.WithFields(log.Fields{
+		"path": configFilePath,
+	}).Trace("Reading config file")
+
+	configFile, err := os.Open(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open config file %v: %v", configFilePath, err)
+	}
+	defer configFile.Close()
+
+	byteValue, err := ioutil.ReadAll(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read config file %v: %v", configFilePath, err)
+	}
+
+	var config configs.Config
+
+	json.Unmarshal(byteValue, &config)
+
+	return &config, nil
+}
+
+func imageName(imagePath string) string {
+	base := path.Base(imagePath)
+	return strings.TrimSuffix(base, path.Ext(base))
+}
+
+func NewImage(imageDir string, imagePath string) (*Image, error) {
+	log.WithFields(log.Fields{
+		"path":  imageDir,
+		"image": imagePath,
+	}).Debug("Creating an image")
+
+	name := imageName(imagePath)
+	extractDir := path.Join(imageDir, tempFileName(name))
+
+	if err := unpackImage(extractDir, imagePath); err != nil {
+		return nil, err
+	}
+
+	config, err := readConfig(extractDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Image{
+		RootPath: extractDir,
+		Name:     name,
+		Config:   config,
+	}, nil
 }
 
 func (image *Image) Close() {
+	os.RemoveAll(image.RootPath)
 	panic("Unimplemented")
 }

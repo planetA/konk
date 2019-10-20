@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
+	"path"
 	"syscall"
 
+	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer"
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/coordinator"
+	"github.com/sirupsen/logrus"
 )
 
 // Compose the params, it consists of three parts:
@@ -69,40 +72,87 @@ func forwardSignal(process *os.Process, signal os.Signal) error {
 	return nil
 }
 
+func createContainerFactory() (libcontainer.Factory, error) {
+	tmpDir := config.GetString(config.MpirunTmpDir)
+
+	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
+		logrus.WithFields(logrus.Fields{
+			"path": tmpDir,
+		}).Info("Temp directory already exists. Purging.")
+		os.RemoveAll(tmpDir)
+	}
+	logrus.WithFields(logrus.Fields{
+		"path": tmpDir,
+	}).Trace("Creating temporary directory")
+
+	if err := os.MkdirAll(tmpDir, 0770); err != nil {
+		return nil, fmt.Errorf("Failed to create temporary directory %v: %v", tmpDir, err)
+	}
+
+	containersPath := path.Join(tmpDir, "containers")
+	factory, err := libcontainer.New(containersPath, libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create container factory: %v", err)
+	}
+
+	return factory, nil
+}
+
+// Launch mpirun inside the container, request nymphs to create local containers
+// and let mpirun to launch the processes in the newly created containers
 func Run(image string, args []string) error {
+	containerFactory, err := createContainerFactory(); 
+	if err != nil {
+		return fmt.Errorf("Failed to create mpirun container factory: %v", err)
+	}
+
+	containerConfig := &configs.Config{}
+	container, err := containerFactory.Create("mpirun", containerConfig)
+	if err != nil {
+		return fmt.Errorf("Creating container failed", err)
+	}
+	defer container.Destroy()
+
 	mpiBinpath := config.GetString(config.MpirunBinpath)
 
 	params := composeParams(image, args)
-	cmd := exec.Command(mpiBinpath, params...)
+	log.Println(params)
 
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	process := &libcontainer.Process{
+		Args: append([]string{mpiBinpath}, params...),
+		Env: []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
+		User: "user",
+		Stdin: os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+		Init: true,
+	}
 
 	// Wait until command ends
-	cmdDone := make(chan error, 1)
-	go func() {
-		err := cmd.Run()
-		if err != nil {
-			cmdDone <- fmt.Errorf("MPI terminated with an error: %v", err)
-		} else {
-			cmdDone <- nil
-		}
-	}()
+	if err := container.Run(process); err != nil {
+		log.Println("MPI terminated with an error: %v", err)
+		return fmt.Errorf("MPI terminated with an error: %v", err)
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan)
-
-	for {
-		select {
-		case signal := <-sigChan:
+	go func() {
+		for {
+			signal := <-sigChan
 			fmt.Println("Forward signal")
-			if err := forwardSignal(cmd.Process, signal); err != nil {
-				return fmt.Errorf("Signal forwarding failed: %v", err)
+			if err := process.Signal(signal); err != nil {
+				log.Println("Signal forwarding failed: ", err)
+				return
 			}
-		case res := <-cmdDone:
-			fmt.Println("Finished with: ", res)
-			return nil
 		}
+	}()
+
+	ret, err := process.Wait()
+	if err != nil {
+		return fmt.Errorf("Waiting for process failed: %v", err)
 	}
+
+	log.Println("Process finished with state: ", ret)
+
+	return nil
 }

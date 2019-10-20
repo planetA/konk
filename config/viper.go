@@ -33,9 +33,12 @@ const (
 	MpirunHosts   = "mpirun.hosts"
 	MpirunBinpath = "mpirun.binpath"
 	MpirunParams  = "mpirun.params"
+	MpirunTmpDir  = "mpirun.tmp_dir"
 
 	MpirunNameNumproc = "mpirun.name.numproc"
 	MpirunNameHosts   = "mpirun.name.hosts"
+
+	RunHostname = "run.hostname"
 )
 
 func GetString(key ViperKey) string {

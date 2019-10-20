@@ -2,10 +2,11 @@ package util
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/rpc"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ugorji/go/codec"
 )
@@ -76,6 +77,9 @@ func DialRpcServerOnce(hostname string, port int) (*rpc.Client, error) {
 
 func DialRpcServer(hostname string, port int) (*rpc.Client, error) {
 	for {
+		log.WithFields(log.Fields{
+			"hostname": hostname,
+			"port": port}).Trace("Connecting to server")
 		rpcClient, err := DialRpcServerOnce(hostname, port)
 		if err == nil {
 			return rpcClient, nil

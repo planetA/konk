@@ -15,6 +15,8 @@ const (
 	rpcNotifyProcess   = "Nymph.NotifyProcess"
 
 	rpcSignal = "Nymph.Signal"
+
+	rpcRun = "Nymph.Run"
 )
 
 // Container receiving server actually expects no parameters
@@ -39,4 +41,10 @@ type NotifyProcessArgs struct {
 type SignalArgs struct {
 	Id     container.Id
 	Signal syscall.Signal
+}
+
+type RunArgs struct {
+	Id    container.Id
+	Image string
+	Args  []string
 }

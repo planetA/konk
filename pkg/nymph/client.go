@@ -2,9 +2,12 @@
 package nymph
 
 import (
+	"os"
 	"fmt"
 	"net/rpc"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -25,6 +28,8 @@ func NewClient(hostname string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("Connected to the coordinator")
 
 	return &Client{
 		client: rpcClient,
@@ -90,12 +95,30 @@ func (c *Client) NotifyProcess(containerId container.Id) error {
 func (c *Client) Signal(containerId container.Id, signal syscall.Signal) error {
 	args := &SignalArgs{containerId, signal}
 
+	log.WithFields(log.Fields{
+		"container": containerId,
+		"signal": signal}).Trace("Sending signal")
 	var reply bool
 	if err := c.client.Call(rpcSignal, args, &reply); err != nil {
 		return fmt.Errorf("RPC call failed: %v", err)
 	}
 
 	return nil
+}
+
+func (c *Client) Run(containerId container.Id, image string, args []string) error {
+	runArgs := &RunArgs{containerId, image, args}
+
+	var reply bool
+	if err := c.client.Call(rpcRun, runArgs, &reply); err != nil {
+		return fmt.Errorf("RPC call failed: %v", err)
+	}
+
+	return nil
+}
+
+func (c *Client) Wait(containerId container.Id) (os.ProcessState, error) {
+	return os.ProcessState{}, nil
 }
 
 func (c *Client) Close() {

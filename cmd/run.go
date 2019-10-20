@@ -5,12 +5,13 @@ import (
 	"os"
 	"strconv"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/docs"
 	"github.com/planetA/konk/pkg/container"
-	"github.com/planetA/konk/srv/coproc"
+	"github.com/planetA/konk/pkg/nymph"
 )
 
 var RunCmd = &cobra.Command{
@@ -24,10 +25,29 @@ var RunCmd = &cobra.Command{
 		}
 
 		image := config.GetString(config.ContainerImage)
+		hostname := config.GetString(config.RunHostname)
 
-		if err = coproc.Run(containerId, image, args); err != nil {
-			return err
+		nymph, err := nymph.NewClient(hostname)
+		if err != nil {
+			return fmt.Errorf("Failed to connect to Nymph: %v", err)
 		}
+		defer nymph.Close()
+
+		if err := nymph.Run(containerId, image, args); err != nil {
+			log.WithFields(log.Fields{
+				"containerId": containerId,
+				"image":       image,
+				"args":        args}).Error("Failed to launch container")
+		}
+
+		log.Info("Running container")
+
+		ret, err := nymph.Wait(containerId)
+		if err != nil {
+			return fmt.Errorf("Waiting failed: %v", err)
+		}
+
+		log.WithField("Return value", ret).Info("Process finished")
 
 		return nil
 	},
@@ -41,6 +61,9 @@ func init() {
 	RunCmd.Flags().String("image", "", "Location of the container image")
 	RunCmd.MarkFlagRequired("image")
 	config.BindPFlag(config.ContainerImage, RunCmd.Flags().Lookup("image"))
+
+	RunCmd.Flags().String("hostaname", "localhost", "Where the application should run")
+	config.BindPFlag(config.RunHostname, RunCmd.Flags().Lookup("hostaname"))
 
 	KonkCmd.AddCommand(RunCmd)
 }

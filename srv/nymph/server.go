@@ -2,7 +2,6 @@ package nymph
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -11,7 +10,7 @@ import (
 
 	// "strconv"
 
-	logrus "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer"
 
@@ -44,12 +43,12 @@ func NewNymph() (*Nymph, error) {
 	tmpDir := config.GetString(config.NymphTmpDir)
 
 	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
-		logrus.WithFields(logrus.Fields{
+		log.WithFields(log.Fields{
 			"path": tmpDir,
 		}).Info("Temp directory already exists. Purging.")
 		os.RemoveAll(tmpDir)
 	}
-	logrus.WithFields(logrus.Fields{
+	log.WithFields(log.Fields{
 		"path": tmpDir,
 	}).Trace("Creating temporary directory")
 
@@ -215,13 +214,13 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 
 func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
 	n.imagesMutex.Lock()
-	logrus.WithFields(logrus.Fields{
+	log.WithFields(log.Fields{
 		"path": imagePath,
 	}).Trace("Enter getImage")
 
 	image, ok := n.images[imagePath]
 
-	defer logrus.WithFields(logrus.Fields{
+	defer log.WithFields(log.Fields{
 		"path": imagePath,
 		"ok":   ok,
 		"map":  n.images,
@@ -249,7 +248,7 @@ func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
 
 	image, err := n.getImage(args.Image)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		log.WithFields(log.Fields{
 			"err": err,
 		}).Panic("Didn't get the image")
 		return err
@@ -310,6 +309,8 @@ func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
 }
 
 func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
+	log.WithField("args", args).Debug("Received signal")
+
 	// var err error
 
 	// cont, ok := n.getContainer(args.Id)
@@ -322,6 +323,15 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 	// if err != nil {
 	// 	return fmt.Errorf("Notifying the init process %v failed: %v", args.Id, err)
 	// }
+
+	return nil
+}
+
+func (n *Nymph) Run(args RunArgs, reply *bool) error {
+	log.WithFields(log.Fields{
+		"containerId": args.Id,
+		"image":       args.Image,
+		"args":        args.Args}).Info("Failed to launch container")
 
 	return nil
 }

@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"bytes"
-	"encoding/json"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer"
@@ -72,6 +69,10 @@ func NewNymph() (*Nymph, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create container factory: %v", err)
 	}
+
+	log.WithFields(log.Fields{
+		"container_path": containersPath,
+	}).Trace("Created container factory")
 
 	nymph := &Nymph{
 		reaper:            reaper,
@@ -260,6 +261,12 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create container config: %v", err)
 	}
+
+	log.WithFields(log.Fields{
+		"image": image.Name,
+		"rootfs_orig": image.Config.Rootfs,
+		"rootfs": config.Rootfs,
+	}).Debug("Creating a container from factory")
 
 	cont, err := n.containerFactory.Create(image.Name, config)
 	if err != nil {

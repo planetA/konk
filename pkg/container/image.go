@@ -11,9 +11,8 @@ import (
 	"os"
 	"path"
 
-	log "github.com/sirupsen/logrus"
 	specconv "github.com/opencontainers/runc/libcontainer/specconv"
-
+	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -191,15 +190,12 @@ func readSpec(imageDir string) (*specs.Spec, error) {
 		return nil, err
 	}
 
+	spec.Root.Path = path.Join(imageDir, spec.Root.Path)
+
 	return &spec, nil
 }
 
 func NewImage(imageDir string, imagePath string) (*Image, error) {
-	log.WithFields(log.Fields{
-		"path":  imageDir,
-		"image": imagePath,
-	}).Debug("Creating an image")
-
 	name := ImageName(imagePath)
 	extractDir := path.Join(imageDir, name)
 
@@ -231,6 +227,13 @@ func NewImage(imageDir string, imagePath string) (*Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed converting spec to config", err)
 	}
+
+	log.WithFields(log.Fields{
+		"path":   imageDir,
+		"image":  imagePath,
+		"rootfs": spec.Root,
+		"new_rootfs": config.Rootfs,
+	}).Debug("Converted spec to config")
 
 	return &Image{
 		RootPath: extractDir,

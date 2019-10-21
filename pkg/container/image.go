@@ -2,20 +2,21 @@ package container
 
 import (
 	"archive/tar"
-	"strings"
 	"compress/gzip"
-	"crypto/rand"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 
 	log "github.com/sirupsen/logrus"
+	specconv "github.com/opencontainers/runc/libcontainer/specconv"
+
 
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
 
@@ -115,11 +116,11 @@ func createHardLink(extractDir string, header *tar.Header) error {
 	return nil
 }
 
-// TempFileName generates a temporary filename for use in testing or whatever
-func tempFileName(prefix string) string {
-	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
-	return prefix + hex.EncodeToString(randBytes)
+// Generate an image name from the container path
+func ImageName(imagePath string) string {
+	s := sha512.New512_256()
+	s.Write([]byte(imagePath))
+	return hex.EncodeToString(s.Sum(nil))
 }
 
 func unpackImage(extractDir, image string) error {
@@ -171,7 +172,7 @@ func unpackImage(extractDir, image string) error {
 	return nil
 }
 
-func readConfig(imageDir string) (*configs.Config, error) {
+func readSpec(imageDir string) (*specs.Spec, error) {
 	configFilePath := path.Join(imageDir, "config.json")
 
 	log.WithFields(log.Fields{
@@ -184,21 +185,13 @@ func readConfig(imageDir string) (*configs.Config, error) {
 	}
 	defer configFile.Close()
 
-	byteValue, err := ioutil.ReadAll(configFile)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read config file %v: %v", configFilePath, err)
+	var spec specs.Spec
+
+	if err = json.NewDecoder(configFile).Decode(&spec); err != nil {
+		return nil, err
 	}
 
-	var config configs.Config
-
-	json.Unmarshal(byteValue, &config)
-
-	return &config, nil
-}
-
-func imageName(imagePath string) string {
-	base := path.Base(imagePath)
-	return strings.TrimSuffix(base, path.Ext(base))
+	return &spec, nil
 }
 
 func NewImage(imageDir string, imagePath string) (*Image, error) {
@@ -207,16 +200,36 @@ func NewImage(imageDir string, imagePath string) (*Image, error) {
 		"image": imagePath,
 	}).Debug("Creating an image")
 
-	name := imageName(imagePath)
-	extractDir := path.Join(imageDir, tempFileName(name))
+	name := ImageName(imagePath)
+	extractDir := path.Join(imageDir, name)
+
+	log.WithFields(log.Fields{
+		"imagePath":  imagePath,
+		"name":       name,
+		"extractDir": extractDir,
+	}).Debug("Getting image name")
 
 	if err := unpackImage(extractDir, imagePath); err != nil {
 		return nil, err
 	}
 
-	config, err := readConfig(extractDir)
+	var spec *specs.Spec
+	spec, err := readSpec(extractDir)
 	if err != nil {
 		return nil, err
+	}
+
+	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
+		CgroupName:       name,
+		UseSystemdCgroup: false,
+		NoPivotRoot:      false,
+		NoNewKeyring:     false,
+		Spec:             spec,
+		RootlessEUID:     false,
+		RootlessCgroups:  false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed converting spec to config", err)
 	}
 
 	return &Image{

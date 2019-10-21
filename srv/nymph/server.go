@@ -8,7 +8,8 @@ import (
 	"sync"
 	"time"
 
-	// "strconv"
+	"bytes"
+	"encoding/json"
 
 	log "github.com/sirupsen/logrus"
 
@@ -213,15 +214,19 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 }
 
 func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
+	name := container.ImageName(imagePath)
+
 	n.imagesMutex.Lock()
 	log.WithFields(log.Fields{
 		"path": imagePath,
+		"name": name,
 	}).Trace("Enter getImage")
 
-	image, ok := n.images[imagePath]
+	image, ok := n.images[name]
 
 	defer log.WithFields(log.Fields{
 		"path": imagePath,
+		"name": name,
 		"ok":   ok,
 		"map":  n.images,
 	}).Trace("Leave getImage")
@@ -236,49 +241,62 @@ func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
 		return nil, fmt.Errorf("Failed to open a container image %v: %v", imagePath, err)
 	}
 
-	n.images[imagePath] = image
+	n.images[name] = image
 
 	return image, nil
+}
+
+func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer.Container, error) {
+	image, err := n.getImage(imagePath)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"image_path": imagePath,
+			"err": err,
+		}).Panic("Didn't get the image")
+		return nil, err
+	}
+
+	config, err := instantiateConfig(image)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create container config: %v", err)
+	}
+
+	cont, err := n.containerFactory.Create(image.Name, config)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create a container: %v", err)
+	}
+
+	n.rememberContainer(id, cont)
+
+	return cont, nil
 }
 
 // Nymph creates a container, starts an init process inside and reports about the new container
 // to the coordinator. The function replies with a path to the init container derictory
 // Other processes need to attach to the init container using the path.
 func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
-
-	image, err := n.getImage(args.Image)
+	cont, err := n.createContainer(args.Id, args.Image)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"err": err,
-		}).Panic("Didn't get the image")
-		return err
+			"container": args.Id,
+			"error":     err,
+		}).Error("Container creation failed")
+		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
-	containerName := fmt.Sprintf(image.Name, args.Id)
-
-	config, err := instantiateConfig(image)
-	if err != nil {
-		fmt.Errorf("Failed to create container config: %v", err)
-	}
-
-	cont, err := n.containerFactory.Create(containerName, config)
-	if err != nil {
-		return fmt.Errorf("Failed to create a container: %v", err)
-	}
-
+	log.WithField("cont", cont).Debug("Created container")
 	// cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
 	// if err != nil {
 	// 	return fmt.Errorf("Configuring network failed: %v", err)
 	// }
 
 	// Remember the container object
-	n.rememberContainer(args.Id, cont)
 
 	panic("Unimplemented")
 
-	// // Return the path to the container to the launcher
+	// Return the path to the container to the launcher
 	// *path = cont.Path
-	// return nil
+	return nil
 }
 
 // The nymph is notified that the process has been launched in the container, so the init process
@@ -328,10 +346,21 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 }
 
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
+	cont, err := n.createContainer(args.Id, args.Image)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"container": args.Id,
+			"error":     err,
+		}).Error("Container creation failed")
+		return fmt.Errorf("Container creation failed: %v", err)
+	}
+
 	log.WithFields(log.Fields{
 		"containerId": args.Id,
 		"image":       args.Image,
-		"args":        args.Args}).Info("Failed to launch container")
+		"args":        args.Args,
+		"container":   cont,
+	}).Info("Failed to launch container")
 
 	return nil
 }
@@ -375,10 +404,9 @@ func (n *Nymph) unregisterNymph() {
 
 func (n *Nymph) _Close() {
 	n.containerMutex.Lock()
-	panic("Unimplemented")
-	// for _, cont := range n.containers {
-	// 	cont.Close()
-	// }
+	for _, cont := range n.containers {
+		cont.Destroy()
+	}
 	n.containerMutex.Unlock()
 
 	n.imagesMutex.Lock()

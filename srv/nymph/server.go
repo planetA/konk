@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 type Nymph struct {
 	containerIds      map[int]container.Id // Map of PIDs to container Ids
 	coordinatorClient *coordinator.Client
-	containerFactory  libcontainer.Factory
 
 	containers *container.ContainerRegister
 
@@ -64,21 +62,10 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
 	}
 
-	containersPath := path.Join(tmpDir, "containers")
-	factory, err := libcontainer.New(containersPath, libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create container factory: %v", err)
-	}
-
-	log.WithFields(log.Fields{
-		"container_path": containersPath,
-	}).Trace("Created container factory")
-
 	nymph := &Nymph{
 		containerIds:      make(map[int]container.Id),
 		coordinatorClient: coord,
-		containerFactory:  factory,
-		containers:        container.NewContainerRegister(),
+		containers:        container.NewContainerRegister(tmpDir),
 		imagesMutex:       &sync.Mutex{},
 		images:            make(map[string]*container.Image),
 		tmpDir:            tmpDir,
@@ -220,7 +207,7 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 		"rootfs":    config.Rootfs,
 	}).Debug("Creating a container from factory")
 
-	cont, err := n.containerFactory.Create(name, config)
+	cont, err := n.containers.Factory.Create(name, config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}

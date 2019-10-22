@@ -9,6 +9,8 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path"
 	"sync"
 
 	"github.com/opencontainers/runc/libcontainer"
@@ -22,14 +24,26 @@ type Container struct {
 }
 
 type ContainerRegister struct {
-	Mutex *sync.Mutex
-	reg   map[Id]libcontainer.Container
+	Factory libcontainer.Factory
+	Mutex   *sync.Mutex
+	reg     map[Id]libcontainer.Container
 }
 
-func NewContainerRegister() *ContainerRegister {
+func NewContainerRegister(tmpDir string) *ContainerRegister {
+	containersPath := path.Join(tmpDir, "containers")
+	factory, err := libcontainer.New(containersPath, libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
+	if err != nil {
+		log.Panicf("Failed to create container factory: %v", err)
+	}
+
+	log.WithFields(log.Fields{
+		"container_path": containersPath,
+	}).Trace("Created container factory")
+
 	return &ContainerRegister{
-		reg:   make(map[Id]libcontainer.Container),
-		Mutex: &sync.Mutex{},
+		Factory: factory,
+		reg:     make(map[Id]libcontainer.Container),
+		Mutex:   &sync.Mutex{},
 	}
 }
 

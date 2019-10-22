@@ -2,10 +2,14 @@ package container
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/config"
+
+	"github.com/opencontainers/runc/libcontainer/configs"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -91,5 +95,21 @@ func (n *Network) Close() {
 	log.Println("Closing devices")
 	for _, dev := range n.netDevs {
 		dev.Close()
+	}
+}
+
+func configureNetworkOvs(containerConfig *configs.Config) error {
+	return nil
+}
+
+func configureNetwork(containerConfig *configs.Config) error {
+	networkType := config.GetString(config.NymphNetwork)
+
+	switch networkType {
+	case "ovs":
+		return configureNetworkOvs(containerConfig)
+	default:
+		log.WithField("type", networkType).Panicf("Unknown network type")
+		panic("Unknown network type")
 	}
 }

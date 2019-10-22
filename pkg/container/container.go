@@ -17,6 +17,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/specconv"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
+
 )
 
 type Container struct {
@@ -63,6 +64,11 @@ func (c *ContainerRegister) Create(id Id, imageName string, spec *specs.Spec) (l
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed converting spec to config", err)
+	}
+
+	if err := configureNetwork(config); err != nil {
+		log.Error("Network specification failed")
+		return nil, err
 	}
 
 	log.WithFields(log.Fields{

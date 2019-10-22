@@ -17,6 +17,7 @@ const (
 	NymphPort             = "nymph.port"
 	NymphTmpDir           = "nymph.tmp_dir"
 	NymphCniPath          = "nymph.cni_path"
+	NymphNetwork          = "nymph.network"
 
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"

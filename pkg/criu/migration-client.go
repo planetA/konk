@@ -240,7 +240,8 @@ func (migration *MigrationClient) Close() {
 
 	migration.ServerConn.Close()
 	migration.Criu.Close()
-	migration.Container.Close()
+	panic("Unimplemented")
+	// migration.Container.Close()
 }
 
 func newMigrationClient(ctx context.Context, recipient string, cont *container.Container) (*MigrationClient, error) {

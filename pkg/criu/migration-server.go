@@ -144,11 +144,12 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 
 	defer func() {
 		srv.criu.Close()
-		cont, err := container.NewContainerInitAttach(srv.Id, srv.InitPid)
-		if err != nil {
-			log.Panic("NewContainerInitAttach: %v", err)
-		}
-		srv.Ready <- cont
+		panic("Unimplemented")
+		// cont, err := container.NewContainerInitAttach(srv.Id, srv.InitPid)
+		// if err != nil {
+		// 	log.Panic("NewContainerInitAttach: %v", err)
+		// }
+		// srv.Ready <- cont
 	}()
 
 loop:

@@ -28,8 +28,7 @@ type Nymph struct {
 	coordinatorClient *coordinator.Client
 	containerFactory  libcontainer.Factory
 
-	containerMutex *sync.Mutex
-	containers     map[container.Id]libcontainer.Container
+	containers *container.ContainerRegister
 
 	imagesMutex *sync.Mutex
 	images      map[string]*container.Image
@@ -79,8 +78,7 @@ func NewNymph() (*Nymph, error) {
 		containerIds:      make(map[int]container.Id),
 		coordinatorClient: coord,
 		containerFactory:  factory,
-		containerMutex:    &sync.Mutex{},
-		containers:        make(map[container.Id]libcontainer.Container),
+		containers:        container.NewContainerRegister(),
 		imagesMutex:       &sync.Mutex{},
 		images:            make(map[string]*container.Image),
 		tmpDir:            tmpDir,
@@ -90,56 +88,17 @@ func NewNymph() (*Nymph, error) {
 	return nymph, nil
 }
 
-func (n *Nymph) getContainer(id container.Id) (libcontainer.Container, bool) {
-	n.containerMutex.Lock()
-	defer n.containerMutex.Unlock()
-
-	cont, ok := n.containers[id]
-
-	return cont, ok
-}
-
-func (n *Nymph) rememberContainer(id container.Id, cont libcontainer.Container) {
-	n.containerMutex.Lock()
-	defer n.containerMutex.Unlock()
-
-	n.containers[id] = cont
-	log.Println(n.containers)
-}
-
 func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
 	log.Println("forgetContainerId", id)
 
-	n.containerMutex.Lock()
-	defer n.containerMutex.Unlock()
-
-	// cont, ok := n.containers[id]
-	// if !ok {
-	// 	return -1, false
-	// }
+	n.containers.Delete(id)
 
 	panic("Unimplemented")
 
 	// pid := cont.Init.Proc.Pid
-	delete(n.containers, id)
 	// delete(n.containerIds, pid)
 
 	return 0, true
-}
-
-func (n *Nymph) forgetContainerPid(pid int) (container.Id, bool) {
-	log.Println("forgetContainerPid", pid)
-
-	n.containerMutex.Lock()
-	defer n.containerMutex.Unlock()
-
-	id, ok := n.containerIds[pid]
-	if ok {
-		delete(n.containers, id)
-		delete(n.containerIds, pid)
-	}
-
-	return id, ok
 }
 
 // Container receiving server has only one method
@@ -270,7 +229,10 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 }
 
 func (n *Nymph) getOrCreateContainer(id container.Id, imagePath string) (libcontainer.Container, error) {
-	cont, ok := n.getContainer(id)
+	n.containers.Mutex.Lock()
+	defer n.containers.Mutex.Unlock()
+
+	cont, ok := n.containers.Get(id)
 	if ok {
 		return cont, nil
 	}
@@ -280,7 +242,7 @@ func (n *Nymph) getOrCreateContainer(id container.Id, imagePath string) (libcont
 		return nil, err
 	}
 
-	n.rememberContainer(id, cont)
+	n.containers.Set(id, cont)
 
 	return cont, nil
 
@@ -391,11 +353,7 @@ func (n *Nymph) unregisterNymph() {
 }
 
 func (n *Nymph) _Close() {
-	n.containerMutex.Lock()
-	for _, cont := range n.containers {
-		cont.Destroy()
-	}
-	n.containerMutex.Unlock()
+	n.containers.Destroy()
 
 	n.imagesMutex.Lock()
 	for _, image := range n.images {

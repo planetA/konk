@@ -244,5 +244,4 @@ func NewImage(imageDir string, imagePath string) (*Image, error) {
 
 func (image *Image) Close() {
 	os.RemoveAll(image.RootPath)
-	panic("Unimplemented")
 }

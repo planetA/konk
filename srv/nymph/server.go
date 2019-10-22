@@ -232,18 +232,12 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 		return nil, err
 	}
 
-	config, err := instantiateConfig(image)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create container config: %v", err)
-	}
-
 	log.WithFields(log.Fields{
 		"image":       image.Name,
-		"rootfs_orig": image.Config.Rootfs,
-		"rootfs":      config.Rootfs,
+		"rootfs":      image.Config.Rootfs,
 	}).Debug("Creating a container from factory")
 
-	cont, err := n.containerFactory.Create(image.Name, config)
+	cont, err := n.containerFactory.Create(image.Name, image.Config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}

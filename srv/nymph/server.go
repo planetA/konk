@@ -242,16 +242,31 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}
 
+	return cont, nil
+}
+
+func (n *Nymph) getOrCreateContainer(id container.Id, imagePath string) (libcontainer.Container, error) {
+	cont, ok := n.getContainer(id)
+	if ok {
+		return cont, nil
+	}
+
+	cont, err := n.createContainer(id, imagePath)
+	if err != nil {
+		return nil, err
+	}
+
 	n.rememberContainer(id, cont)
 
 	return cont, nil
+
 }
 
 // Nymph creates a container, starts an init process inside and reports about the new container
 // to the coordinator. The function replies with a path to the init container derictory
 // Other processes need to attach to the init container using the path.
 func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
-	cont, err := n.createContainer(args.Id, args.Image)
+	cont, err := n.getOrCreateContainer(args.Id, args.Image)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Id,
@@ -322,7 +337,7 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 }
 
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
-	cont, err := n.createContainer(args.Id, args.Image)
+	cont, err := n.getOrCreateContainer(args.Id, args.Image)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Id,

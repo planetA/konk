@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer"
-	"github.com/opencontainers/runc/libcontainer/specconv"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -171,65 +170,6 @@ func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
 	return image, nil
 }
 
-func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer.Container, error) {
-	image, err := n.getImage(imagePath)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"image_path": imagePath,
-			"err":        err,
-		}).Panic("Didn't get the image")
-		return nil, err
-	}
-
-	name := container.ContainerName(image.Name, id)
-
-	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
-		CgroupName:       name,
-		UseSystemdCgroup: false,
-		NoPivotRoot:      false,
-		NoNewKeyring:     false,
-		Spec:             image.Spec,
-		RootlessEUID:     false,
-		RootlessCgroups:  false,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Failed converting spec to config", err)
-	}
-
-	log.WithFields(log.Fields{
-		"image":     image.Name,
-		"container": name,
-		"rootfs":    config.Rootfs,
-	}).Debug("Creating a container from factory")
-
-	cont, err := n.containers.Factory.Create(name, config)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create a container: %v", err)
-	}
-
-	return cont, nil
-}
-
-func (n *Nymph) getOrCreateContainer(id container.Id, imagePath string) (libcontainer.Container, error) {
-	n.containers.Mutex.Lock()
-	defer n.containers.Mutex.Unlock()
-
-	cont, ok := n.containers.Get(id)
-	if ok {
-		return cont, nil
-	}
-
-	cont, err := n.createContainer(id, imagePath)
-	if err != nil {
-		return nil, err
-	}
-
-	n.containers.Set(id, cont)
-
-	return cont, nil
-
-}
-
 func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 	log.WithField("args", args).Debug("Received signal")
 
@@ -250,7 +190,18 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 }
 
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
-	cont, err := n.getOrCreateContainer(args.Id, args.Image)
+	imagePath := args.Image
+
+	image, err := n.getImage(imagePath)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"image_path": imagePath,
+			"err":        err,
+		}).Panic("Didn't get the image")
+		return err
+	}
+
+	cont, err := n.containers.GetOrCreate(args.Id, imagePath, image.Spec)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Id,

@@ -23,7 +23,6 @@ import (
 
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
-	containerIds      map[int]container.Id // Map of PIDs to container Ids
 	coordinatorClient *coordinator.Client
 
 	containers *container.ContainerRegister
@@ -63,7 +62,6 @@ func NewNymph() (*Nymph, error) {
 	}
 
 	nymph := &Nymph{
-		containerIds:      make(map[int]container.Id),
 		coordinatorClient: coord,
 		containers:        container.NewContainerRegister(tmpDir),
 		imagesMutex:       &sync.Mutex{},
@@ -81,9 +79,6 @@ func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
 	n.containers.Delete(id)
 
 	panic("Unimplemented")
-
-	// pid := cont.Init.Proc.Pid
-	// delete(n.containerIds, pid)
 
 	return 0, true
 }

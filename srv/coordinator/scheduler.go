@@ -2,8 +2,8 @@ package coordinator
 
 import (
 	"log"
-	"time"
 	"math/rand"
+	"time"
 
 	"github.com/planetA/konk/pkg/container"
 	. "github.com/planetA/konk/pkg/coordinator"
@@ -19,7 +19,7 @@ func NewScheduler(control *Control) *Scheduler {
 	}
 }
 
-func getIds(locDB LocationDB) ([]container.Id) {
+func getIds(locDB LocationDB) []container.Id {
 	ids := make(map[container.Id]bool)
 	for id := range locDB.db {
 		ids[id] = true
@@ -45,11 +45,15 @@ func (s *Scheduler) Start() {
 		log.Printf("ID: %v LOCATION: %v\n", ids, locs)
 
 		curLen := len(ids)
-		if ! (curLen > 0 && lastLen == curLen) {
+		if !(curLen > 0 && lastLen == curLen) {
 			lastLen = curLen
 			continue
 		}
 		lastLen = curLen
+
+		if len(locs) < 2 {
+			continue
+		}
 
 		// Attempt migration
 
@@ -58,7 +62,7 @@ func (s *Scheduler) Start() {
 
 		// Figure where it runs
 		srcLoc, ok := s.control.locationDB.Get(targetCont)
-		if ! ok {
+		if !ok {
 			log.Panicf("We've just seen it (%v)! ", targetCont)
 		}
 

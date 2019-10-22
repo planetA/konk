@@ -79,23 +79,12 @@ func (c *ContainerRegister) Create(id Id, imageName string, spec *specs.Spec) (l
 	return cont, nil
 }
 
-// Not protected by a lock
-func (c *ContainerRegister) Get(id Id) (libcontainer.Container, bool) {
-	cont, ok := c.reg[id]
-	return cont, ok
-}
-
-// Not protected by a lock
-func (c *ContainerRegister) Set(id Id, cont libcontainer.Container) {
-	c.reg[id] = cont
-	log.Println(c.reg)
-}
-
 func (c *ContainerRegister) GetOrCreate(id Id, imageName string, spec *specs.Spec) (libcontainer.Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
-	cont, ok := c.Get(id)
+	// Check if container exists already
+	cont, ok := c.reg[id]
 	if ok {
 		return cont, nil
 	}
@@ -105,7 +94,8 @@ func (c *ContainerRegister) GetOrCreate(id Id, imageName string, spec *specs.Spe
 		return nil, err
 	}
 
-	c.Set(id, cont)
+	// Remember container
+	c.reg[id] = cont
 
 	return cont, nil
 

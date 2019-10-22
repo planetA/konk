@@ -12,6 +12,8 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"crypto/sha512"
+	"encoding/hex"
 	"strings"
 	"syscall"
 
@@ -132,4 +134,12 @@ func LaunchCommandInitProc(initProc int, args []string) (*exec.Cmd, error) {
 	}
 
 	return cmd, nil
+}
+
+// Generate an image name from the container path
+func ContainerName(imageName string, id Id) string {
+	s := sha512.New512_256()
+	s.Write([]byte(imageName))
+	s.Write([]byte(fmt.Sprintf("%v", id)))
+	return hex.EncodeToString(s.Sum(nil))
 }

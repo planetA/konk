@@ -239,12 +239,14 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 		return nil, err
 	}
 
+	name := container.ContainerName(image.Name, id)
 	log.WithFields(log.Fields{
 		"image":  image.Name,
+		"container": name,
 		"rootfs": image.Config.Rootfs,
 	}).Debug("Creating a container from factory")
 
-	cont, err := n.containerFactory.Create(image.Name, image.Config)
+	cont, err := n.containerFactory.Create(name, image.Config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}

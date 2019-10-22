@@ -11,8 +11,6 @@ import (
 const (
 	rpcPrepareReceive  = "Nymph.PrepareReceive"
 	rpcSend            = "Nymph.Send"
-	rpcCreateContainer = "Nymph.CreateContainer"
-	rpcNotifyProcess   = "Nymph.NotifyProcess"
 
 	rpcSignal = "Nymph.Signal"
 

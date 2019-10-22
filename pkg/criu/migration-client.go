@@ -173,7 +173,8 @@ func (migration *MigrationClient) sendCheckpoint() error {
 }
 
 func (migration *MigrationClient) rememberOpenFiles(prefix string) (err error) {
-	migration.openFiles, err = getOpenFilesPrefix(migration.Container.Init.Proc.Pid, prefix)
+	panic("Unimplemented")
+	// migration.openFiles, err = getOpenFilesPrefix(migration.Container.Init.Proc.Pid, prefix)
 	return err
 }
 
@@ -184,10 +185,11 @@ func (migration *MigrationClient) Run(ctx context.Context) error {
 		return fmt.Errorf("Failed to launch criu service: %v", err)
 	}
 
-	err := migration.Criu.sendDumpRequest(migration.Container.Init.Proc)
-	if err != nil {
-		return fmt.Errorf("Write to socket failed: %v", err)
-	}
+	panic("Unimplemented")
+	// err := migration.Criu.sendDumpRequest(migration.Container.Init.Proc)
+	// if err != nil {
+	// 	return fmt.Errorf("Write to socket failed: %v", err)
+	// }
 
 	for {
 		event, err := migration.Criu.nextEvent()

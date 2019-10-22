@@ -24,7 +24,6 @@ import (
 type Container struct {
 	Id      Id
 	Path    string
-	Init    *InitProc
 	Network *Network
 }
 
@@ -39,85 +38,23 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
-// Create a libcontainer-based container
-func NewContainer(id Id, image string) (*Container, error) {
-	var err error
-	initProc, err := NewInitProc(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := initProc.sendParameters(id); err != nil {
-		return nil, fmt.Errorf("Sending parameters failed: %v", err)
-	}
-
-	if err := initProc.waitInit(); err != nil {
-		return nil, fmt.Errorf("Init process was not ready: %v", err)
-	}
-
-	containerPath := fmt.Sprintf("%v/%v%v",
-		config.GetString(config.ContainerRootDir),
-		config.GetString(config.ContainerBaseName),
-		id)
-
-	return &Container{
-		Id:   id,
-		Init: initProc,
-		Path: containerPath,
-	}, nil
-}
-
-// Create a container with an init process inside
-func NewContainerInit(id Id) (*Container, error) {
-	var err error
-	initProc, err := NewInitProc(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := initProc.sendParameters(id); err != nil {
-		return nil, fmt.Errorf("Sending parameters failed: %v", err)
-	}
-
-	if err := initProc.waitInit(); err != nil {
-		return nil, fmt.Errorf("Init process was not ready: %v", err)
-	}
-
-	containerPath := fmt.Sprintf("%v/%v%v",
-		config.GetString(config.ContainerRootDir),
-		config.GetString(config.ContainerBaseName),
-		id)
-
-	return &Container{
-		Id:   id,
-		Init: initProc,
-		Path: containerPath,
-	}, nil
-}
-
 // Attach to an existing container and return an object representing it
 func NewContainerInitAttach(id Id, initPid int) (*Container, error) {
-	initProc, err := NewInitAttach(initPid)
-	if err != nil {
-		return nil, fmt.Errorf("NewInitAttach: %v", err)
-	}
-
-	return &Container{
-		Id:   id,
-		Init: initProc,
-	}, nil
+	panic("Unimplemented")
 }
 
 func (c *Container) Notify() error {
-	return c.Init.notify()
+	panic("Unimplemented")
+	// return c.Init.notify()
 }
 
 func (c *Container) Signal(signal syscall.Signal) error {
-	return c.Init.signal(signal)
+	panic("Unimplemented")
 }
 
 func (c *Container) Close() {
-	c.Init.Close()
+	panic("Unimplemented")
+	// c.Init.Close()
 
 	if c.Network != nil {
 		c.Network.Close()

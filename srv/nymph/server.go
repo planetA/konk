@@ -33,10 +33,16 @@ type Nymph struct {
 	imagesMutex *sync.Mutex
 	images      map[string]*container.Image
 
-	tmpDir string
+	tmpDir   string
+	hostname string
 }
 
 func NewNymph() (*Nymph, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get hostname: %v", err)
+	}
+
 	tmpDir := config.GetString(config.NymphTmpDir)
 
 	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
@@ -77,6 +83,7 @@ func NewNymph() (*Nymph, error) {
 		imagesMutex:       &sync.Mutex{},
 		images:            make(map[string]*container.Image),
 		tmpDir:            tmpDir,
+		hostname:          hostname,
 	}
 
 	return nymph, nil
@@ -233,8 +240,8 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 	}
 
 	log.WithFields(log.Fields{
-		"image":       image.Name,
-		"rootfs":      image.Config.Rootfs,
+		"image":  image.Name,
+		"rootfs": image.Config.Rootfs,
 	}).Debug("Creating a container from factory")
 
 	cont, err := n.containerFactory.Create(image.Name, image.Config)
@@ -260,61 +267,6 @@ func (n *Nymph) getOrCreateContainer(id container.Id, imagePath string) (libcont
 
 	return cont, nil
 
-}
-
-// Nymph creates a container, starts an init process inside and reports about the new container
-// to the coordinator. The function replies with a path to the init container derictory
-// Other processes need to attach to the init container using the path.
-func (n *Nymph) CreateContainer(args CreateContainerArgs, path *string) error {
-	cont, err := n.getOrCreateContainer(args.Id, args.Image)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"container": args.Id,
-			"error":     err,
-		}).Error("Container creation failed")
-		return fmt.Errorf("Container creation failed: %v", err)
-	}
-
-	log.WithField("cont", cont).Debug("Created container")
-	// cont.Network, err = container.NewNetwork(cont.Id, cont.Path)
-	// if err != nil {
-	// 	return fmt.Errorf("Configuring network failed: %v", err)
-	// }
-
-	// Remember the container object
-
-	panic("Unimplemented")
-
-	// Return the path to the container to the launcher
-	// *path = cont.Path
-	return nil
-}
-
-// The nymph is notified that the process has been launched in the container, so the init process
-// can start waiting.
-func (n *Nymph) NotifyProcess(args NotifyProcessArgs, reply *bool) error {
-	// cont, ok := n.getContainer(args.Id)
-	// if !ok {
-	// 	return fmt.Errorf("Container %v is not known\n", args.Id)
-	// }
-
-	panic("Unimplemented")
-	// err := cont.Notify()
-	// if err != nil {
-	// 	return fmt.Errorf("Notifying the init process failed: %v", err)
-	// }
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("Failed to get hostname: %v", err)
-	}
-
-	err = n.coordinatorClient.RegisterContainer(args.Id, hostname)
-	if err != nil {
-		return fmt.Errorf("Registering at the coordinator failed: %v", err)
-	}
-
-	return nil
 }
 
 func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
@@ -366,6 +318,11 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	if err := cont.Run(process); err != nil {
 		log.Info(err)
 		return fmt.Errorf("Failed to launch container in a process", err)
+	}
+
+	err = n.coordinatorClient.RegisterContainer(args.Id, n.hostname)
+	if err != nil {
+		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}
 
 	ret, err := process.Wait()

@@ -65,33 +65,6 @@ func (c *Client) Send(containerId container.Id, destHost string, destPort int) e
 	return nil
 }
 
-// A launcher connects to a local nymph and requests it to create a new container where the actual
-// application can run.
-func (c *Client) CreateContainer(containerId container.Id, image string) (string, error) {
-	args := &CreateContainerArgs{containerId, image}
-
-	var path string
-	err := c.client.Call(rpcCreateContainer, args, &path)
-	if err != nil {
-		return "", fmt.Errorf("RPC call failed: %v", err)
-	}
-
-	return path, nil
-}
-
-// Tell the nymph that the process has started and the container init process can enter waitpid
-func (c *Client) NotifyProcess(containerId container.Id) error {
-	args := &NotifyProcessArgs{containerId}
-
-	// Expect no reply
-	var reply bool
-	if err := c.client.Call(rpcNotifyProcess, args, &reply); err != nil {
-		return fmt.Errorf("RPC call failed: %v", err)
-	}
-
-	return nil
-}
-
 func (c *Client) Signal(containerId container.Id, signal syscall.Signal) error {
 	args := &SignalArgs{containerId, signal}
 

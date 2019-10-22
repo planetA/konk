@@ -11,10 +11,8 @@ import (
 	"os"
 	"path"
 
-	specconv "github.com/opencontainers/runc/libcontainer/specconv"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
@@ -23,7 +21,7 @@ import (
 type Image struct {
 	RootPath string
 	Name     string
-	Config   *configs.Config
+	Spec     *specs.Spec
 }
 
 // Convert permission and mode from tar to os.FileMode. Potentially need
@@ -215,30 +213,16 @@ func NewImage(imageDir string, imagePath string) (*Image, error) {
 		return nil, err
 	}
 
-	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
-		CgroupName:       name,
-		UseSystemdCgroup: false,
-		NoPivotRoot:      false,
-		NoNewKeyring:     false,
-		Spec:             spec,
-		RootlessEUID:     false,
-		RootlessCgroups:  false,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Failed converting spec to config", err)
-	}
-
 	log.WithFields(log.Fields{
 		"path":   imageDir,
 		"image":  imagePath,
 		"rootfs": spec.Root,
-		"new_rootfs": config.Rootfs,
 	}).Debug("Converted spec to config")
 
 	return &Image{
 		RootPath: extractDir,
 		Name:     name,
-		Config:   config,
+		Spec:     spec,
 	}, nil
 }
 

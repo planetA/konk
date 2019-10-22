@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer"
+	"github.com/opencontainers/runc/libcontainer/specconv"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -240,13 +241,27 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 	}
 
 	name := container.ContainerName(image.Name, id)
+
+	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
+		CgroupName:       name,
+		UseSystemdCgroup: false,
+		NoPivotRoot:      false,
+		NoNewKeyring:     false,
+		Spec:             image.Spec,
+		RootlessEUID:     false,
+		RootlessCgroups:  false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed converting spec to config", err)
+	}
+
 	log.WithFields(log.Fields{
-		"image":  image.Name,
+		"image":     image.Name,
 		"container": name,
-		"rootfs": image.Config.Rootfs,
+		"rootfs":    config.Rootfs,
 	}).Debug("Creating a container from factory")
 
-	cont, err := n.containerFactory.Create(name, image.Config)
+	cont, err := n.containerFactory.Create(name, config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}

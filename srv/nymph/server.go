@@ -23,7 +23,6 @@ import (
 
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
-	reaper            *Reaper
 	containerIds      map[int]container.Id // Map of PIDs to container Ids
 	coordinatorClient *coordinator.Client
 	containerFactory  libcontainer.Factory
@@ -54,11 +53,6 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("Failed to create temporary directory %v: %v", tmpDir, err)
 	}
 
-	reaper, err := NewReaper()
-	if err != nil {
-		return nil, fmt.Errorf("NewReper: %v", err)
-	}
-
 	coord, err := coordinator.NewClient()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
@@ -75,7 +69,6 @@ func NewNymph() (*Nymph, error) {
 	}).Trace("Created container factory")
 
 	nymph := &Nymph{
-		reaper:            reaper,
 		containerIds:      make(map[int]container.Id),
 		coordinatorClient: coord,
 		containerFactory:  factory,
@@ -85,24 +78,6 @@ func NewNymph() (*Nymph, error) {
 		images:            make(map[string]*container.Image),
 		tmpDir:            tmpDir,
 	}
-
-	go func() {
-		for {
-			pid, more := <-reaper.deadChildren
-			if !more {
-				log.Println("Reaper died")
-				return
-			}
-
-			if id, ok := nymph.forgetContainerPid(pid); ok {
-				log.Println("Unregistering the container", id)
-				err := nymph.coordinatorClient.UnregisterContainer(id)
-				if err != nil {
-					log.Fatal("Failed to unregister the container: ", err)
-				}
-			}
-		}
-	}()
 
 	return nymph, nil
 }
@@ -252,7 +227,7 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 	if err != nil {
 		log.WithFields(log.Fields{
 			"image_path": imagePath,
-			"err": err,
+			"err":        err,
 		}).Panic("Didn't get the image")
 		return nil, err
 	}
@@ -263,9 +238,9 @@ func (n *Nymph) createContainer(id container.Id, imagePath string) (libcontainer
 	}
 
 	log.WithFields(log.Fields{
-		"image": image.Name,
+		"image":       image.Name,
 		"rootfs_orig": image.Config.Rootfs,
-		"rootfs": config.Rootfs,
+		"rootfs":      config.Rootfs,
 	}).Debug("Creating a container from factory")
 
 	cont, err := n.containerFactory.Create(image.Name, config)
@@ -362,12 +337,35 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
+	process := &libcontainer.Process{
+		Args:   args.Args,
+		Env:    []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
+		User:   "guest",
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+		Init:   true,
+	}
+
 	log.WithFields(log.Fields{
 		"containerId": args.Id,
 		"image":       args.Image,
 		"args":        args.Args,
 		"container":   cont,
-	}).Info("Failed to launch container")
+	}).Info("Launching process inside a container")
+
+	if err := cont.Run(process); err != nil {
+		log.Info(err)
+		return fmt.Errorf("Failed to launch container in a process", err)
+	}
+
+	ret, err := process.Wait()
+	if err != nil {
+		log.Info(err)
+		return fmt.Errorf("Waiting for process failed", err)
+	}
+
+	log.WithField("return", ret).Trace("Finished process")
 
 	return nil
 }
@@ -425,7 +423,6 @@ func (n *Nymph) _Close() {
 	n.unregisterNymph()
 
 	n.coordinatorClient.Close()
-	n.reaper.Close()
 
 	os.RemoveAll(n.tmpDir)
 }

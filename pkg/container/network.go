@@ -15,6 +15,17 @@ type Network struct {
 	netDevs []NetDev
 }
 
+func getBridge(bridgeName string) *netlink.Bridge {
+	bridgeLink, err := netlink.LinkByName(util.BridgeName)
+	if err != nil {
+		log.Panicf("Could not get %s: %v\n", util.BridgeName, err)
+	}
+
+	return &netlink.Bridge{
+		LinkAttrs: *bridgeLink.Attrs(),
+	}
+}
+
 func NewNetwork(id Id, path string) (*Network, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

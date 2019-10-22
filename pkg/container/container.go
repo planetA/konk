@@ -13,10 +13,6 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/vishvananda/netlink"
-
-	"github.com/planetA/konk/pkg/util"
 )
 
 type Container struct {
@@ -67,17 +63,6 @@ func (c *ContainerRegister) Destroy() {
 	defer c.Mutex.Unlock()
 	for _, cont := range c.reg {
 		cont.Destroy()
-	}
-}
-
-func getBridge(bridgeName string) *netlink.Bridge {
-	bridgeLink, err := netlink.LinkByName(util.BridgeName)
-	if err != nil {
-		log.Panicf("Could not get %s: %v\n", util.BridgeName, err)
-	}
-
-	return &netlink.Bridge{
-		LinkAttrs: *bridgeLink.Attrs(),
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/criu"
+	"github.com/planetA/konk/pkg/network"
 	"github.com/planetA/konk/pkg/util"
 
 	. "github.com/planetA/konk/pkg/nymph"
@@ -29,6 +30,8 @@ type Nymph struct {
 	imagesMutex *sync.Mutex
 	images      map[string]*container.Image
 
+	network network.Network
+
 	tmpDir   string
 	hostname string
 }
@@ -37,6 +40,13 @@ func NewNymph() (*Nymph, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get hostname: %v", err)
+	}
+
+	networkType := config.GetString(config.NymphNetwork)
+	network, err := network.New(networkType)
+	if err != nil {
+		log.WithField("network", networkType).Error("Failed to create network")
+		return nil, err
 	}
 
 	tmpDir := config.GetString(config.NymphTmpDir)
@@ -65,6 +75,7 @@ func NewNymph() (*Nymph, error) {
 		containers:        container.NewContainerRegister(tmpDir),
 		imagesMutex:       &sync.Mutex{},
 		images:            make(map[string]*container.Image),
+		network:           network,
 		tmpDir:            tmpDir,
 		hostname:          hostname,
 	}
@@ -299,4 +310,6 @@ func (n *Nymph) _Close() {
 	n.coordinatorClient.Close()
 
 	os.RemoveAll(n.tmpDir)
+
+	n.network.Destroy()
 }

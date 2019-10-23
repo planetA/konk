@@ -40,6 +40,8 @@ const (
 	MpirunNameHosts   = "mpirun.name.hosts"
 
 	RunHostname = "run.hostname"
+
+	OvsBridgeName = "ovs.bridge.name"
 )
 
 func GetString(key ViperKey) string {

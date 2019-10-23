@@ -23,7 +23,6 @@ import (
 type Container struct {
 	Id      Id
 	Path    string
-	Network *Network
 }
 
 type ContainerRegister struct {
@@ -66,10 +65,10 @@ func (c *ContainerRegister) Create(id Id, imageName string, spec *specs.Spec) (l
 		return nil, fmt.Errorf("Failed converting spec to config", err)
 	}
 
-	if err := configureNetwork(config); err != nil {
-		log.Error("Network specification failed")
-		return nil, err
-	}
+	// if err := configureNetwork(config); err != nil {
+	// 	log.Error("Network specification failed")
+	// 	return nil, err
+	// }
 
 	log.WithFields(log.Fields{
 		"image":     imageName,

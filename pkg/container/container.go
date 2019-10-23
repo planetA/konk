@@ -12,8 +12,7 @@ import (
 	"sync"
 
 	"github.com/opencontainers/runc/libcontainer"
-	"github.com/opencontainers/runc/libcontainer/specconv"
-	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/opencontainers/runc/libcontainer/configs"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,34 +45,7 @@ func NewContainerRegister(tmpDir string) *ContainerRegister {
 	}
 }
 
-func (c *ContainerRegister) Create(name string, spec *specs.Spec) (libcontainer.Container, error) {
-	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
-		CgroupName:       name,
-		UseSystemdCgroup: false,
-		NoPivotRoot:      false,
-		NoNewKeyring:     false,
-		Spec:             spec,
-		RootlessEUID:     false,
-		RootlessCgroups:  false,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Failed converting spec to config", err)
-	}
-
-	// if err := configureNetwork(config); err != nil {
-	// 	log.Error("Network specification failed")
-	// 	return nil, err
-	// }
-
-	cont, err := c.Factory.Create(name, config)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create a container: %v", err)
-	}
-
-	return cont, nil
-}
-
-func (c *ContainerRegister) GetOrCreate(id Id, name string, spec *specs.Spec) (libcontainer.Container, error) {
+func (c *ContainerRegister) GetOrCreate(id Id, name string, config *configs.Config) (libcontainer.Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -83,9 +55,9 @@ func (c *ContainerRegister) GetOrCreate(id Id, name string, spec *specs.Spec) (l
 		return cont, nil
 	}
 
-	cont, err := c.Create(name, spec)
+	cont, err := c.Factory.Create(name, config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create a container: %v", err)
 	}
 
 	// Remember container

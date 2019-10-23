@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer"
+	"github.com/opencontainers/runc/libcontainer/specconv"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -223,7 +224,25 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	}
 
 	contName := ContainerName(imagePath, args.Id)
-	cont, err := n.containers.GetOrCreate(args.Id, contName, image.Spec)
+	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
+		CgroupName:       contName,
+		UseSystemdCgroup: false,
+		NoPivotRoot:      false,
+		NoNewKeyring:     false,
+		Spec:             image.Spec,
+		RootlessEUID:     false,
+		RootlessCgroups:  false,
+	})
+	if err != nil {
+		return fmt.Errorf("Failed converting spec to config", err)
+	}
+
+	// if err := configureNetwork(config); err != nil {
+	// 	log.Error("Network specification failed")
+	// 	return nil, err
+	// }
+
+	cont, err := n.containers.GetOrCreate(args.Id, contName, config)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Id,

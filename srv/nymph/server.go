@@ -1,6 +1,8 @@
 package nymph
 
 import (
+	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -200,6 +202,14 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 	return nil
 }
 
+// Generate an image name from the container path
+func ContainerName(imageName string, id container.Id) string {
+	s := sha512.New512_256()
+	s.Write([]byte(imageName))
+	s.Write([]byte(fmt.Sprintf("%v", id)))
+	return hex.EncodeToString(s.Sum(nil))
+}
+
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	imagePath := args.Image
 
@@ -212,7 +222,8 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return err
 	}
 
-	cont, err := n.containers.GetOrCreate(args.Id, imagePath, image.Spec)
+	contName := ContainerName(imagePath, args.Id)
+	cont, err := n.containers.GetOrCreate(args.Id, contName, image.Spec)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Id,

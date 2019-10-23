@@ -6,8 +6,6 @@
 package container
 
 import (
-	"crypto/sha512"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path"
@@ -17,12 +15,11 @@ import (
 	"github.com/opencontainers/runc/libcontainer/specconv"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
-
 )
 
 type Container struct {
-	Id      Id
-	Path    string
+	Id   Id
+	Path string
 }
 
 type ContainerRegister struct {
@@ -49,9 +46,7 @@ func NewContainerRegister(tmpDir string) *ContainerRegister {
 	}
 }
 
-func (c *ContainerRegister) Create(id Id, imageName string, spec *specs.Spec) (libcontainer.Container, error) {
-	name := ContainerName(imageName, id)
-
+func (c *ContainerRegister) Create(name string, spec *specs.Spec) (libcontainer.Container, error) {
 	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
 		CgroupName:       name,
 		UseSystemdCgroup: false,
@@ -70,12 +65,6 @@ func (c *ContainerRegister) Create(id Id, imageName string, spec *specs.Spec) (l
 	// 	return nil, err
 	// }
 
-	log.WithFields(log.Fields{
-		"image":     imageName,
-		"container": name,
-		"rootfs":    config.Rootfs,
-	}).Debug("Creating a container from factory")
-
 	cont, err := c.Factory.Create(name, config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a container: %v", err)
@@ -84,7 +73,7 @@ func (c *ContainerRegister) Create(id Id, imageName string, spec *specs.Spec) (l
 	return cont, nil
 }
 
-func (c *ContainerRegister) GetOrCreate(id Id, imageName string, spec *specs.Spec) (libcontainer.Container, error) {
+func (c *ContainerRegister) GetOrCreate(id Id, name string, spec *specs.Spec) (libcontainer.Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -94,7 +83,7 @@ func (c *ContainerRegister) GetOrCreate(id Id, imageName string, spec *specs.Spe
 		return cont, nil
 	}
 
-	cont, err := c.Create(id, imageName, spec)
+	cont, err := c.Create(name, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +114,4 @@ func (c *ContainerRegister) Destroy() {
 	for _, cont := range c.reg {
 		cont.Destroy()
 	}
-}
-
-// Generate an image name from the container path
-func ContainerName(imageName string, id Id) string {
-	s := sha512.New512_256()
-	s.Write([]byte(imageName))
-	s.Write([]byte(fmt.Sprintf("%v", id)))
-	return hex.EncodeToString(s.Sum(nil))
 }

@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"strings"
 	"os"
 
 	"github.com/digitalocean/go-openvswitch/ovs"
@@ -19,11 +20,61 @@ type NetworkOvs struct {
 	bridge string
 }
 
+func configurePeers(bridgeName string, client *ovs.Client) error {
+	peerNames := config.GetStringSlice(config.OvsPeers)
+	if len(peerNames) < 2 {
+		log.Debug("No peers to connect")
+		return nil
+	}
+
+	// TODO: check that hostname is in peerNames
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("failed to get hostname: %v", err)
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"peers": peerNames,
+		"host":  hostname,
+	}).Debug("Connecting bridges")
+
+	grePort := "gre0"
+	if err := client.VSwitch.AddPort(bridgeName, grePort); err != nil {
+		return err
+	}
+
+	otherPeers := []string{}
+	for _, peer := range peerNames {
+		if peer == hostname {
+			continue
+		}
+		otherPeers = append(otherPeers, peer)
+	}
+	if len(otherPeers) < 1 || len(otherPeers) == len(peerNames) {
+		log.WithFields(log.Fields{
+			"peers": peerNames,
+			"hostname": hostname,
+		}).Fatal("Peer list is wrong")
+	}
+
+	err = client.VSwitch.Set.Interface(grePort, ovs.InterfaceOptions{
+		Type: ovs.InterfaceTypeGRE,
+		RemoteIP: strings.Join(otherPeers, ","),
+	})
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	return nil
+}
+
 func NewOvs() (Network, error) {
 	log.Trace("Init ovs network")
 	// Check if driver are loaded
 	client := ovs.New(
-		ovs.Timeout(2),
+		ovs.Timeout(5),
 		ovs.Debug(true),
 	)
 
@@ -31,6 +82,10 @@ func NewOvs() (Network, error) {
 	// Create bridge
 	if err := client.VSwitch.AddBridge(bridgeName); err != nil {
 		log.Fatalf("failed to add bridge: %v", err)
+		return nil, err
+	}
+
+	if err := configurePeers(bridgeName, client); err != nil {
 		return nil, err
 	}
 

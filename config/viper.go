@@ -42,6 +42,7 @@ const (
 	RunHostname = "run.hostname"
 
 	OvsBridgeName = "ovs.bridge.name"
+	OvsPeers      = "ovs.peers"
 )
 
 func GetString(key ViperKey) string {

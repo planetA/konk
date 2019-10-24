@@ -62,8 +62,8 @@ func init() {
 	RunCmd.MarkFlagRequired("image")
 	config.BindPFlag(config.ContainerImage, RunCmd.Flags().Lookup("image"))
 
-	RunCmd.Flags().String("hostaname", "localhost", "Where the application should run")
-	config.BindPFlag(config.RunHostname, RunCmd.Flags().Lookup("hostaname"))
+	RunCmd.Flags().String("hostname", "localhost", "Where the application should run")
+	config.BindPFlag(config.RunHostname, RunCmd.Flags().Lookup("hostname"))
 
 	KonkCmd.AddCommand(RunCmd)
 }

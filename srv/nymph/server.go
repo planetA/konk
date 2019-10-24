@@ -306,7 +306,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 func (n *Nymph) registerNymphOnce() error {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("Failed to get hostaname: %v", err)
+		return fmt.Errorf("Failed to get hostname: %v", err)
 	}
 
 	if err := n.coordinatorClient.RegisterNymph(hostname); err != nil {
@@ -332,7 +332,7 @@ func (n *Nymph) registerNymph() error {
 func (n *Nymph) unregisterNymph() {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Printf("Failed to get hostaname: %v", err)
+		log.Printf("Failed to get hostname: %v", err)
 	}
 
 	if err := n.coordinatorClient.UnregisterNymph(hostname); err != nil {

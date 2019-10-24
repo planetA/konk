@@ -268,7 +268,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	process := &libcontainer.Process{
 		Args:   args.Args,
 		Env:    []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User:   "guest",
+		User:   "user",
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,

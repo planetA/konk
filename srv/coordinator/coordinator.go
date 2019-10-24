@@ -18,8 +18,8 @@ func Run() error {
 	control := NewControl()
 	go control.Start()
 
-	scheduler := NewScheduler(control)
-	go scheduler.Start()
+	// scheduler := NewScheduler(control)
+	// go scheduler.Start()
 
 	coord := NewCoordinator(control)
 	rpc.Register(coord)

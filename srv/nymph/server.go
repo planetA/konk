@@ -223,6 +223,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return err
 	}
 
+	// TODO: cd to the bundle directory, see spec_linux.go
 	contName := ContainerName(imagePath, args.Id)
 	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
 		CgroupName:       contName,
@@ -237,10 +238,10 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Failed converting spec to config", err)
 	}
 
-	// if err := configureNetwork(config); err != nil {
-	// 	log.Error("Network specification failed")
-	// 	return nil, err
-	// }
+	if err := n.network.InstallHooks(config); err != nil {
+		log.Error("Network specification failed")
+		return err
+	}
 
 	cont, err := n.containers.GetOrCreate(args.Id, contName, config)
 	if err != nil {

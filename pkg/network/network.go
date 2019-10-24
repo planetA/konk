@@ -4,12 +4,15 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/planetA/konk/pkg/util"
+	"github.com/opencontainers/runc/libcontainer/configs"
 
 	"github.com/vishvananda/netlink"
 	// "github.com/vishvananda/netns"
 )
 
 type Network interface {
+	InstallHooks(config *configs.Config) error
+
 	// Uninitialize the network
 	Destroy()
 }

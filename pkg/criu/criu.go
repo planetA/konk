@@ -6,10 +6,10 @@ import (
 	"runtime"
 
 	"google.golang.org/grpc"
+	"github.com/checkpoint-restore/go-criu/rpc"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
-	"github.com/planetA/konk/pkg/rpc"
 	"github.com/planetA/konk/pkg/util"
 )
 

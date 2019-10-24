@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/checkpoint-restore/go-criu/rpc"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/vishvananda/netns"
 
 	"github.com/planetA/konk/pkg/container"
-	"github.com/planetA/konk/pkg/rpc"
 	"github.com/planetA/konk/pkg/util"
 )
 
@@ -43,7 +43,7 @@ type CriuService struct {
 	conn     net.Conn
 	targetNs netns.NsHandle
 
-	Id       container.Id
+	Id container.Id
 
 	SocketPath   string
 	PidFilePath  string

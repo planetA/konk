@@ -33,7 +33,7 @@ func CreateNewHardwareAddr(id Id) net.HardwareAddr {
 	return newAddr
 }
 
-func createContainerAddr(id Id) *netlink.Addr {
+func CreateContainerAddr(id Id) *netlink.Addr {
 	base := util.ContainerNet
 
 	base.IP = base.IP.To4()

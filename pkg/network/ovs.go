@@ -2,7 +2,7 @@ package network
 
 import (
 	"fmt"
-	"path"
+	"os"
 
 	"github.com/digitalocean/go-openvswitch/ovs"
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -10,6 +10,8 @@ import (
 	"github.com/planetA/konk/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+
+	"github.com/vishvananda/netns"
 )
 
 type NetworkOvs struct {
@@ -21,7 +23,9 @@ func NewOvs() (Network, error) {
 	log.Trace("Init ovs network")
 	// Check if driver are loaded
 	client := ovs.New(
-		ovs.Timeout(2))
+		ovs.Timeout(2),
+		ovs.Debug(true),
+	)
 
 	bridgeName := config.GetString(config.OvsBridgeName)
 	// Create bridge
@@ -37,43 +41,97 @@ func NewOvs() (Network, error) {
 	}, nil
 }
 
-func ovsPrestartHook(n *NetworkOvs, state *specs.State) error {
-	netNsPath := path.Join("/proc", fmt.Sprintf("%v", state.Pid), "ns/net")
-	log.WithFields(log.Fields{
-		"state": state,
-		"netns": netNsPath,
-	}).Debug("Prestart hook")
+func ovsCleanupPort(n *NetworkOvs, portName string) {
+	n.client.VSwitch.DeletePort(n.bridge, portName)
+}
 
-	err := n.client.VSwitch.AddPort(n.bridge, "p0")
+func ovsPortName(state *specs.State) (string, error) {
+	id, ok := state.Annotations["konk-id"]
+	if !ok {
+		return "", fmt.Errorf("Konk id is not set")
+	}
+
+	portName := fmt.Sprintf("p%v", id)
+	return portName, nil
+}
+
+func ovsPortAddr(state *specs.State) (string, error) {
+	addr, ok := state.Annotations["konk-ip"]
+	if !ok {
+		return "", fmt.Errorf("Konk ip is not set")
+	}
+
+	return addr, nil
+}
+
+func ovsPrestartHook(n *NetworkOvs, state *specs.State) error {
+	ns, err := netns.GetFromPid(state.Pid)
+	if err != nil {
+		log.WithError(err).Fatal("Getting ns from PID failed")
+		return err
+	}
+	defer ns.Close()
+
+	handle, err := netlink.NewHandleAt(ns)
+	if err != nil {
+		log.WithError(err).Fatal("Getting handle from ns failed")
+		return err
+	}
+	defer handle.Delete()
+
+	portName, err := ovsPortName(state)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 
-	if err := n.client.VSwitch.Set.Interface("p0", ovs.InterfaceOptions{
+	addrString, err := ovsPortAddr(state)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	ovsCleanupPort(n, portName)
+	if err := n.client.VSwitch.AddPort(n.bridge, portName); err != nil {
+		log.Fatal(err)
+		return err
+	}
+	if err := n.client.VSwitch.Set.Interface(portName, ovs.InterfaceOptions{
 		Type: ovs.InterfaceTypeInternal,
 	}); err != nil {
 		log.Fatal(err)
 		return err
 	}
 
-	port, err := netlink.LinkByName("p0")
+	port, err := netlink.LinkByName(portName)
 	if err != nil {
 		return fmt.Errorf("Failed to get port: %v", err)
 	}
 
-	addr, err := netlink.ParseAddr("169.254.169.254/32")
+	addr, err := netlink.ParseAddr(addrString)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 
-	if err := netlink.AddrAdd(port, addr); err != nil {
-		log.Fatal(err)
+	if err := netlink.LinkSetNsPid(port, state.Pid); err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+			"pid":   state.Pid,
+		}).Fatal("Failed to get put link into net ns")
 		return err
 	}
 
-	if err := netlink.LinkSetUp(port); err != nil {
+	if err := handle.AddrAdd(port, addr); err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+			"port":  portName,
+			"addr":  addr,
+		}).Fatal("Adding address failed")
+		return err
+	}
+
+	if err := handle.LinkSetUp(port); err != nil {
 		log.Fatal(err)
 		return err
 	}
@@ -88,7 +146,33 @@ func ovsPoststartHook(n *NetworkOvs, state *specs.State) error {
 
 func ovsPoststopHook(n *NetworkOvs, state *specs.State) error {
 	log.Debug("Poststop hook")
-	n.client.VSwitch.DeletePort(n.bridge, "p0")
+
+	portName, err := ovsPortName(state)
+	if err != nil {
+		return nil
+	}
+
+	ns, err := netns.GetFromPid(state.Pid)
+	if err != nil {
+		return nil
+	}
+	defer ns.Close()
+
+	handle, err := netlink.NewHandleAt(ns)
+	if err != nil {
+		log.WithError(err).Debug("Getting handle from ns failed")
+		return nil
+	}
+	defer handle.Delete()
+
+	port, err := handle.LinkByName(portName)
+	if err != nil {
+		return nil
+	}
+
+	netlink.LinkSetNsPid(port, os.Getpid())
+
+	ovsCleanupPort(n, portName)
 	return nil
 }
 

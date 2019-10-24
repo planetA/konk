@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/runc/libcontainer"
+	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/specconv"
 
 	"github.com/planetA/konk/config"
@@ -211,6 +212,15 @@ func ContainerName(imageName string, id container.Id) string {
 	return hex.EncodeToString(s.Sum(nil))
 }
 
+func addLabelId(config *configs.Config, id container.Id) {
+	config.Labels = append(config.Labels, fmt.Sprintf("konk-id=%v", id))
+}
+
+func addLabelIpAddr(config *configs.Config, id container.Id) {
+	addr := container.CreateContainerAddr(id)
+	config.Labels = append(config.Labels, fmt.Sprintf("konk-ip=%v", addr.String()))
+}
+
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	imagePath := args.Image
 
@@ -237,6 +247,9 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	if err != nil {
 		return fmt.Errorf("Failed converting spec to config", err)
 	}
+
+	addLabelId(config, args.Id)
+	addLabelIpAddr(config, args.Id)
 
 	if err := n.network.InstallHooks(config); err != nil {
 		log.Error("Network specification failed")

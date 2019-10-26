@@ -26,6 +26,7 @@ const (
 	ContainerImage    = "container.image"
 	ContainerRootDir  = "container.root_dir"
 	ContainerBaseName = "container.base_name"
+	ContainerUsername = "container.user"
 
 	KonkSysLauncher = "konk-sys.launcher"
 	KonkSysInit     = "konk-sys.init"

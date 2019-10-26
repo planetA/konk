@@ -235,7 +235,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 
 	// TODO: cd to the bundle directory, see spec_linux.go
 	contName := ContainerName(imagePath, args.Id)
-	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
+	contConfig, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
 		CgroupName:       contName,
 		UseSystemdCgroup: false,
 		NoPivotRoot:      false,
@@ -248,15 +248,15 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Failed converting spec to config", err)
 	}
 
-	addLabelId(config, args.Id)
-	addLabelIpAddr(config, args.Id)
+	addLabelId(contConfig, args.Id)
+	addLabelIpAddr(contConfig, args.Id)
 
-	if err := n.network.InstallHooks(config); err != nil {
+	if err := n.network.InstallHooks(contConfig); err != nil {
 		log.Error("Network specification failed")
 		return err
 	}
 
-	cont, err := n.containers.GetOrCreate(args.Id, contName, config)
+	cont, err := n.containers.GetOrCreate(args.Id, contName, contConfig)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Id,
@@ -265,10 +265,11 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
+	userName := config.GetString(config.ContainerUsername)
 	process := &libcontainer.Process{
 		Args:   args.Args,
 		Env:    []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User:   "user",
+		User:   userName,
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,

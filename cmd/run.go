@@ -65,6 +65,9 @@ func init() {
 	RunCmd.Flags().String("hostname", "localhost", "Where the application should run")
 	config.BindPFlag(config.RunHostname, RunCmd.Flags().Lookup("hostname"))
 
+	RunCmd.Flags().String("user", "user", "Where the application should run")
+	config.BindPFlag(config.ContainerUsername, RunCmd.Flags().Lookup("user"))
+
 	KonkCmd.AddCommand(RunCmd)
 }
 

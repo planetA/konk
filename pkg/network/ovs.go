@@ -17,11 +17,12 @@ import (
 )
 
 type NetworkOvs struct {
-	client *ovs.Client
-	bridge string
+	client  *ovs.Client
+	bridge  string
+	grePort string
 }
 
-func configurePeers(bridgeName string, client *ovs.Client) error {
+func (n *NetworkOvs) configurePeers() error {
 	peerNames := config.GetStringSlice(config.OvsPeers)
 	if len(peerNames) < 2 {
 		log.Debug("No peers to connect")
@@ -40,8 +41,7 @@ func configurePeers(bridgeName string, client *ovs.Client) error {
 		"host":  hostname,
 	}).Debug("Connecting bridges")
 
-	grePort := "gre0"
-	if err := client.VSwitch.AddPort(bridgeName, grePort); err != nil {
+	if err := n.client.VSwitch.AddPort(n.bridge, n.grePort); err != nil {
 		return err
 	}
 
@@ -64,9 +64,9 @@ func configurePeers(bridgeName string, client *ovs.Client) error {
 		}
 
 		log.WithFields(log.Fields{
-			"peer": peer,
+			"peer":     peer,
 			"all_addr": addr,
-			"addr": addr[0],
+			"addr":     addr[0],
 		}).Debug("Resolved peer name to IP")
 		otherPeers = append(otherPeers, addr[0])
 	}
@@ -77,7 +77,7 @@ func configurePeers(bridgeName string, client *ovs.Client) error {
 		}).Fatal("Peer list is wrong")
 	}
 
-	err = client.VSwitch.Set.Interface(grePort, ovs.InterfaceOptions{
+	err = n.client.VSwitch.Set.Interface(n.grePort, ovs.InterfaceOptions{
 		Type:     ovs.InterfaceTypeGRE,
 		RemoteIP: strings.Join(otherPeers, ","),
 	})
@@ -104,15 +104,18 @@ func NewOvs() (Network, error) {
 		return nil, err
 	}
 
-	if err := configurePeers(bridgeName, client); err != nil {
+	ovs := &NetworkOvs{
+		client:  client,
+		bridge:  bridgeName,
+		grePort: "ovsgre0",
+	}
+
+	if err := ovs.configurePeers(); err != nil {
 		return nil, err
 	}
 
 	// Connect to other peers
-	return &NetworkOvs{
-		client: client,
-		bridge: bridgeName,
-	}, nil
+	return ovs, nil
 }
 
 func (n *NetworkOvs) cleanupPort(portName string) {
@@ -271,6 +274,6 @@ func (n *NetworkOvs) InstallHooks(config *configs.Config) error {
 }
 
 func (n *NetworkOvs) Destroy() {
-	n.cleanupPort("gre0")
+	n.cleanupPort(n.grePort)
 	n.client.VSwitch.DeleteBridge(n.bridge)
 }

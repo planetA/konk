@@ -27,6 +27,7 @@ const (
 	ContainerRootDir  = "container.root_dir"
 	ContainerBaseName = "container.base_name"
 	ContainerUsername = "container.user"
+	ContainerHostname = "container.hostname"
 
 	KonkSysLauncher = "konk-sys.launcher"
 	KonkSysInit     = "konk-sys.init"
@@ -39,8 +40,6 @@ const (
 
 	MpirunNameNumproc = "mpirun.name.numproc"
 	MpirunNameHosts   = "mpirun.name.hosts"
-
-	RunHostname = "run.hostname"
 
 	OvsBridgeName = "ovs.bridge.name"
 	OvsPeers      = "ovs.peers"

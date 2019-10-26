@@ -25,7 +25,7 @@ var RunCmd = &cobra.Command{
 		}
 
 		image := config.GetString(config.ContainerImage)
-		hostname := config.GetString(config.RunHostname)
+		hostname := config.GetString(config.ContainerHostname)
 
 		nymph, err := nymph.NewClient(hostname)
 		if err != nil {
@@ -63,7 +63,7 @@ func init() {
 	config.BindPFlag(config.ContainerImage, RunCmd.Flags().Lookup("image"))
 
 	RunCmd.Flags().String("hostname", "localhost", "Where the application should run")
-	config.BindPFlag(config.RunHostname, RunCmd.Flags().Lookup("hostname"))
+	config.BindPFlag(config.ContainerHostname, RunCmd.Flags().Lookup("hostname"))
 
 	RunCmd.Flags().String("user", "user", "Where the application should run")
 	config.BindPFlag(config.ContainerUsername, RunCmd.Flags().Lookup("user"))

@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -49,7 +50,25 @@ func configurePeers(bridgeName string, client *ovs.Client) error {
 		if peer == hostname {
 			continue
 		}
-		otherPeers = append(otherPeers, peer)
+		addr, err := net.LookupHost(peer)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"peer":  peer,
+				"error": err,
+			}).Fatal("Could not resolve peer name")
+			return err
+		}
+		if len(addr) < 1 {
+			log.WithField("peer", peer).Fatal("Hostname did not resolve into IP")
+			return fmt.Errorf("Hostname did not resolve into IP: %v", peer)
+		}
+
+		log.WithFields(log.Fields{
+			"peer": peer,
+			"all_addr": addr,
+			"addr": addr[0],
+		}).Debug("Resolved peer name to IP")
+		otherPeers = append(otherPeers, addr[0])
 	}
 	if len(otherPeers) < 1 || len(otherPeers) == len(peerNames) {
 		log.WithFields(log.Fields{

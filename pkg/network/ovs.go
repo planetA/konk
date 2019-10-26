@@ -2,8 +2,8 @@ package network
 
 import (
 	"fmt"
-	"strings"
 	"os"
+	"strings"
 
 	"github.com/digitalocean/go-openvswitch/ovs"
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -53,13 +53,13 @@ func configurePeers(bridgeName string, client *ovs.Client) error {
 	}
 	if len(otherPeers) < 1 || len(otherPeers) == len(peerNames) {
 		log.WithFields(log.Fields{
-			"peers": peerNames,
+			"peers":    peerNames,
 			"hostname": hostname,
 		}).Fatal("Peer list is wrong")
 	}
 
 	err = client.VSwitch.Set.Interface(grePort, ovs.InterfaceOptions{
-		Type: ovs.InterfaceTypeGRE,
+		Type:     ovs.InterfaceTypeGRE,
 		RemoteIP: strings.Join(otherPeers, ","),
 	})
 	if err != nil {
@@ -96,7 +96,11 @@ func NewOvs() (Network, error) {
 	}, nil
 }
 
-func ovsCleanupPort(n *NetworkOvs, portName string) {
+func (n *NetworkOvs) cleanupPort(portName string) {
+	log.WithFields(log.Fields{
+		"bridge": n.bridge,
+		"port":   portName,
+	}).Trace("Deleting bridge port")
 	n.client.VSwitch.DeletePort(n.bridge, portName)
 }
 
@@ -146,7 +150,7 @@ func ovsPrestartHook(n *NetworkOvs, state *specs.State) error {
 		return err
 	}
 
-	ovsCleanupPort(n, portName)
+	n.cleanupPort(portName)
 	if err := n.client.VSwitch.AddPort(n.bridge, portName); err != nil {
 		log.Fatal(err)
 		return err
@@ -227,7 +231,7 @@ func ovsPoststopHook(n *NetworkOvs, state *specs.State) error {
 
 	netlink.LinkSetNsPid(port, os.Getpid())
 
-	ovsCleanupPort(n, portName)
+	n.cleanupPort(portName)
 	return nil
 }
 
@@ -248,5 +252,6 @@ func (n *NetworkOvs) InstallHooks(config *configs.Config) error {
 }
 
 func (n *NetworkOvs) Destroy() {
+	n.cleanupPort("gre0")
 	n.client.VSwitch.DeleteBridge(n.bridge)
 }

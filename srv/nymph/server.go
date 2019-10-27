@@ -13,6 +13,7 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/opencontainers/runc/libcontainer/specconv"
 
 	"github.com/planetA/konk/config"
@@ -221,6 +222,53 @@ func addLabelIpAddr(config *configs.Config, id container.Id) {
 	config.Labels = append(config.Labels, fmt.Sprintf("konk-ip=%v", addr.String()))
 }
 
+func (n *Nymph) addDevices(contConfig *configs.Config) error {
+	caps := []string{
+		"CAP_NET_ADMIN",
+		"CAP_SYS_ADMIN",
+		"CAP_CHOWN",
+		"CAP_DAC_OVERRIDE",
+		"CAP_FSETID",
+		"CAP_FOWNER",
+		"CAP_MKNOD",
+		"CAP_NET_RAW",
+		"CAP_SETGID",
+		"CAP_SETUID",
+		"CAP_SETFCAP",
+		"CAP_SETPCAP",
+		"CAP_NET_BIND_SERVICE",
+		"CAP_SYS_CHROOT",
+		"CAP_KILL",
+		"CAP_AUDIT_WRITE",
+	}
+	contConfig.Capabilities.Bounding = append(contConfig.Capabilities.Bounding, caps...)
+	contConfig.Capabilities.Effective = append(contConfig.Capabilities.Effective, caps...)
+	contConfig.Capabilities.Ambient = append(contConfig.Capabilities.Ambient, caps...)
+	contConfig.Capabilities.Inheritable = append(contConfig.Capabilities.Inheritable, caps...)
+	contConfig.Capabilities.Permitted = append(contConfig.Capabilities.Permitted, caps...)
+	contConfig.Seccomp = &configs.Seccomp{
+		DefaultAction: configs.Allow,
+	}
+
+	devicePath := config.GetString(config.ContainerDevicePath)
+	dev, err := devices.GetDevices(devicePath)
+	if err != nil {
+		return err
+	}
+
+	contConfig.Devices = append(contConfig.Devices, dev...)
+	contConfig.Cgroups = &configs.Cgroup{
+		Name:   "test-container",
+		Parent: "system",
+		Resources: &configs.Resources{
+			MemorySwappiness: nil,
+			AllowAllDevices:  nil,
+			AllowedDevices:   append(configs.DefaultAllowedDevices, contConfig.Devices...),
+		},
+	}
+	return nil
+}
+
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	imagePath := args.Image
 
@@ -256,6 +304,11 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return err
 	}
 
+	if err := n.addDevices(contConfig); err != nil {
+		log.Error("Adding devices failed")
+		return err
+	}
+
 	cont, err := n.containers.GetOrCreate(args.Id, contName, contConfig)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -266,10 +319,11 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	}
 
 	userName := config.GetString(config.ContainerUsername)
+	log.WithField("user", userName).Debug("Staring process")
 	process := &libcontainer.Process{
 		Args:   args.Args,
 		Env:    []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User:   userName,
+		User:   "root",
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,

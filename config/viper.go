@@ -29,6 +29,8 @@ const (
 	ContainerUsername = "container.user"
 	ContainerHostname = "container.hostname"
 
+	ContainerDevicePath = "container.device.path"
+
 	KonkSysLauncher = "konk-sys.launcher"
 	KonkSysInit     = "konk-sys.init"
 

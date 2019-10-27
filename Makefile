@@ -20,7 +20,7 @@ $(KONK_PROTO): $(KONK_PROTO_FILE)
 
 konk: $(KONK_PROTO) $(GOFILES)
 	go get
-	go build
+	go build -tags seccomp
 
 install: konk
 	go get

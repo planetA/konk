@@ -45,6 +45,15 @@ func NewContainerRegister(tmpDir string) *ContainerRegister {
 	}
 }
 
+func (c *ContainerRegister) GetUnlocked(id Id) (libcontainer.Container, error) {
+	cont, ok := c.reg[id]
+	if ok {
+		return cont, nil
+	}
+
+	return nil, fmt.Errorf("Container %v not found", id)
+}
+
 func (c *ContainerRegister) GetOrCreate(id Id, name string, config *configs.Config) (libcontainer.Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -38,49 +39,75 @@ type Nymph struct {
 	hostname string
 }
 
+func (n *Nymph) imagesPath() string {
+	return path.Join(n.tmpDir, "images")
+}
+
+func (n *Nymph) criuPath() string {
+	return path.Join(n.tmpDir, "criu")
+}
+
+func (n *Nymph) createTmpDirs() error {
+	if _, err := os.Stat(n.tmpDir); !os.IsNotExist(err) {
+		log.WithFields(log.Fields{
+			"path": n.tmpDir,
+		}).Info("Temp directory already exists. Purging.")
+		os.RemoveAll(n.tmpDir)
+	}
+	log.WithFields(log.Fields{
+		"path": n.tmpDir,
+	}).Trace("Creating temporary directory")
+
+	if err := os.MkdirAll(n.tmpDir, 0770); err != nil {
+		return fmt.Errorf("Failed to create temporary directory %v: %v", n.tmpDir, err)
+	}
+
+	if err := os.MkdirAll(n.imagesPath(), 0770); err != nil {
+		return fmt.Errorf("Failed to create temporary directory %v: %v", n.imagesPath(), err)
+	}
+
+	if err := os.MkdirAll(n.criuPath(), 0770); err != nil {
+		return fmt.Errorf("Failed to create temporary directory %v: %v", n.criuPath(), err)
+	}
+
+	return nil
+}
+
 func NewNymph() (*Nymph, error) {
-	hostname, err := os.Hostname()
+	nymph := &Nymph{
+		imagesMutex:       &sync.Mutex{},
+		images:            make(map[string]*container.Image),
+	}
+
+	var err error
+	nymph.hostname, err = os.Hostname()
 	if err != nil {
+		nymph._Close()
 		return nil, fmt.Errorf("Failed to get hostname: %v", err)
 	}
 
 	networkType := config.GetString(config.NymphNetwork)
-	network, err := network.New(networkType)
+	nymph.network, err = network.New(networkType)
 	if err != nil {
 		log.WithField("network", networkType).Error("Failed to create network")
+		nymph._Close()
 		return nil, err
 	}
 
-	tmpDir := config.GetString(config.NymphTmpDir)
-
-	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"path": tmpDir,
-		}).Info("Temp directory already exists. Purging.")
-		os.RemoveAll(tmpDir)
-	}
-	log.WithFields(log.Fields{
-		"path": tmpDir,
-	}).Trace("Creating temporary directory")
-
-	if err := os.MkdirAll(tmpDir, 0770); err != nil {
-		return nil, fmt.Errorf("Failed to create temporary directory %v: %v", tmpDir, err)
+	nymph.tmpDir = config.GetString(config.NymphTmpDir)
+	if err := nymph.createTmpDirs(); err != nil {
+		nymph._Close()
+		return nil, err
 	}
 
-	coord, err := coordinator.NewClient()
+	nymph.containers = container.NewContainerRegister(nymph.tmpDir)
+
+	nymph.coordinatorClient, err = coordinator.NewClient()
 	if err != nil {
+		nymph._Close()
 		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
 	}
 
-	nymph := &Nymph{
-		coordinatorClient: coord,
-		containers:        container.NewContainerRegister(tmpDir),
-		imagesMutex:       &sync.Mutex{},
-		images:            make(map[string]*container.Image),
-		network:           network,
-		tmpDir:            tmpDir,
-		hostname:          hostname,
-	}
 
 	return nymph, nil
 }

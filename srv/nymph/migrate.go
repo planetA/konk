@@ -60,8 +60,8 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	container, _ := n.containers.GetUnlocked(args.ContainerId)
 
 	err := container.Checkpoint(&libcontainer.CriuOpts{
-		ImagesDirectory:   "/tmp/konk/nymph/criu/images",
-		WorkDirectory:     "/tmp/konk/nymph/criu",
+		ImagesDirectory:   n.imagesPath(),
+		WorkDirectory:     n.criuPath(),
 		LeaveRunning:      true,
 		TcpEstablished:    true,
 		ShellJob:          true,

@@ -268,9 +268,11 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	addLabelId(contConfig, args.Id)
 	addLabelIpAddr(contConfig, args.Id)
 
-	if err := n.network.InstallHooks(contConfig); err != nil {
-		log.Error("Network specification failed")
-		return err
+	if n.network != nil {
+		if err := n.network.InstallHooks(contConfig); err != nil {
+			log.Error("Network specification failed")
+			return err
+		}
 	}
 
 	if err := n.addDevices(contConfig); err != nil {
@@ -379,5 +381,7 @@ func (n *Nymph) _Close() {
 
 	os.RemoveAll(n.tmpDir)
 
-	n.network.Destroy()
+	if n.network != nil {
+		n.network.Destroy()
+	}
 }

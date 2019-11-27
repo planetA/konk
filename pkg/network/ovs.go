@@ -19,7 +19,7 @@ import (
 type NetworkOvs struct {
 	client  *ovs.Client
 	bridge  string
-	grePort string
+	vxlanPort string
 }
 
 func (n *NetworkOvs) configurePeers() error {
@@ -41,7 +41,7 @@ func (n *NetworkOvs) configurePeers() error {
 		"host":  hostname,
 	}).Debug("Connecting bridges")
 
-	if err := n.client.VSwitch.AddPort(n.bridge, n.grePort); err != nil {
+	if err := n.client.VSwitch.AddPort(n.bridge, n.vxlanPort); err != nil {
 		return err
 	}
 
@@ -77,8 +77,8 @@ func (n *NetworkOvs) configurePeers() error {
 		}).Fatal("Peer list is wrong")
 	}
 
-	err = n.client.VSwitch.Set.Interface(n.grePort, ovs.InterfaceOptions{
-		Type:     ovs.InterfaceTypeGRE,
+	err = n.client.VSwitch.Set.Interface(n.vxlanPort, ovs.InterfaceOptions{
+		Type:     ovs.InterfaceTypeVXLAN,
 		RemoteIP: strings.Join(otherPeers, ","),
 	})
 	if err != nil {
@@ -107,7 +107,7 @@ func NewOvs() (Network, error) {
 	ovs := &NetworkOvs{
 		client:  client,
 		bridge:  bridgeName,
-		grePort: "ovsgre0",
+		vxlanPort: "ovsvxlan0",
 	}
 
 	if err := ovs.configurePeers(); err != nil {
@@ -274,6 +274,6 @@ func (n *NetworkOvs) InstallHooks(config *configs.Config) error {
 }
 
 func (n *NetworkOvs) Destroy() {
-	n.cleanupPort(n.grePort)
+	n.cleanupPort(n.vxlanPort)
 	n.client.VSwitch.DeleteBridge(n.bridge)
 }

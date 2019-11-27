@@ -75,8 +75,8 @@ func (n *Nymph) createTmpDirs() error {
 
 func NewNymph() (*Nymph, error) {
 	nymph := &Nymph{
-		imagesMutex:       &sync.Mutex{},
-		images:            make(map[string]*container.Image),
+		imagesMutex: &sync.Mutex{},
+		images:      make(map[string]*container.Image),
 	}
 
 	var err error
@@ -107,7 +107,6 @@ func NewNymph() (*Nymph, error) {
 		nymph._Close()
 		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
 	}
-
 
 	return nymph, nil
 }

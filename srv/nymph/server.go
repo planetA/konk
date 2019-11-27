@@ -86,10 +86,13 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("Failed to get hostname: %v", err)
 	}
 
-	networkType := config.GetString(config.NymphNetwork)
+	networkType := config.GetString(config.NymphNetworkType)
 	nymph.network, err = network.New(networkType)
 	if err != nil {
-		log.WithField("network", networkType).Error("Failed to create network")
+		log.WithFields(log.Fields{
+			"network": networkType,
+			"error":   err,
+		}).Error("Failed to create network")
 		nymph._Close()
 		return nil, err
 	}
@@ -355,6 +358,10 @@ func (n *Nymph) registerNymph() error {
 }
 
 func (n *Nymph) unregisterNymph() {
+	if n.coordinatorClient == nil {
+		return
+	}
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Printf("Failed to get hostname: %v", err)
@@ -363,10 +370,14 @@ func (n *Nymph) unregisterNymph() {
 	if err := n.coordinatorClient.UnregisterNymph(hostname); err != nil {
 		log.Printf("Failed to unregister nymph: %v", err)
 	}
+
+	n.coordinatorClient.Close()
 }
 
 func (n *Nymph) _Close() {
-	n.containers.Destroy()
+	if n.containers != nil {
+		n.containers.Destroy()
+	}
 
 	n.imagesMutex.Lock()
 	for _, image := range n.images {
@@ -375,8 +386,6 @@ func (n *Nymph) _Close() {
 	n.imagesMutex.Unlock()
 
 	n.unregisterNymph()
-
-	n.coordinatorClient.Close()
 
 	os.RemoveAll(n.tmpDir)
 

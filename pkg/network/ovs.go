@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -17,64 +16,19 @@ import (
 )
 
 type NetworkOvs struct {
-	client  *ovs.Client
-	bridge  string
+	client    *ovs.Client
+	bridge    string
 	vxlanPort string
 }
 
 func (n *NetworkOvs) configurePeers() error {
-	peerNames := config.GetStringSlice(config.OvsPeers)
-	if len(peerNames) < 2 {
-		log.Debug("No peers to connect")
-		return nil
-	}
-
-	// TODO: check that hostname is in peerNames
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatalf("failed to get hostname: %v", err)
-		return err
-	}
-
-	log.WithFields(log.Fields{
-		"peers": peerNames,
-		"host":  hostname,
-	}).Debug("Connecting bridges")
-
 	if err := n.client.VSwitch.AddPort(n.bridge, n.vxlanPort); err != nil {
 		return err
 	}
 
-	otherPeers := []string{}
-	for _, peer := range peerNames {
-		if peer == hostname {
-			continue
-		}
-		addr, err := net.LookupHost(peer)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"peer":  peer,
-				"error": err,
-			}).Fatal("Could not resolve peer name")
-			return err
-		}
-		if len(addr) < 1 {
-			log.WithField("peer", peer).Fatal("Hostname did not resolve into IP")
-			return fmt.Errorf("Hostname did not resolve into IP: %v", peer)
-		}
-
-		log.WithFields(log.Fields{
-			"peer":     peer,
-			"all_addr": addr,
-			"addr":     addr[0],
-		}).Debug("Resolved peer name to IP")
-		otherPeers = append(otherPeers, addr[0])
-	}
-	if len(otherPeers) < 1 || len(otherPeers) == len(peerNames) {
-		log.WithFields(log.Fields{
-			"peers":    peerNames,
-			"hostname": hostname,
-		}).Fatal("Peer list is wrong")
+	otherPeers, err := getOtherPeers()
+	if err != nil {
+		return fmt.Errorf("Getting other peers failed: %v", err)
 	}
 
 	err = n.client.VSwitch.Set.Interface(n.vxlanPort, ovs.InterfaceOptions{
@@ -105,8 +59,8 @@ func NewOvs() (Network, error) {
 	}
 
 	ovs := &NetworkOvs{
-		client:  client,
-		bridge:  bridgeName,
+		client:    client,
+		bridge:    bridgeName,
 		vxlanPort: "ovsvxlan0",
 	}
 

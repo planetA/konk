@@ -21,6 +21,8 @@ func New(networkType string) (Network, error) {
 	switch networkType {
 	case "ovs":
 		return NewOvs()
+	case "veth":
+		return NewVeth()
 	default:
 		log.WithField("type", networkType).Panicf("Unknown network type")
 		panic("Unknown network type")

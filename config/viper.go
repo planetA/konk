@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"net"
 	"os"
 
 	"github.com/spf13/pflag"
@@ -13,11 +14,12 @@ type ViperKey string
 
 // Constants used by viper to lookup configuration
 const (
-	NymphHost    ViperKey = "nymph.host"
-	NymphPort             = "nymph.port"
-	NymphTmpDir           = "nymph.tmp_dir"
-	NymphCniPath          = "nymph.cni_path"
-	NymphNetwork          = "nymph.network"
+	NymphHost         ViperKey = "nymph.host"
+	NymphPort                  = "nymph.port"
+	NymphTmpDir                = "nymph.tmp_dir"
+	NymphCniPath               = "nymph.cni_path"
+	NymphNetworkType           = "nymph.network.type"
+	NymphNetworkPeers          = "nymph.network.peers"
 
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"
@@ -44,7 +46,14 @@ const (
 	MpirunNameHosts   = "mpirun.name.hosts"
 
 	OvsBridgeName = "ovs.bridge.name"
-	OvsPeers      = "ovs.peers"
+
+	VethBridgeName = "veth.bridge.name"
+
+	VethVxlanName  = "veth.vxlan.name"
+	VethVxlanId    = "veth.vxlan.id"
+	VethVxlanPort  = "veth.vxlan.port"
+	VethVxlanDev   = "veth.vxlan.dev"
+	VethVxlanGroup = "veth.vxlan.group"
 )
 
 func GetString(key ViperKey) string {
@@ -66,6 +75,17 @@ func GetInt(key ViperKey) int {
 		log.Panicf("The key '%v' was not set and does not have a default value", key)
 	}
 	return viper.GetInt(string(key))
+}
+
+func GetIP(key ViperKey) net.IP {
+	if !viper.IsSet(string(key)) {
+		log.Panicf("The key '%v' was not set and does not have a default value", key)
+	}
+	ip := net.ParseIP(viper.GetString(string(key)))
+	if ip == nil {
+		log.Panicf("The key '%v' does not point to a correct IP address.", key)
+	}
+	return ip
 }
 
 func BindPFlag(key ViperKey, flag *pflag.Flag) {

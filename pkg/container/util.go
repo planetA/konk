@@ -10,8 +10,8 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func GetDevName(devType string, id Id) string {
-	return fmt.Sprintf("%s%v", devType, id)
+func GetDevName(devType string, rank Rank) string {
+	return fmt.Sprintf("%s%v", devType, rank)
 }
 
 /*
@@ -26,22 +26,22 @@ func ComputeNewHardwareAddr(oldAddr net.HardwareAddr) net.HardwareAddr {
 /*
 In our network, I need to set the first byte of MAC to 42, to get ip addresses in a particular subnet.
 */
-func CreateNewHardwareAddr(id Id) net.HardwareAddr {
+func CreateNewHardwareAddr(rank Rank) net.HardwareAddr {
 	newAddr, _ := net.ParseMAC(util.DefaultMAC)
 	newAddr[0] = byte(0x42)
-	newAddr[len(newAddr)-1] = byte(id)
+	newAddr[len(newAddr)-1] = byte(rank)
 	return newAddr
 }
 
-func CreateContainerAddr(id Id) *netlink.Addr {
+func CreateContainerAddr(rank Rank) *netlink.Addr {
 	base := util.ContainerNet
 
 	base.IP = base.IP.To4()
 	base.IP[2] = 1
-	if id > 253 {
-		log.Panic("Unsupported container id: %v", id)
+	if rank > 253 {
+		log.Panic("Unsupported container rank: %v", rank)
 	}
-	base.IP[3] = byte(id + 1)
+	base.IP[3] = byte(rank + 1)
 
 	return &netlink.Addr{
 		IPNet: &base,

@@ -1,8 +1,6 @@
 package container
 
 import (
-	"os/exec"
-
 	"fmt"
 	"syscall"
 )
@@ -20,34 +18,6 @@ func openNamespacePath(nsPath string) (Handle, error) {
 	handle.CloseOnExec()
 
 	return handle, nil
-}
-
-// Opens current namespace and return a handle (file descriptor) to it.
-func openNamespace(nsType Type) (Handle, error) {
-	nsPath := getNsPath(nsType)
-	return openNamespacePath(nsPath)
-}
-
-func openNamespacePid(nsType Type, pid int) (Handle, error) {
-	nsPath := getNsPathTask(nsType, pid)
-	return openNamespacePath(nsPath)
-}
-
-// Create new namespace, switch to it and return a handle (file descriptor) to it.
-func createNamespace(nsType Type) (Handle, error) {
-	if err := syscall.Unshare(namespaceCodes[nsType]); err != nil {
-		return -1, err
-	}
-
-	if nsType == Pid {
-		// Create a dummy process to trigger the creation of pid namespace
-
-		cmd := exec.Command("env")
-		if err := cmd.Run(); err != nil {
-			return -1, fmt.Errorf("Failed to create pid namespace: %v", err)
-		}
-	}
-	return openNamespace(nsType)
 }
 
 // UniqueId returns a string which uniquely identifies the namespace

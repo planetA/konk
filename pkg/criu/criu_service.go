@@ -43,31 +43,31 @@ type CriuService struct {
 	conn     net.Conn
 	targetNs netns.NsHandle
 
-	Id container.Id
+	Rank container.Rank
 
 	SocketPath   string
 	PidFilePath  string
 	ImageDirPath string
 }
 
-func getSocketPath(id container.Id) string {
-	return fmt.Sprintf("/var/run/criu.service.%v", id)
+func getSocketPath(rank container.Rank) string {
+	return fmt.Sprintf("/var/run/criu.service.%v", rank)
 }
 
-func getPidFilePath(id container.Id) string {
-	return fmt.Sprintf("/var/run/criu.pidfile.%v", id)
+func getPidFilePath(rank container.Rank) string {
+	return fmt.Sprintf("/var/run/criu.pidfile.%v", rank)
 }
 
-func getImageDirPath(id container.Id) string {
-	return fmt.Sprintf("%s/konk.%v", util.CriuImageDir, id)
+func getImageDirPath(rank container.Rank) string {
+	return fmt.Sprintf("%s/konk.%v", util.CriuImageDir, rank)
 }
 
-func NewCriuService(id container.Id) (*CriuService, error) {
+func NewCriuService(rank container.Rank) (*CriuService, error) {
 	criu := &CriuService{
-		Id:           id,
-		SocketPath:   getSocketPath(id),
-		PidFilePath:  getPidFilePath(id),
-		ImageDirPath: getImageDirPath(id),
+		Rank:         rank,
+		SocketPath:   getSocketPath(rank),
+		PidFilePath:  getPidFilePath(rank),
+		ImageDirPath: getImageDirPath(rank),
 	}
 
 	return criu, nil
@@ -221,41 +221,6 @@ func (c *CriuService) respond() error {
 	return nil
 }
 
-func (c *CriuService) nextEvent() (CriuEvent, error) {
-	resp, err := c.getResponse()
-	if err != nil {
-		return CriuEvent{
-			Type:     Error,
-			Response: nil,
-		}, fmt.Errorf("Failed to read the response from CRIU: %v", err)
-	}
-
-	switch resp.GetType() {
-	case rpc.CriuReqType_NOTIFY:
-		return CriuEvent{
-			Type:     c.getEventType(resp),
-			Response: resp,
-		}, nil
-	case rpc.CriuReqType_DUMP, rpc.CriuReqType_RESTORE:
-		if resp.GetSuccess() {
-			return CriuEvent{
-				Type:     Success,
-				Response: resp,
-			}, nil
-		} else {
-			return CriuEvent{
-				Type:     Error,
-				Response: resp,
-			}, fmt.Errorf("Failed to create a dump: %v", resp)
-		}
-	}
-
-	return CriuEvent{
-		Type:     Error,
-		Response: resp,
-	}, fmt.Errorf("Unexpected response: %v", resp)
-}
-
 func (c *CriuService) sendDumpRequest(init *os.Process) error {
 	fd := int32(c.imageDir.Fd())
 	pid := int32(init.Pid)
@@ -297,10 +262,10 @@ func (c *CriuService) sendDumpRequest(init *os.Process) error {
 }
 
 func (c *CriuService) getExternalString() string {
-	bridgeNameId := util.BridgeName
-	vethNameId := container.GetDevName(util.VethName, c.Id)
-	vpeerNameId := container.GetDevName(util.VpeerName, c.Id)
-	return fmt.Sprintf("veth[%v]:%v@%v", vethNameId, vpeerNameId, bridgeNameId)
+	bridgeNameRank := util.BridgeName
+	vethNameRank := container.GetDevName(util.VethName, c.Rank)
+	vpeerNameRank := container.GetDevName(util.VpeerName, c.Rank)
+	return fmt.Sprintf("veth[%v]:%v@%v", vethNameRank, vpeerNameRank, bridgeNameRank)
 }
 
 func (c *CriuService) sendRestoreRequest() error {
@@ -340,36 +305,4 @@ func (c *CriuService) sendRestoreRequest() error {
 	}
 
 	return nil
-}
-
-func (c *CriuService) getEventType(resp *rpc.CriuResp) EventType {
-	notify := resp.GetNotify()
-
-	switch notify.GetScript() {
-	case "pre-dump":
-		return PreDump
-	case "post-dump":
-		return PostDump
-	case "pre-restore":
-		return PreRestore
-	case "post-restore":
-		return PostRestore
-	case "pre-resume":
-		return PreResume
-	case "post-resume":
-		return PostResume
-	case "setup-namespaces":
-		return SetupNamespaces
-	case "post-setup-namespaces":
-		return PostSetupNamespaces
-	case "network-lock":
-		return NetworkLock
-	case "network-unlock":
-		return NetworkUnlock
-	}
-
-	log.Panicf("Unexpected notification type: %v", notify.GetScript())
-
-	// Not reached
-	return Error
 }

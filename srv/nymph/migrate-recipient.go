@@ -1,52 +1,50 @@
-package criu
+package nymph
 
 import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
+	"google.golang.org/grpc"
 )
 
 type konkMigrationServer struct {
-	Id      container.Id
+	Rank    container.Rank
 	InitPid int
 
 	// Compose the directory where the image is stored
-	criu        *CriuService
 	curFile     *os.File
 	curFilePath string
-	Ready       chan *container.Container
+	Ready       chan container.Container
 }
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
-	srv.Id = container.Id(imageInfo.ContainerId)
+	panic("Unimplemented")
+	// srv.Rank = container.Rank(imageInfo.ContainerRank)
 
-	srv.criu, err = NewCriuService(srv.Id)
-	if err != nil {
-		return fmt.Errorf("Failed to start criu service: %v", err)
-	}
-
-	if err := os.MkdirAll(srv.criu.ImageDirPath, os.ModeDir|os.ModePerm); err != nil {
-		return fmt.Errorf("Could not create image directory (%s): %v", srv.criu.ImageDirPath, err)
-	}
+	// if err := os.MkdirAll(srv.criu.ImageDirPath, os.ModeDir|os.ModePerm); err != nil {
+	// 	return fmt.Errorf("Could not create image directory (%s): %v", srv.criu.ImageDirPath, err)
+	// }
 
 	return nil
 }
 
 func (srv *konkMigrationServer) newFile(fileInfo *konk.FileData_FileInfo) error {
-	if dir := fileInfo.GetDir(); dir != "" {
-		srv.curFilePath = fmt.Sprintf("%s/%s", dir, fileInfo.GetFilename())
-		if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
-			return fmt.Errorf("Could not create image directory (%s): %v", dir, err)
-		}
-	} else {
-		srv.curFilePath = fmt.Sprintf("%s/%s", srv.criu.ImageDirPath, fileInfo.GetFilename())
-	}
+	panic("Unimplemented")
+	// if dir := fileInfo.GetDir(); dir != "" {
+	// 	srv.curFilePath = fmt.Sprintf("%s/%s", dir, fileInfo.GetFilename())
+	// 	if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
+	// 		return fmt.Errorf("Could not create image directory (%s): %v", dir, err)
+	// 	}
+	// } else {
+	// 	srv.curFilePath = fmt.Sprintf("%s/%s", srv.criu.ImageDirPath, fileInfo.GetFilename())
+	// }
 
 	log.Printf("Creating file: %s\n", srv.curFilePath)
 
@@ -85,38 +83,20 @@ func (srv *konkMigrationServer) launch(launchInfo *konk.FileData_LaunchInfo) (*e
 	defer runtime.UnlockOSThread()
 
 	log.Printf("Received launch request\n")
+	panic("Unimplemented")
 
-	// XXX: true is very bad style
-	cmd, err := srv.criu.launch(true)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to launch criu service: %v", err)
-	}
+	// // XXX: true is very bad style
+	// cmd, err := srv.criu.launch(true)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Failed to launch criu service: %v", err)
+	// }
 
-	err = srv.criu.sendRestoreRequest()
-	if err != nil {
-		return nil, fmt.Errorf("Write to socket failed: %v", err)
-	}
+	// err = srv.criu.sendRestoreRequest()
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Write to socket failed: %v", err)
+	// }
 
-	for {
-		event, err := srv.criu.nextEvent()
-		switch event.Type {
-		case PreRestore:
-			log.Println("@pre-restore")
-		case PostRestore:
-			log.Println("@post-restore")
-		case SetupNamespaces:
-			srv.InitPid = int(*event.Response.Notify.Pid)
-		case Success:
-			log.Printf("Restore completed: %v", event.Response)
-			return cmd, nil
-		case Error:
-			return nil, fmt.Errorf("Error while communicating with CRIU service: %v", err)
-		}
-
-		srv.criu.respond()
-	}
-
-	panic("Should be never reached")
+	panic("Not implemented")
 }
 
 func isImageInfo(chunk *konk.FileData) bool {
@@ -143,9 +123,9 @@ func (srv *konkMigrationServer) Migrate(stream konk.Migration_MigrateServer) err
 	var cmd *exec.Cmd
 
 	defer func() {
-		srv.criu.Close()
+		// srv.criu.Close()
 		panic("Unimplemented")
-		// cont, err := container.NewContainerInitAttach(srv.Id, srv.InitPid)
+		// cont, err := container.NewContainerInitAttach(srv.Rank, srv.InitPid)
 		// if err != nil {
 		// 	log.Panic("NewContainerInitAttach: %v", err)
 		// }
@@ -199,8 +179,28 @@ loop:
 
 func newServer() (*konkMigrationServer, error) {
 	s := &konkMigrationServer{
-		Ready: make(chan *container.Container, 1),
+		Ready: make(chan container.Container, 1),
 	}
 
 	return s, nil
+}
+
+// Receive the checkpoint over a created listener
+func ReceiveListener(listener net.Listener) (container.Container, error) {
+	grpcServer := grpc.NewServer()
+	migrationServer, err := newServer()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create migration server: %v", err)
+	}
+	konk.RegisterMigrationServer(grpcServer, migrationServer)
+
+	cont := make(chan container.Container, 1)
+	go func() {
+		cont <- <-migrationServer.Ready
+		grpcServer.Stop()
+	}()
+
+	grpcServer.Serve(listener)
+
+	return <-cont, nil
 }

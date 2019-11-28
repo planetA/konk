@@ -66,7 +66,7 @@ func (c *Control) Request(args interface{}) error {
 }
 
 func (c *Control) registerImpl(args *RegisterContainerArgs) error {
-	c.locationDB.Set(args.Id, Location{args.Hostname})
+	c.locationDB.Set(args.Rank, Location{args.Hostname})
 	log.Printf("Request to register: %v\n\t\t%v", args, c.locationDB.Dump().db)
 
 	return nil
@@ -74,7 +74,7 @@ func (c *Control) registerImpl(args *RegisterContainerArgs) error {
 
 func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
 	curHost := Location{args.Hostname}
-	if err := c.locationDB.Unset(args.Id, curHost); err != nil {
+	if err := c.locationDB.Unset(args.Rank, curHost); err != nil {
 		log.Println(err)
 	}
 	log.Printf("Request to unregister: %v -- %v\n\t\t%v", curHost, args, c.locationDB.Dump().db)
@@ -83,14 +83,14 @@ func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
 }
 
 func (c *Control) migrateImpl(args *MigrateArgs) error {
-	log.Printf("Received a request to move rank %v to %v\n", args.Id, args.DestHost)
+	log.Printf("Received a request to move rank %v to %v\n", args.Rank, args.DestHost)
 
-	src, ok := c.locationDB.Get(args.Id)
+	src, ok := c.locationDB.Get(args.Rank)
 	if !ok {
-		return fmt.Errorf("Container %v is not known", args.Id)
+		return fmt.Errorf("Container %v is not known", args.Rank)
 	}
 
-	if err := Migrate(args.Id, src.Hostname, args.DestHost); err != nil {
+	if err := Migrate(args.Rank, src.Hostname, args.DestHost); err != nil {
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
 
@@ -103,9 +103,9 @@ func (c *Control) signalImpl(args *SignalArgs) error {
 	log.Printf("Received a signal notification: %v\n", signal)
 
 	var anyErr error
-	for id, loc := range c.locationDB.Dump().db {
-		log.Printf("Sending signal %v to %v\n", signal, id)
-		if err := Signal(id, loc.Hostname, signal); err != nil {
+	for rank, loc := range c.locationDB.Dump().db {
+		log.Printf("Sending signal %v to %v\n", signal, rank)
+		if err := Signal(rank, loc.Hostname, signal); err != nil {
 			anyErr = err
 		}
 	}

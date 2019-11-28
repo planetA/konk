@@ -114,10 +114,10 @@ func NewNymph() (*Nymph, error) {
 	return nymph, nil
 }
 
-func (n *Nymph) forgetContainerId(id container.Id) (int, bool) {
-	log.Println("forgetContainerId", id)
+func (n *Nymph) forgetContainerRank(rank container.Rank) (int, bool) {
+	log.Println("forgetContainerRank", rank)
 
-	n.containers.Delete(id)
+	n.containers.Delete(rank)
 
 	panic("Unimplemented")
 
@@ -162,34 +162,34 @@ func (n *Nymph) Signal(args SignalArgs, reply *bool) error {
 
 	// var err error
 
-	// cont, ok := n.getContainer(args.Id)
+	// cont, ok := n.getContainer(args.Rank)
 	// if !ok {
-	// 	return fmt.Errorf("Receiver %v is not known\n", args.Id)
+	// 	return fmt.Errorf("Receiver %v is not known\n", args.Rank)
 	// }
 
 	panic("Unimplemented")
 	// err = cont.Signal(args.Signal)
 	// if err != nil {
-	// 	return fmt.Errorf("Notifying the init process %v failed: %v", args.Id, err)
+	// 	return fmt.Errorf("Notifying the init process %v failed: %v", args.Rank, err)
 	// }
 
 	return nil
 }
 
 // Generate an image name from the container path
-func ContainerName(imageName string, id container.Id) string {
+func ContainerName(imageName string, rank container.Rank) string {
 	s := sha512.New512_256()
 	s.Write([]byte(imageName))
-	s.Write([]byte(fmt.Sprintf("%v", id)))
+	s.Write([]byte(fmt.Sprintf("%v", rank)))
 	return hex.EncodeToString(s.Sum(nil))
 }
 
-func addLabelId(config *configs.Config, id container.Id) {
-	config.Labels = append(config.Labels, fmt.Sprintf("konk-id=%v", id))
+func addLabelRank(config *configs.Config, rank container.Rank) {
+	config.Labels = append(config.Labels, fmt.Sprintf("konk-rank=%v", rank))
 }
 
-func addLabelIpAddr(config *configs.Config, id container.Id) {
-	addr := container.CreateContainerAddr(id)
+func addLabelIpAddr(config *configs.Config, rank container.Rank) {
+	addr := container.CreateContainerAddr(rank)
 	config.Labels = append(config.Labels, fmt.Sprintf("konk-ip=%v", addr.String()))
 }
 
@@ -253,7 +253,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	}
 
 	// TODO: cd to the bundle directory, see spec_linux.go
-	contName := ContainerName(imagePath, args.Id)
+	contName := ContainerName(imagePath, args.Rank)
 	contConfig, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
 		CgroupName:       contName,
 		UseSystemdCgroup: false,
@@ -267,8 +267,8 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Failed converting spec to config", err)
 	}
 
-	addLabelId(contConfig, args.Id)
-	addLabelIpAddr(contConfig, args.Id)
+	addLabelRank(contConfig, args.Rank)
+	addLabelIpAddr(contConfig, args.Rank)
 
 	if n.network != nil {
 		if err := n.network.InstallHooks(contConfig); err != nil {
@@ -282,10 +282,10 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return err
 	}
 
-	cont, err := n.containers.GetOrCreate(args.Id, contName, contConfig)
+	cont, err := n.containers.GetOrCreate(args.Rank, contName, contConfig)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"container": args.Id,
+			"container": args.Rank,
 			"error":     err,
 		}).Error("Container creation failed")
 		return fmt.Errorf("Container creation failed: %v", err)
@@ -294,20 +294,20 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	userName := config.GetString(config.ContainerUsername)
 	log.WithField("user", userName).Debug("Staring process")
 	process := &libcontainer.Process{
-		Args:   args.Args,
-		Env:    []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User:   "root",
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-		Init:   true,
+		Args: args.Args,
+		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
+		User: "root",
+		// Stdin:  os.Stdin,
+		// Stdout: os.Stdout,
+		// Stderr: os.Stderr,
+		Init: true,
 	}
 
 	log.WithFields(log.Fields{
-		"containerId": args.Id,
-		"image":       args.Image,
-		"args":        args.Args,
-		"container":   cont,
+		"containerRank": args.Rank,
+		"image":         args.Image,
+		"args":          args.Args,
+		"container":     cont,
 	}).Info("Launching process inside a container")
 
 	if err := cont.Run(process); err != nil {
@@ -315,7 +315,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Failed to launch container in a process", err)
 	}
 
-	err = n.coordinatorClient.RegisterContainer(args.Id, n.hostname)
+	err = n.coordinatorClient.RegisterContainer(args.Rank, n.hostname)
 	if err != nil {
 		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}

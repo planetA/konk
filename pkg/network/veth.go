@@ -23,20 +23,20 @@ type VethPair struct {
 	vpeer netlink.Link // Outer end
 }
 
-func NewVethPair(id container.Id) (*VethPair, error) {
-	vethNameId := container.GetDevName(util.VethName, id)
-	vpeerNameId := container.GetDevName(util.VpeerName, id)
+func NewVethPair(rank container.Rank) (*VethPair, error) {
+	vethNameRank := container.GetDevName(util.VethName, rank)
+	vpeerNameRank := container.GetDevName(util.VpeerName, rank)
 
 	// Set appropriate MAC address for the container interface
-	hwAddr := container.CreateNewHardwareAddr(id)
+	hwAddr := container.CreateNewHardwareAddr(rank)
 
 	// Parameters to create a link
 	vethTemplate := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:         vethNameId,
+			Name:         vethNameRank,
 			HardwareAddr: hwAddr,
 		},
-		PeerName: vpeerNameId,
+		PeerName: vpeerNameRank,
 	}
 
 	err := netlink.LinkAdd(vethTemplate)
@@ -45,14 +45,14 @@ func NewVethPair(id container.Id) (*VethPair, error) {
 	}
 
 	// Get the actually constructed link
-	veth, err := netlink.LinkByName(vethNameId)
+	veth, err := netlink.LinkByName(vethNameRank)
 	if err != nil {
-		return nil, fmt.Errorf("Can' get a veth link %s: %v", vethNameId, err)
+		return nil, fmt.Errorf("Can' get a veth link %s: %v", vethNameRank, err)
 	}
 
-	vpeer, err := netlink.LinkByName(vpeerNameId)
+	vpeer, err := netlink.LinkByName(vpeerNameRank)
 	if err != nil {
-		return nil, fmt.Errorf("Can't get a peer link %s: %v", vpeerNameId, err)
+		return nil, fmt.Errorf("Can't get a peer link %s: %v", vpeerNameRank, err)
 	}
 
 	return &VethPair{
@@ -80,7 +80,7 @@ func (v VethPair) Close() {
 type NetworkVeth struct {
 	bridge *netlink.Bridge
 	vxlan  *netlink.Vxlan
-	pairs  map[container.Id]*VethPair
+	pairs  map[container.Rank]*VethPair
 }
 
 func createVxlan() (*netlink.Vxlan, error) {
@@ -124,7 +124,7 @@ func NewVeth() (Network, error) {
 
 	var err error
 	net := &NetworkVeth{
-		pairs: make(map[container.Id]*VethPair),
+		pairs: make(map[container.Rank]*VethPair),
 	}
 	defer func() {
 		if err != nil {
@@ -158,18 +158,18 @@ func NewVeth() (Network, error) {
 	return net, nil
 }
 
-func vethPortId(state *specs.State) (container.Id, error) {
-	id, ok := state.Annotations["konk-id"]
+func vethPortRank(state *specs.State) (container.Rank, error) {
+	rank, ok := state.Annotations["konk-rank"]
 	if !ok {
-		return -1, fmt.Errorf("Konk id is not set")
+		return -1, fmt.Errorf("Konk rank is not set")
 	}
 
-	val, err := strconv.Atoi(id)
+	val, err := strconv.Atoi(rank)
 	if err != nil {
-		return -1, fmt.Errorf("Invalid id: v", id)
+		return -1, fmt.Errorf("Invalid rank: v", rank)
 	}
 
-	return container.Id(val), nil
+	return container.Rank(val), nil
 }
 
 func vethPortAddr(state *specs.State) (string, error) {
@@ -196,9 +196,9 @@ func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
 	}
 	defer handle.Delete()
 
-	id, err := vethPortId(state)
+	rank, err := vethPortRank(state)
 	if err != nil {
-		log.WithError(err).Fatal("port-id")
+		log.WithError(err).Fatal("port-rank")
 		return err
 	}
 
@@ -208,16 +208,16 @@ func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
 		return err
 	}
 
-	pair, err := NewVethPair(id)
+	pair, err := NewVethPair(rank)
 	if err != nil {
 		return err
 	}
 
-	_, ok := n.pairs[id]
+	_, ok := n.pairs[rank]
 	if ok {
 		log.Fatal("Unexpected pair found")
 	}
-	n.pairs[id] = pair
+	n.pairs[rank] = pair
 
 	addr, err := netlink.ParseAddr(addrString)
 	if err != nil {
@@ -237,7 +237,7 @@ func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
 	if err := handle.AddrAdd(pair.veth, addr); err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
-			"id":    id,
+			"rank":  rank,
 			"addr":  addr,
 		}).Fatal("Adding address failed")
 		return err
@@ -269,13 +269,13 @@ func vethPoststartHook(n *NetworkVeth, state *specs.State) error {
 func vethPoststopHook(n *NetworkVeth, state *specs.State) error {
 	log.Debug("Poststop hook")
 
-	id, err := vethPortId(state)
+	rank, err := vethPortRank(state)
 	if err != nil {
-		log.WithError(err).Debug("port-id")
+		log.WithError(err).Debug("port-rank")
 		return nil
 	}
 
-	pair, ok := n.pairs[id]
+	pair, ok := n.pairs[rank]
 	if !ok {
 		log.Debug("Pair has not been found")
 		return nil

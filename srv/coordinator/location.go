@@ -3,7 +3,7 @@ package coordinator
 import (
 	"fmt"
 	"sync"
-	
+
 	"github.com/planetA/konk/pkg/container"
 )
 
@@ -12,43 +12,43 @@ type Location struct {
 }
 
 type LocationDB struct {
-	db    map[container.Id]Location
+	db    map[container.Rank]Location
 	mutex sync.Mutex
 }
 
 func NewLocationDB() *LocationDB {
 	return &LocationDB{
-		db:    make(map[container.Id]Location),
+		db:    make(map[container.Rank]Location),
 		mutex: sync.Mutex{},
 	}
 }
 
-func (l *LocationDB) Get(id container.Id) (Location, bool) {
+func (l *LocationDB) Get(rank container.Rank) (Location, bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	loc, ok := l.db[id]
+	loc, ok := l.db[rank]
 	return loc, ok
 }
 
-func (l *LocationDB) Set(id container.Id, location Location) {
+func (l *LocationDB) Set(rank container.Rank, location Location) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	l.db[id] = location
+	l.db[rank] = location
 }
 
-func (l *LocationDB) Unset(id container.Id, oldLocation Location) error {
+func (l *LocationDB) Unset(rank container.Rank, oldLocation Location) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	curHost, ok := l.db[id]
+	curHost, ok := l.db[rank]
 	if ok && curHost == oldLocation {
-		delete(l.db, id)
+		delete(l.db, rank)
 	} else if !ok {
-		return fmt.Errorf("Container %v was not registered", id)
+		return fmt.Errorf("Container %v was not registered", rank)
 	} else if curHost != oldLocation {
-		return fmt.Errorf("Request for deleting %v@%v came from %v", id, curHost, oldLocation)
+		return fmt.Errorf("Request for deleting %v@%v came from %v", rank, curHost, oldLocation)
 	}
 
 	return nil

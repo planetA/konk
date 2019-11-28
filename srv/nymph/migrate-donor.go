@@ -1,4 +1,4 @@
-package criu
+package nymph
 
 import (
 	"fmt"
@@ -12,22 +12,26 @@ import (
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
+	"github.com/planetA/konk/pkg/util"
 )
 
-type MigrationClient struct {
+const (
+	ChunkSize int = 1 << 21
+)
+
+type MigrationDonor struct {
 	konk.Migration_MigrateClient
-	Container  *container.Container
-	ServerConn *grpc.ClientConn // Connection to the migration server
-	Criu       *CriuService
-	openFiles  []string
+	Container     container.Container
+	RecipientConn *grpc.ClientConn // Connection to the migration server
+	openFiles     []string
 }
 
-func (migration *MigrationClient) SendImageInfo(containerId container.Id) error {
+func (migration *MigrationDonor) SendImageInfo(containerRank container.Rank) error {
 	log.Printf("Sending image info")
 
 	err := migration.Send(&konk.FileData{
 		ImageInfo: &konk.FileData_ImageInfo{
-			ContainerId: int32(containerId),
+			ContainerRank: int32(containerRank),
 		},
 	})
 
@@ -38,13 +42,13 @@ func (migration *MigrationClient) SendImageInfo(containerId container.Id) error 
 	return nil
 }
 
-func (migration *MigrationClient) sendImage(imageDir *os.File) error {
+func (migration *MigrationDonor) sendImage(imageDir *os.File) error {
 	files, err := imageDir.Readdir(0)
 	if err != nil {
 		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
 	}
 
-	if err = migration.SendImageInfo(migration.Container.Id); err != nil {
+	if err = migration.SendImageInfo(migration.Container.Rank()); err != nil {
 		return err
 	}
 
@@ -60,18 +64,19 @@ func (migration *MigrationClient) sendImage(imageDir *os.File) error {
 	return nil
 }
 
-func (migration *MigrationClient) SendFile(file string) error {
+func (migration *MigrationDonor) SendFile(file string) error {
 	return migration.SendFileDir(file, "")
 }
 
 // send file by its full path. If a path is relative, the file is looked up in
 // the local image directory.
-func (migration *MigrationClient) SendFileDir(path string, dir string) error {
+func (migration *MigrationDonor) SendFileDir(path string, dir string) error {
+	panic("Unimplemented")
 	localDir := dir
-	if len(localDir) == 0 {
-		// If the path is relative the file is looked up in the image directory
-		localDir = migration.Criu.ImageDirPath
-	}
+	// if len(localDir) == 0 {
+	// 	// If the path is relative the file is looked up in the image directory
+	// 	localDir = migration.Criu.ImageDirPath
+	// }
 	localPath := fmt.Sprintf("%s/%s", localDir, path)
 
 	file, err := os.Open(localPath)
@@ -130,7 +135,7 @@ func (migration *MigrationClient) SendFileDir(path string, dir string) error {
 	return nil
 }
 
-func (migration *MigrationClient) sendOpenFiles() error {
+func (migration *MigrationDonor) sendOpenFiles() error {
 	log.Println("Open files: ", migration.openFiles)
 	for _, filePath := range migration.openFiles {
 		err := migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
@@ -144,12 +149,12 @@ func (migration *MigrationClient) sendOpenFiles() error {
 	return nil
 }
 
-func (migration *MigrationClient) Launch() error {
+func (migration *MigrationDonor) Launch() error {
 	log.Printf("Requested launch")
 
 	err := migration.Send(&konk.FileData{
 		LaunchInfo: &konk.FileData_LaunchInfo{
-			ContainerId: -1,
+			ContainerRank: -1,
 		},
 	})
 
@@ -160,10 +165,11 @@ func (migration *MigrationClient) Launch() error {
 	return nil
 }
 
-func (migration *MigrationClient) sendCheckpoint() error {
-	if err := migration.sendImage(migration.Criu.imageDir); err != nil {
-		return err
-	}
+func (migration *MigrationDonor) sendCheckpoint() error {
+	panic("Unimplemented")
+	// if err := migration.sendImage(migration.Criu.imageDir); err != nil {
+	// 	return err
+	// }
 
 	if err := migration.sendOpenFiles(); err != nil {
 		return err
@@ -172,61 +178,7 @@ func (migration *MigrationClient) sendCheckpoint() error {
 	return nil
 }
 
-func (migration *MigrationClient) rememberOpenFiles(prefix string) (err error) {
-	panic("Unimplemented")
-	// migration.openFiles, err = getOpenFilesPrefix(migration.Container.Init.Proc.Pid, prefix)
-	return err
-}
-
-func (migration *MigrationClient) Run(ctx context.Context) error {
-	// Launch actual CRIU process
-	// XXX: false is very bad style
-	if _, err := migration.Criu.launch(false); err != nil {
-		return fmt.Errorf("Failed to launch criu service: %v", err)
-	}
-
-	panic("Unimplemented")
-	// err := migration.Criu.sendDumpRequest(migration.Container.Init.Proc)
-	// if err != nil {
-	// 	return fmt.Errorf("Write to socket failed: %v", err)
-	// }
-
-	for {
-		event, err := migration.Criu.nextEvent()
-		switch event.Type {
-		case PreDump:
-			log.Printf("@pre-dump")
-			if err := migration.rememberOpenFiles("/tmp"); err != nil {
-				return fmt.Errorf("Could not remember open files: %v", err)
-			}
-
-		case PostDump:
-			log.Printf("@pre-move")
-
-			err = migration.sendCheckpoint()
-			if err != nil {
-				return fmt.Errorf("Failed to save a checkpoint: %v", err)
-			}
-
-			log.Printf("XXX: Need to ensure that container does not exists")
-
-			if err = migration.Launch(); err != nil {
-				return err
-			}
-
-			log.Printf("@post-move")
-		case Success:
-			log.Printf("Dump completed: %v", event.Response)
-			return nil
-		case Error:
-			return fmt.Errorf("Error while communicating with CRIU service: %v", err)
-		}
-
-		migration.Criu.respond()
-	}
-}
-
-func (migration *MigrationClient) Close() {
+func (migration *MigrationDonor) Close() {
 	reply, err := migration.CloseAndRecv()
 	if err != nil {
 		log.Printf("Error while closing the stream: %v\n", err)
@@ -238,38 +190,60 @@ func (migration *MigrationClient) Close() {
 		log.Printf("File transfer failed: %s\n", reply.GetStatus())
 	}
 
-	migration.ServerConn.Close()
-	migration.Criu.Close()
-	panic("Unimplemented")
+	migration.RecipientConn.Close()
 	// migration.Container.Close()
 }
 
-func newMigrationClient(ctx context.Context, recipient string, cont *container.Container) (*MigrationClient, error) {
-	log.Println("Connecting to", recipient)
+func newMigrationDonor(ctx context.Context, recipientAddr string, cont container.Container) (*MigrationDonor, error) {
+	log.Println("Connecting to", recipientAddr)
 
-	conn, err := grpc.Dial(recipient, grpc.WithInsecure())
+	// Connect to recipient
+	conn, err := grpc.Dial(recipientAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open a connection to the recipient: %v", err)
 	}
 
-	client := konk.NewMigrationClient(conn)
+	recipient := konk.NewMigrationClient(conn)
 
 	// Create a stream to transfer the data over
-	stream, err := client.Migrate(ctx)
+	stream, err := recipient.Migrate(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create stream: %v", err)
 	}
 
-	// Create Criu object that is configure to start the real service
-	criu, err := NewCriuService(cont.Id)
+	return &MigrationDonor{
+		Migration_MigrateClient: stream,
+		RecipientConn:           conn,
+		Container:               cont,
+	}, nil
+}
+
+func Migrate(cont container.Container, recipient string) error {
+	ctx, _ := util.NewContext()
+	migration, err := newMigrationDonor(ctx, recipient, cont)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to start CRIU service (%v):  %v", criu, err)
+		return err
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			migration.Close()
+		}
+	}()
+	defer func() {
+		migration.Close()
+	}()
+
+	err = migration.sendCheckpoint()
+	if err != nil {
+		return fmt.Errorf("Failed to save a checkpoint: %v", err)
 	}
 
-	return &MigrationClient{
-		Migration_MigrateClient: stream,
-		ServerConn:              conn,
-		Container:               cont,
-		Criu:                    criu,
-	}, nil
+	log.Printf("XXX: Need to ensure that container does not exists locally")
+
+	if err = migration.Launch(); err != nil {
+		return fmt.Errorf("Migration failed launch a container: %v", err)
+	}
+
+	return nil
 }

@@ -19,17 +19,17 @@ const (
 )
 
 type RegisterContainerArgs struct {
-	Id       container.Id
+	Rank     container.Rank
 	Hostname string
 }
 
 type UnregisterContainerArgs struct {
-	Id       container.Id
+	Rank     container.Rank
 	Hostname string
 }
 
 type MigrateArgs struct {
-	Id       container.Id
+	Rank     container.Rank
 	DestHost string
 }
 

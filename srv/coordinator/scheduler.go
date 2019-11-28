@@ -19,20 +19,20 @@ func NewScheduler(control *Control) *Scheduler {
 	}
 }
 
-func getIds(locDB LocationDB) []container.Id {
-	ids := make(map[container.Id]bool)
-	for id := range locDB.db {
-		ids[id] = true
+func getRanks(locDB LocationDB) []container.Rank {
+	ranks := make(map[container.Rank]bool)
+	for rank := range locDB.db {
+		ranks[rank] = true
 	}
 
-	idsV := make([]container.Id, len(ids))
+	ranksV := make([]container.Rank, len(ranks))
 	i := 0
-	for id := range ids {
-		idsV[i] = id
+	for rank := range ranks {
+		ranksV[i] = rank
 		i = i + 1
 	}
 
-	return idsV
+	return ranksV
 }
 
 func (s *Scheduler) Start() {
@@ -40,11 +40,11 @@ func (s *Scheduler) Start() {
 	lastLen := 0
 	for t := range ticker.C {
 		log.Printf("About to reschedule @%v\n", t)
-		ids := getIds(s.control.locationDB.Dump())
+		ranks := getRanks(s.control.locationDB.Dump())
 		locs := s.control.nymphSet.GetNymphs()
-		log.Printf("ID: %v LOCATION: %v\n", ids, locs)
+		log.Printf("RANK: %v LOCATION: %v\n", ranks, locs)
 
-		curLen := len(ids)
+		curLen := len(ranks)
 		if !(curLen > 0 && lastLen == curLen) {
 			lastLen = curLen
 			continue
@@ -58,7 +58,7 @@ func (s *Scheduler) Start() {
 		// Attempt migration
 
 		// Pick a random container
-		targetCont := ids[rand.Intn(len(ids))]
+		targetCont := ranks[rand.Intn(len(ranks))]
 
 		// Figure where it runs
 		srcLoc, ok := s.control.locationDB.Get(targetCont)

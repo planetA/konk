@@ -12,7 +12,7 @@ message Reply {
 message FileData {
   message ImageInfo {
     int32 file_count = 2;
-    int32 container_id = 3;
+    int32 container_rank = 3;
   }
 
   message FileInfo {
@@ -30,7 +30,7 @@ message FileData {
   }
 
   message LaunchInfo {
-    int32 container_id = 1;
+    int32 container_rank = 1;
   }
 
   ImageInfo image_info = 1;

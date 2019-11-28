@@ -19,7 +19,7 @@ var RunCmd = &cobra.Command{
 	Short: docs.RunShort,
 	Long:  docs.RunLong,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		containerId, err := GetContainerId()
+		containerRank, err := GetContainerRank()
 		if err != nil {
 			return err
 		}
@@ -33,16 +33,16 @@ var RunCmd = &cobra.Command{
 		}
 		defer nymph.Close()
 
-		if err := nymph.Run(containerId, image, args); err != nil {
+		if err := nymph.Run(containerRank, image, args); err != nil {
 			log.WithFields(log.Fields{
-				"containerId": containerId,
-				"image":       image,
-				"args":        args}).Error("Failed to launch container")
+				"containerRank": containerRank,
+				"image":         image,
+				"args":          args}).Error("Failed to launch container")
 		}
 
 		log.Info("Running container")
 
-		ret, err := nymph.Wait(containerId)
+		ret, err := nymph.Wait(containerRank)
 		if err != nil {
 			return fmt.Errorf("Waiting failed: %v", err)
 		}
@@ -54,9 +54,9 @@ var RunCmd = &cobra.Command{
 }
 
 func init() {
-	// Configure a unique Id of a container in a network
-	RunCmd.Flags().String("rank_env", "", "Environment variable containing id")
-	config.BindPFlag(config.ContainerIdEnv, RunCmd.Flags().Lookup("rank_env"))
+	// Configure a unique Rank of a container in a network
+	RunCmd.Flags().String("rank_env", "", "Environment variable containing rank")
+	config.BindPFlag(config.ContainerRankEnv, RunCmd.Flags().Lookup("rank_env"))
 
 	RunCmd.Flags().String("image", "", "Location of the container image")
 	RunCmd.MarkFlagRequired("image")
@@ -71,25 +71,25 @@ func init() {
 	KonkCmd.AddCommand(RunCmd)
 }
 
-// Return a unique Id of a container in a network. It either can be set over a command line,
+// Return a unique Rank of a container in a network. It either can be set over a command line,
 // or obtained from an environment variable.
-func GetContainerId() (container.Id, error) {
-	// Environment variable containing the Id
-	envVarId := config.GetString(config.ContainerIdEnv)
+func GetContainerRank() (container.Rank, error) {
+	// Environment variable containing the Rank
+	envVarRank := config.GetString(config.ContainerRankEnv)
 
-	var containerId container.Id
-	if len(envVarId) != 0 {
-		envVal := os.Getenv(envVarId)
+	var containerRank container.Rank
+	if len(envVarRank) != 0 {
+		envVal := os.Getenv(envVarRank)
 		i, err := strconv.Atoi(envVal)
 		if err != nil {
-			return -1, fmt.Errorf(`Could not parse variable %s: %s`, envVarId, envVal)
+			return -1, fmt.Errorf(`Could not parse variable %s: %s`, envVarRank, envVal)
 		}
-		containerId = container.Id(i)
+		containerRank = container.Rank(i)
 	}
 
-	if containerId < 0 {
-		return -1, fmt.Errorf("Id should be >= 0: %v", containerId)
+	if containerRank < 0 {
+		return -1, fmt.Errorf("Rank should be >= 0: %v", containerRank)
 	}
 
-	return containerId, nil
+	return containerRank, nil
 }

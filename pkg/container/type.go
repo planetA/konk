@@ -33,4 +33,4 @@ var namespaceCodes = map[Type]int{
 	Mount: unix.CLONE_NEWNS,
 }
 
-type Id int
+type Rank int

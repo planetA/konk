@@ -24,7 +24,7 @@ const (
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"
 
-	ContainerIdEnv    = "container.rank_env"
+	ContainerRankEnv  = "container.rank_env"
 	ContainerImage    = "container.image"
 	ContainerRootDir  = "container.root_dir"
 	ContainerBaseName = "container.base_name"

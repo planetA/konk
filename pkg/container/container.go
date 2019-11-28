@@ -16,15 +16,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Container struct {
-	Id   Id
-	Path string
+type Container interface {
+	libcontainer.Container
+	Rank() Rank
+}
+
+type konkContainer struct {
+	libcontainer.Container
+	rank Rank
+}
+
+func (c *konkContainer) Rank() Rank {
+	return c.rank
 }
 
 type ContainerRegister struct {
 	Factory libcontainer.Factory
 	Mutex   *sync.Mutex
-	reg     map[Id]libcontainer.Container
+	reg     map[Rank]Container
 }
 
 func NewContainerRegister(tmpDir string) *ContainerRegister {
@@ -40,53 +49,66 @@ func NewContainerRegister(tmpDir string) *ContainerRegister {
 
 	return &ContainerRegister{
 		Factory: factory,
-		reg:     make(map[Id]libcontainer.Container),
+		reg:     make(map[Rank]Container),
 		Mutex:   &sync.Mutex{},
 	}
 }
 
-func (c *ContainerRegister) GetUnlocked(id Id) (libcontainer.Container, error) {
-	cont, ok := c.reg[id]
+func (c *ContainerRegister) GetUnlocked(rank Rank) (Container, error) {
+	cont, ok := c.reg[rank]
 	if ok {
+		log.WithFields(log.Fields{
+			"cont": cont,
+			"rank": rank,
+		}).Debug("Get container")
 		return cont, nil
 	}
 
-	return nil, fmt.Errorf("Container %v not found", id)
+	return nil, fmt.Errorf("Container %v not found", rank)
 }
 
-func (c *ContainerRegister) GetOrCreate(id Id, name string, config *configs.Config) (libcontainer.Container, error) {
+func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.Config) (Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
 	// Check if container exists already
-	cont, ok := c.reg[id]
+	cont, ok := c.reg[rank]
 	if ok {
 		return cont, nil
 	}
 
-	cont, err := c.Factory.Create(name, config)
+	libCont, err := c.Factory.Create(name, config)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create a container: %v", err)
+		return nil, fmt.Errorf("Failed to create a libcontainer container: %v", err)
+	}
+	cont = &konkContainer{
+		libCont,
+		rank,
 	}
 
 	// Remember container
-	c.reg[id] = cont
+	c.reg[rank] = cont
+
+	log.WithFields(log.Fields{
+		"cont": cont,
+		"rank": rank,
+	}).Debug("Create container")
 
 	return cont, nil
 
 }
 
-func (c *ContainerRegister) Delete(id Id) {
+func (c *ContainerRegister) Delete(rank Rank) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
-	cont, ok := c.reg[id]
+	cont, ok := c.reg[rank]
 	if !ok {
-		log.WithField("container-id", id).Panic("Container not found")
+		log.WithField("rank", rank).Panic("Container not found")
 	}
 
 	cont.Destroy()
-	delete(c.reg, id)
+	delete(c.reg, rank)
 }
 
 func (c *ContainerRegister) Destroy() {

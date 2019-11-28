@@ -7,7 +7,6 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer"
 
-	"github.com/planetA/konk/pkg/criu"
 	"github.com/planetA/konk/pkg/util"
 	log "github.com/sirupsen/logrus"
 
@@ -30,7 +29,7 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 		defer listener.Close()
 
 		log.Println("Receiver is preparing for the migration. Start listening.")
-		cont, err := criu.ReceiveListener(listener)
+		cont, err := ReceiveListener(listener)
 		if err != nil {
 			log.Panicf("Connection failed: %v", err)
 		}
@@ -43,7 +42,7 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 			log.Panicf("Failed to get hostname: %v", err)
 		}
 
-		err = n.coordinatorClient.RegisterContainer(cont.Id, hostname)
+		err = n.coordinatorClient.RegisterContainer(cont.Rank(), hostname)
 		if err != nil {
 			log.Panicf("Registering at the coordinator failed: %v", err)
 		}
@@ -56,13 +55,16 @@ func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
 func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
 
-	// address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
-	container, _ := n.containers.GetUnlocked(args.ContainerId)
+	container, err := n.containers.GetUnlocked(args.ContainerRank)
+	if err != nil {
+		log.WithError(err).WithField("rank", args.ContainerRank).Error("Container not found")
+		return err
+	}
 
-	err := container.Checkpoint(&libcontainer.CriuOpts{
-		ImagesDirectory:   n.imagesPath(),
-		WorkDirectory:     n.criuPath(),
-		LeaveRunning:      true,
+	err = container.Checkpoint(&libcontainer.CriuOpts{
+		ImagesDirectory: n.imagesPath(),
+		WorkDirectory:   n.criuPath(),
+		// LeaveRunning:      true,
 		TcpEstablished:    true,
 		ShellJob:          true,
 		FileLocks:         true,
@@ -70,12 +72,14 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	})
 	log.WithError(err).Debug("Checkpoint requeted")
 
-	// if err := criu.Migrate(container, address); err != nil {
+	// address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
+	// err = Migrate(container, address)
+	// if err != nil {
 	// 	*reply = false
 	// 	return err
 	// }
 
-	// n.forgetContainerId(args.ContainerId)
+	// n.forgetContainerRank(args.ContainerRank)
 	*reply = true
 	return nil
 }

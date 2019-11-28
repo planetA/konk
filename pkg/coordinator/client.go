@@ -32,9 +32,9 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-// The container-process tells the coordinator its container id, and address to connect
-func (c *Client) RegisterContainer(id container.Id, hostname string) error {
-	args := &RegisterContainerArgs{id, hostname}
+// The container-process tells the coordinator its container rank, and address to connect
+func (c *Client) RegisterContainer(rank container.Rank, hostname string) error {
+	args := &RegisterContainerArgs{rank, hostname}
 
 	log.Println(args)
 	var reply bool
@@ -44,12 +44,12 @@ func (c *Client) RegisterContainer(id container.Id, hostname string) error {
 }
 
 // The container-process tells the coordinator that the container is exiting
-func (c *Client) UnregisterContainer(id container.Id) error {
+func (c *Client) UnregisterContainer(rank container.Rank) error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to get hostname: %v", err)
 	}
-	args := &UnregisterContainerArgs{id, hostname}
+	args := &UnregisterContainerArgs{rank, hostname}
 
 	log.Printf("Client coord Unregister: %v\n", args)
 	var reply bool
@@ -59,8 +59,8 @@ func (c *Client) UnregisterContainer(id container.Id) error {
 }
 
 // Request the coordinator to coordinate migration of a process to another node
-func (c *Client) Migrate(id container.Id, destHost string) error {
-	args := &MigrateArgs{id, destHost}
+func (c *Client) Migrate(rank container.Rank, destHost string) error {
+	args := &MigrateArgs{rank, destHost}
 
 	log.Println(args)
 	var reply bool

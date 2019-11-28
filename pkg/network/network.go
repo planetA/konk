@@ -40,7 +40,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 	}
 }
 
-// func NewNetwork(id Id, path string) (error) {
+// func NewNetwork(rank Rank, path string) (error) {
 // 	runtime.LockOSThread()
 // 	defer runtime.UnlockOSThread()
 
@@ -54,7 +54,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 // 	}
 // 	defer namespace.Close()
 
-// 	vethPair, err := NewVethPair(id)
+// 	vethPair, err := NewVethPair(rank)
 // 	if err != nil {
 // 		return err
 // 	}
@@ -71,7 +71,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 // 	// Get handle to new namespace
 // 	nsHandle, err := netlink.NewHandleAt(netns.NsHandle(namespace.Guest))
 // 	if err != nil {
-// 		return fmt.Errorf("Could not get a handle for namespace %v: %v", id, err)
+// 		return fmt.Errorf("Could not get a handle for namespace %v: %v", rank, err)
 // 	}
 // 	defer nsHandle.Delete()
 
@@ -85,7 +85,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 // 	if err := netlink.LinkSetUp(vethPair.vpeer); err != nil {
 // 		return fmt.Errorf("Could not set interface %s up: %v", vethPair.vpeer.Attrs().Name, err)
 // 	}
-// 	nsHandle.AddrAdd(vethPair.veth, createContainerAddr(id))
+// 	nsHandle.AddrAdd(vethPair.veth, createContainerAddr(rank))
 
 // 	lo, err := nsHandle.LinkByName("lo")
 // 	if err != nil {

@@ -30,7 +30,7 @@ func Command(command string, args []string) error {
 		}
 		destHost := args[1]
 
-		if err := coord.Migrate(container.Id(rank), destHost); err != nil {
+		if err := coord.Migrate(container.Rank(rank), destHost); err != nil {
 			return fmt.Errorf("Migration failed: %v", err)
 		}
 	default:

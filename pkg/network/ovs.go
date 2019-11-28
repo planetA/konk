@@ -81,12 +81,12 @@ func (n *NetworkOvs) cleanupPort(portName string) {
 }
 
 func ovsPortName(state *specs.State) (string, error) {
-	id, ok := state.Annotations["konk-id"]
+	rank, ok := state.Annotations["konk-rank"]
 	if !ok {
-		return "", fmt.Errorf("Konk id is not set")
+		return "", fmt.Errorf("Konk rank is not set")
 	}
 
-	portName := fmt.Sprintf("p%v", id)
+	portName := fmt.Sprintf("p%v", rank)
 	return portName, nil
 }
 

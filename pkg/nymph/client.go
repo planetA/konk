@@ -2,9 +2,9 @@
 package nymph
 
 import (
-	"os"
 	"fmt"
 	"net/rpc"
+	"os"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -53,8 +53,8 @@ func (c *Client) PrepareReceive() (int, error) {
 
 // Send the checkpoint to the server at given host and port. The receiver is a nymph, but the
 // port is supposed to be not the default nymph port.
-func (c *Client) Send(containerId container.Id, destHost string, destPort int) error {
-	args := &SendArgs{containerId, destHost, destPort}
+func (c *Client) Send(containerRank container.Rank, destHost string, destPort int) error {
+	args := &SendArgs{containerRank, destHost, destPort}
 
 	var reply bool
 	err := c.client.Call(rpcSend, args, &reply)
@@ -65,12 +65,12 @@ func (c *Client) Send(containerId container.Id, destHost string, destPort int) e
 	return nil
 }
 
-func (c *Client) Signal(containerId container.Id, signal syscall.Signal) error {
-	args := &SignalArgs{containerId, signal}
+func (c *Client) Signal(containerRank container.Rank, signal syscall.Signal) error {
+	args := &SignalArgs{containerRank, signal}
 
 	log.WithFields(log.Fields{
-		"container": containerId,
-		"signal": signal}).Trace("Sending signal")
+		"container": containerRank,
+		"signal":    signal}).Trace("Sending signal")
 	var reply bool
 	if err := c.client.Call(rpcSignal, args, &reply); err != nil {
 		return fmt.Errorf("RPC call failed: %v", err)
@@ -79,8 +79,8 @@ func (c *Client) Signal(containerId container.Id, signal syscall.Signal) error {
 	return nil
 }
 
-func (c *Client) Run(containerId container.Id, image string, args []string) error {
-	runArgs := &RunArgs{containerId, image, args}
+func (c *Client) Run(containerRank container.Rank, image string, args []string) error {
+	runArgs := &RunArgs{containerRank, image, args}
 
 	var reply bool
 	if err := c.client.Call(rpcRun, runArgs, &reply); err != nil {
@@ -90,7 +90,7 @@ func (c *Client) Run(containerId container.Id, image string, args []string) erro
 	return nil
 }
 
-func (c *Client) Wait(containerId container.Id) (os.ProcessState, error) {
+func (c *Client) Wait(containerRank container.Rank) (os.ProcessState, error) {
 	return os.ProcessState{}, nil
 }
 

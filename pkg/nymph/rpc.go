@@ -9,8 +9,8 @@ import (
 // RPC method names
 
 const (
-	rpcPrepareReceive  = "Nymph.PrepareReceive"
-	rpcSend            = "Nymph.Send"
+	rpcPrepareReceive = "Nymph.PrepareReceive"
+	rpcSend           = "Nymph.Send"
 
 	rpcSignal = "Nymph.Signal"
 
@@ -22,27 +22,27 @@ type ReceiveArgs struct {
 }
 
 type SendArgs struct {
-	ContainerId container.Id
-	Host        string
-	Port        int
+	ContainerRank container.Rank
+	Host          string
+	Port          int
 }
 
 type CreateContainerArgs struct {
-	Id    container.Id
+	Rank  container.Rank
 	Image string
 }
 
 type NotifyProcessArgs struct {
-	Id container.Id
+	Rank container.Rank
 }
 
 type SignalArgs struct {
-	Id     container.Id
+	Rank   container.Rank
 	Signal syscall.Signal
 }
 
 type RunArgs struct {
-	Id    container.Id
+	Rank  container.Rank
 	Image string
 	Args  []string
 }

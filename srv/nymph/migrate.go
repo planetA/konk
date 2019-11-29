@@ -38,7 +38,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	}
 
 	// Establish connection to recipient
-	migration, err := NewMigrationDonor(container, args.Host)
+	migration, err := NewMigrationDonor(n, container, args.Host)
 	if err != nil {
 		return err
 	}

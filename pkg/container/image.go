@@ -17,6 +17,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	imageDir = "./images"
+)
+
 // Class representing container image
 type Image struct {
 	RootPath string
@@ -193,7 +197,7 @@ func readSpec(imageDir string) (*specs.Spec, error) {
 	return &spec, nil
 }
 
-func NewImage(imageDir string, imagePath string) (*Image, error) {
+func NewImage(imagePath string) (*Image, error) {
 	name := ImageName(imagePath)
 	extractDir := path.Join(imageDir, name)
 
@@ -202,6 +206,10 @@ func NewImage(imageDir string, imagePath string) (*Image, error) {
 		"name":       name,
 		"extractDir": extractDir,
 	}).Debug("Getting image name")
+
+	if err := os.MkdirAll(imageDir, os.ModeDir|os.ModePerm); err != nil {
+		return nil, err
+	}
 
 	if err := unpackImage(extractDir, imagePath); err != nil {
 		return nil, err

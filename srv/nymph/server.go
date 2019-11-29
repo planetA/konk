@@ -34,23 +34,27 @@ type Nymph struct {
 
 	network network.Network
 
-	tmpDir   string
+	rootDir  string
 	hostname string
 }
 
-func (n *Nymph) createTmpDirs() error {
-	if _, err := os.Stat(n.tmpDir); !os.IsNotExist(err) {
+func (n *Nymph) createRootDir() error {
+	if _, err := os.Stat(n.rootDir); !os.IsNotExist(err) {
 		log.WithFields(log.Fields{
-			"path": n.tmpDir,
+			"path": n.rootDir,
 		}).Info("Temp directory already exists. Purging.")
-		os.RemoveAll(n.tmpDir)
+		os.RemoveAll(n.rootDir)
 	}
 	log.WithFields(log.Fields{
-		"path": n.tmpDir,
+		"path": n.rootDir,
 	}).Trace("Creating temporary directory")
 
-	if err := os.MkdirAll(n.tmpDir, 0770); err != nil {
-		return fmt.Errorf("Failed to create temporary directory %v: %v", n.tmpDir, err)
+	if err := os.MkdirAll(n.rootDir, 0770); err != nil {
+		return fmt.Errorf("Failed to create temporary directory %v: %v", n.rootDir, err)
+	}
+
+	if err := os.Chdir(n.rootDir); err != nil {
+		return fmt.Errorf("Failed to change to temporary directory: %v", err)
 	}
 
 	return nil
@@ -80,13 +84,13 @@ func NewNymph() (*Nymph, error) {
 		return nil, err
 	}
 
-	nymph.tmpDir = config.GetString(config.NymphTmpDir)
-	if err := nymph.createTmpDirs(); err != nil {
+	nymph.rootDir = config.GetString(config.NymphRootDir)
+	if err := nymph.createRootDir(); err != nil {
 		nymph._Close()
 		return nil, err
 	}
 
-	nymph.Containers = container.NewContainerRegister(nymph.tmpDir)
+	nymph.Containers = container.NewContainerRegister(nymph.rootDir)
 
 	nymph.coordinatorClient, err = coordinator.NewClient()
 	if err != nil {
@@ -130,7 +134,7 @@ func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
 		return image, nil
 	}
 
-	image, err := container.NewImage(n.tmpDir, imagePath)
+	image, err := container.NewImage(imagePath)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open a container image %v: %v", imagePath, err)
 	}
@@ -370,7 +374,7 @@ func (n *Nymph) _Close() {
 
 	n.unregisterNymph()
 
-	os.RemoveAll(n.tmpDir)
+	os.RemoveAll(n.rootDir)
 
 	if n.network != nil {
 		n.network.Destroy()

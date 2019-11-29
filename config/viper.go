@@ -16,7 +16,7 @@ type ViperKey string
 const (
 	NymphHost         ViperKey = "nymph.host"
 	NymphPort                  = "nymph.port"
-	NymphTmpDir                = "nymph.tmp_dir"
+	NymphRootDir               = "nymph.root_dir"
 	NymphCniPath               = "nymph.cni_path"
 	NymphNetworkType           = "nymph.network.type"
 	NymphNetworkPeers          = "nymph.network.peers"

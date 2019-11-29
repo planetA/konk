@@ -16,24 +16,38 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Container interface {
+const (
+	stateFilename = "state.json"
+)
+
+type Container struct {
 	libcontainer.Container
-	Rank() Rank
+	rank           Rank
+	containerPath  string
+	checkpointPath string
 }
 
-type konkContainer struct {
-	libcontainer.Container
-	rank Rank
-}
-
-func (c *konkContainer) Rank() Rank {
+func (c *Container) Rank() Rank {
 	return c.rank
 }
 
+func (c *Container) CheckpointPath() string {
+	return c.checkpointPath
+}
+
+func (c *Container) StatePath() string {
+	return path.Join(c.containerPath, stateFilename)
+}
+
+func (c *Container) StateFilename() string {
+	return stateFilename
+}
+
 type ContainerRegister struct {
-	Factory libcontainer.Factory
-	Mutex   *sync.Mutex
-	reg     map[Rank]Container
+	Factory        libcontainer.Factory
+	Mutex          *sync.Mutex
+	ContainersPath string
+	reg            map[Rank]*Container
 }
 
 func NewContainerRegister(tmpDir string) *ContainerRegister {
@@ -48,13 +62,14 @@ func NewContainerRegister(tmpDir string) *ContainerRegister {
 	}).Trace("Created container factory")
 
 	return &ContainerRegister{
-		Factory: factory,
-		reg:     make(map[Rank]Container),
-		Mutex:   &sync.Mutex{},
+		Factory:        factory,
+		Mutex:          &sync.Mutex{},
+		ContainersPath: containersPath,
+		reg:            make(map[Rank]*Container),
 	}
 }
 
-func (c *ContainerRegister) GetUnlocked(rank Rank) (Container, error) {
+func (c *ContainerRegister) GetUnlocked(rank Rank) (*Container, error) {
 	cont, ok := c.reg[rank]
 	if ok {
 		log.WithFields(log.Fields{
@@ -67,7 +82,7 @@ func (c *ContainerRegister) GetUnlocked(rank Rank) (Container, error) {
 	return nil, fmt.Errorf("Container %v not found", rank)
 }
 
-func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.Config) (Container, error) {
+func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.Config) (*Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -81,9 +96,15 @@ func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a libcontainer container: %v", err)
 	}
-	cont = &konkContainer{
+	cont = &Container{
 		libCont,
 		rank,
+		path.Join(c.ContainersPath, libCont.ID()),
+		path.Join(c.ContainersPath, "checkpoints", libCont.ID()),
+	}
+
+	if err := os.MkdirAll(cont.CheckpointPath(), os.ModeDir|os.ModePerm); err != nil {
+		return nil, err
 	}
 
 	// Remember container

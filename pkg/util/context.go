@@ -2,11 +2,12 @@ package util
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -33,7 +34,7 @@ func NewContext() (context.Context, context.CancelFunc) {
 		defer signal.Stop(c)
 
 		for {
-			log.Println("Expect signal")
+			log.Debug("Expect signal")
 			select {
 			case sig := <-c:
 				log.Println("Received signal: ", sig)

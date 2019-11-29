@@ -3,15 +3,16 @@ package nymph
 import (
 	"fmt"
 	"io"
-	"log"
-	"net"
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
-	"google.golang.org/grpc"
+	. "github.com/planetA/konk/pkg/nymph"
 )
 
 type konkMigrationServer struct {
@@ -26,7 +27,6 @@ type konkMigrationServer struct {
 
 func (srv *konkMigrationServer) recvImageInfo(imageInfo *konk.FileData_ImageInfo) (err error) {
 	panic("Unimplemented")
-	// srv.Rank = container.Rank(imageInfo.ContainerRank)
 
 	// if err := os.MkdirAll(srv.criu.ImageDirPath, os.ModeDir|os.ModePerm); err != nil {
 	// 	return fmt.Errorf("Could not create image directory (%s): %v", srv.criu.ImageDirPath, err)
@@ -177,30 +177,86 @@ loop:
 	return nil
 }
 
-func newServer() (*konkMigrationServer, error) {
-	s := &konkMigrationServer{
-		Ready: make(chan container.Container, 1),
-	}
+// Receive the checkpoint over a created listener
+// func ReceiveListener(listener net.Listener) (container.Container, error) {
+// 	migrationServer, err := newServer()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("Failed to create migration server: %v", err)
+// 	}
+// 	konk.RegisterMigrationServer(grpcServer, migrationServer)
 
-	return s, nil
+// 	cont := make(chan container.Container, 1)
+// 	go func() {
+// 		cont <- <-migrationServer.Ready
+// 		grpcServer.Stop()
+// 	}()
+
+// 	grpcServer.Serve(listener)
+
+// 	return <-cont, nil
+// }
+
+type Recipient struct {
+	nymph *Nymph
+	rank  container.Rank
+	id    string
+	seq   int
+
+	// Current file data
+	Filename string
+	Size     int64
+	Mode     os.FileMode
+	ModTime  time.Time
 }
 
-// Receive the checkpoint over a created listener
-func ReceiveListener(listener net.Listener) (container.Container, error) {
-	grpcServer := grpc.NewServer()
-	migrationServer, err := newServer()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create migration server: %v", err)
-	}
-	konk.RegisterMigrationServer(grpcServer, migrationServer)
+func NewRecipient(nymph *Nymph) (*Recipient, error) {
+	return &Recipient{
+		nymph: nymph,
+		seq:   4,
+	}, nil
+}
 
-	cont := make(chan container.Container, 1)
-	go func() {
-		cont <- <-migrationServer.Ready
-		grpcServer.Stop()
-	}()
+func (r *Recipient) Hello(args HelloArgs, seq *int) error {
+	log.WithField("say", args.Say).Debug("Received hello")
 
-	grpcServer.Serve(listener)
+	*seq = r.seq
+	r.seq = r.seq + 1
+	return nil
+}
 
-	return <-cont, nil
+func (r *Recipient) ImageInfo(args ImageInfoArgs, seq *int) error {
+
+	r.rank = args.Rank
+	r.id = args.ID
+
+	log.WithFields(log.Fields{
+		"rank": args.Rank,
+		"id":   args.ID,
+	}).Debug("Received image info")
+
+	*seq = r.seq
+	r.seq = r.seq + 1
+	return nil
+}
+
+func (r *Recipient) FileInfo(args FileInfoArgs, seq *int) error {
+	log.WithFields(log.Fields{
+		"file": args.Filename,
+		"size": args.Size,
+		"mode": args.Mode,
+		"time": args.ModTime,
+	}).Debug("Received file info")
+
+	r.Filename = args.Filename
+	r.Size = args.Size
+	r.Mode = args.Mode
+	r.ModTime = args.ModTime
+
+	*seq = r.seq
+	r.seq = r.seq + 1
+	return nil
+}
+
+func (r *Recipient) _Close() {
+
 }

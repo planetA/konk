@@ -1,7 +1,9 @@
 package nymph
 
 import (
+	"os"
 	"syscall"
+	"time"
 
 	"github.com/planetA/konk/pkg/container"
 )
@@ -24,7 +26,6 @@ type ReceiveArgs struct {
 type SendArgs struct {
 	ContainerRank container.Rank
 	Host          string
-	Port          int
 }
 
 type CreateContainerArgs struct {
@@ -45,4 +46,26 @@ type RunArgs struct {
 	Rank  container.Rank
 	Image string
 	Args  []string
+}
+
+const (
+	rpcHello     = "Recipient.Hello"
+	rpcImageInfo = "Recipient.ImageInfo"
+	rpcFileInfo  = "Recipient.FileInfo"
+)
+
+type HelloArgs struct {
+	Say string
+}
+
+type ImageInfoArgs struct {
+	Rank container.Rank
+	ID   string
+}
+
+type FileInfoArgs struct {
+	Filename string
+	Size     int64
+	Mode     os.FileMode
+	ModTime  time.Time
 }

@@ -18,26 +18,14 @@ func Migrate(containerRank container.Rank, srcHost, destHost string) error {
 		return fmt.Errorf("The container is already at the destination")
 	}
 
-	// destClient, err := nymph.NewClient(destHost)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to reach nymph process: %v", err)
-	// }
-	// defer destClient.Close()
-
-	// destPort, err := destClient.PrepareReceive()
-	// if err != nil {
-	// 	return fmt.Errorf("Nymph is not receiving: %v", err)
-	// }
-
-	// Once we have the port number, we can tell the container-process to migrate the container
-	srcClient, err := nymph.NewClient(srcHost)
+	// Tell the nymph to migrate the container to another nymph
+	donorClient, err := nymph.NewClient(srcHost)
 	if err != nil {
 		return fmt.Errorf("Failed to reach container-process: %v", err)
 	}
-	defer srcClient.Close()
+	defer donorClient.Close()
 
-	destPort := 4
-	err = srcClient.Send(containerRank, destHost, destPort)
+	err = donorClient.Send(containerRank, destHost)
 	if err != nil {
 		return fmt.Errorf("Container-process did not migrate: %v", err)
 	}

@@ -30,12 +30,19 @@ func Run() error {
 		return fmt.Errorf("NewNymph: %v", err)
 	}
 
+	recipient, err := NewRecipient(nymph)
+	if err != nil {
+		return fmt.Errorf("NewRecipient: %v", err)
+	}
+
 	util.CrashHandler(ctx, func() {
+		recipient._Close()
 		nymph._Close()
 		log.Println("Nymph is exiting")
 	})
 
 	rpc.Register(nymph)
+	rpc.Register(recipient)
 
 	if err := nymph.registerNymph(); err != nil {
 		return fmt.Errorf("Nymph registration has failed: %v", err)

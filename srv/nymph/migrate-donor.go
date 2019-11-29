@@ -3,16 +3,16 @@ package nymph
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
-	"path/filepath"
+	"path"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
+	log "github.com/sirupsen/logrus"
+
+	// "golang.org/x/net/context"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/konk"
-	"github.com/planetA/konk/pkg/util"
+	"github.com/planetA/konk/pkg/nymph"
 )
 
 const (
@@ -20,66 +20,81 @@ const (
 )
 
 type MigrationDonor struct {
-	konk.Migration_MigrateClient
-	Container     container.Container
-	RecipientConn *grpc.ClientConn // Connection to the migration server
-	openFiles     []string
+	Container       *container.Container
+	recipientClient *nymph.MigrationClient
+	recipient       string
+	openFiles       []string
 }
 
-func (migration *MigrationDonor) SendImageInfo(containerRank container.Rank) error {
-	log.Printf("Sending image info")
-
-	err := migration.Send(&konk.FileData{
-		ImageInfo: &konk.FileData_ImageInfo{
-			ContainerRank: int32(containerRank),
-		},
-	})
-
+func NewMigrationDonor(container *container.Container, recipient string) (*MigrationDonor, error) {
+	client, err := nymph.NewMigrationClient(recipient)
 	if err != nil {
-		return fmt.Errorf("Failed to send image info: %v", err)
+		log.WithError(err).Error("Client creation failed")
+		return nil, fmt.Errorf("Failed to open a connection to the recipient: %v", err)
 	}
 
+	return &MigrationDonor{
+		Container:       container,
+		recipientClient: client,
+		recipient:       recipient,
+	}, nil
+}
+
+func (migration *MigrationDonor) Send(b interface{}) error {
 	return nil
 }
 
-func (migration *MigrationDonor) sendImage(imageDir *os.File) error {
+func (migration *MigrationDonor) sendState() error {
+	state, err := migration.Container.State()
+	if err != nil {
+		return err
+	}
+
+	if err := migration.recipientClient.ImageInfo(migration.Container.Rank(), state.ID); err != nil {
+		return err
+	}
+
+	stateFile := migration.Container.StatePath()
+
+	if err := migration.SendFile(stateFile); err != nil {
+		return fmt.Errorf("Failed to transfer the file %s: %v", stateFile, err)
+	}
+
+	log.WithField("name", stateFile).Debug("Sent a file")
+	return nil
+}
+
+func (migration *MigrationDonor) sendImage() error {
+	imageDir, err := os.Open(migration.Container.CheckpointPath())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"dir":   migration.Container.CheckpointPath(),
+			"error": err,
+		}).Error("Failed to open checkpoint dir")
+		return fmt.Errorf("Failed to open checkpoint dir: err", err)
+	}
+
 	files, err := imageDir.Readdir(0)
 	if err != nil {
 		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
 	}
 
-	if err = migration.SendImageInfo(migration.Container.Rank()); err != nil {
-		return err
-	}
-
 	for _, file := range files {
-		err := migration.SendFile(file.Name())
+		fullpath := path.Join(migration.Container.CheckpointPath(), file.Name())
+		err := migration.SendFile(fullpath)
 		if err != nil {
 			return fmt.Errorf("Failed to transfer the file %s: %v", file.Name(), err)
 		}
 
-		log.Printf("Sent a file: %v", file.Name())
+		log.WithField("name", file.Name()).Debug("Sent a file")
 	}
 
 	return nil
 }
 
-func (migration *MigrationDonor) SendFile(file string) error {
-	return migration.SendFileDir(file, "")
-}
-
-// send file by its full path. If a path is relative, the file is looked up in
-// the local image directory.
-func (migration *MigrationDonor) SendFileDir(path string, dir string) error {
-	panic("Unimplemented")
-	localDir := dir
-	// if len(localDir) == 0 {
-	// 	// If the path is relative the file is looked up in the image directory
-	// 	localDir = migration.Criu.ImageDirPath
-	// }
-	localPath := fmt.Sprintf("%s/%s", localDir, path)
-
-	file, err := os.Open(localPath)
+// Send file path relative to container directory root.
+func (migration *MigrationDonor) SendFile(filepath string) error {
+	file, err := os.Open(filepath)
 	if err != nil {
 		return fmt.Errorf("Failed to open file: %v", err)
 	}
@@ -90,16 +105,12 @@ func (migration *MigrationDonor) SendFileDir(path string, dir string) error {
 		return fmt.Errorf("Failed to get file state: %v", err)
 	}
 
-	err = migration.Send(&konk.FileData{
-		FileInfo: &konk.FileData_FileInfo{
-			Filename: path,
-			Dir:      dir,
-			Perm:     int32(fileInfo.Mode().Perm()),
-		},
-	})
+	err = migration.recipientClient.FileInfo(filepath, fileInfo)
 	if err != nil {
-		return fmt.Errorf("Failed to send file info %s: %v", path, err)
+		return fmt.Errorf("Failed to send file info %s: %v", file.Name(), err)
 	}
+
+	return nil
 
 	buf := make([]byte, ChunkSize)
 
@@ -129,21 +140,7 @@ func (migration *MigrationDonor) SendFileDir(path string, dir string) error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to send end marker (%s): %v", path, err)
-	}
-
-	return nil
-}
-
-func (migration *MigrationDonor) sendOpenFiles() error {
-	log.Println("Open files: ", migration.openFiles)
-	for _, filePath := range migration.openFiles {
-		err := migration.SendFileDir(filepath.Base(filePath), filepath.Dir(filePath))
-		if err != nil {
-			return fmt.Errorf("Failed to transfer the file %s: %v", filePath, err)
-		}
-
-		log.Printf("Sent a file: %v", filePath)
+		return fmt.Errorf("Failed to send end marker (%s): %v", file.Name(), err)
 	}
 
 	return nil
@@ -165,13 +162,12 @@ func (migration *MigrationDonor) Launch() error {
 	return nil
 }
 
-func (migration *MigrationDonor) sendCheckpoint() error {
-	panic("Unimplemented")
-	// if err := migration.sendImage(migration.Criu.imageDir); err != nil {
-	// 	return err
-	// }
+func (migration *MigrationDonor) SendCheckpoint() error {
+	if err := migration.sendState(); err != nil {
+		return err
+	}
 
-	if err := migration.sendOpenFiles(); err != nil {
+	if err := migration.sendImage(); err != nil {
 		return err
 	}
 
@@ -179,71 +175,17 @@ func (migration *MigrationDonor) sendCheckpoint() error {
 }
 
 func (migration *MigrationDonor) Close() {
-	reply, err := migration.CloseAndRecv()
-	if err != nil {
-		log.Printf("Error while closing the stream: %v\n", err)
-		log.Println("XXX: This should not happen. But I don't know how to fix it for now")
-		log.Println("The reason is connected to creating a new container on another" +
-			" machine and this somehow distorts the network connection")
-	}
-	if reply.GetStatus() != konk.Status_OK {
-		log.Printf("File transfer failed: %s\n", reply.GetStatus())
-	}
+	// reply, err := migration.CloseAndRecv()
+	// if err != nil {
+	// 	log.Printf("Error while closing the stream: %v\n", err)
+	// 	log.Println("XXX: This should not happen. But I don't know how to fix it for now")
+	// 	log.Println("The reason is connected to creating a new container on another" +
+	// 		" machine and this somehow distorts the network connection")
+	// }
+	// if reply.GetStatus() != konk.Status_OK {
+	// 	log.Printf("File transfer failed: %s\n", reply.GetStatus())
+	// }
 
-	migration.RecipientConn.Close()
+	migration.recipientClient.Close()
 	// migration.Container.Close()
-}
-
-func newMigrationDonor(ctx context.Context, recipientAddr string, cont container.Container) (*MigrationDonor, error) {
-	log.Println("Connecting to", recipientAddr)
-
-	// Connect to recipient
-	conn, err := grpc.Dial(recipientAddr, grpc.WithInsecure())
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open a connection to the recipient: %v", err)
-	}
-
-	recipient := konk.NewMigrationClient(conn)
-
-	// Create a stream to transfer the data over
-	stream, err := recipient.Migrate(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create stream: %v", err)
-	}
-
-	return &MigrationDonor{
-		Migration_MigrateClient: stream,
-		RecipientConn:           conn,
-		Container:               cont,
-	}, nil
-}
-
-func Migrate(cont container.Container, recipient string) error {
-	ctx, _ := util.NewContext()
-	migration, err := newMigrationDonor(ctx, recipient, cont)
-	if err != nil {
-		return err
-	}
-	go func() {
-		select {
-		case <-ctx.Done():
-			migration.Close()
-		}
-	}()
-	defer func() {
-		migration.Close()
-	}()
-
-	err = migration.sendCheckpoint()
-	if err != nil {
-		return fmt.Errorf("Failed to save a checkpoint: %v", err)
-	}
-
-	log.Printf("XXX: Need to ensure that container does not exists locally")
-
-	if err = migration.Launch(); err != nil {
-		return fmt.Errorf("Migration failed launch a container: %v", err)
-	}
-
-	return nil
 }

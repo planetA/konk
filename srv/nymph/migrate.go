@@ -1,59 +1,18 @@
 package nymph
 
 import (
-	"fmt"
-	"net"
-	"os"
-
 	"github.com/opencontainers/runc/libcontainer"
 
-	"github.com/planetA/konk/pkg/util"
 	log "github.com/sirupsen/logrus"
 
 	. "github.com/planetA/konk/pkg/nymph"
 )
 
-// Container receiving server has only one method
-func (n *Nymph) PrepareReceive(args *ReceiveArgs, reply *int) error {
-	log.Println("Received a request to receive a checkpoint")
-
-	// Passing port zero will make the kernel arbitrary free port
-	listener, err := util.CreateListener(0)
-	if err != nil {
-		*reply = -1
-		return fmt.Errorf("Failed to create a listener")
-	}
-	*reply = listener.Addr().(*net.TCPAddr).Port
-
-	go func() {
-		defer listener.Close()
-
-		log.Println("Receiver is preparing for the migration. Start listening.")
-		cont, err := ReceiveListener(listener)
-		if err != nil {
-			log.Panicf("Connection failed: %v", err)
-		}
-
-		panic("Unimplemented")
-		// n.rememberContainer(cont)
-
-		hostname, err := os.Hostname()
-		if err != nil {
-			log.Panicf("Failed to get hostname: %v", err)
-		}
-
-		err = n.coordinatorClient.RegisterContainer(cont.Rank(), hostname)
-		if err != nil {
-			log.Panicf("Registering at the coordinator failed: %v", err)
-		}
-	}()
-
-	return nil
-}
-
 // Send the checkpoint to the receiving nymph
 func (n *Nymph) Send(args *SendArgs, reply *bool) error {
-	log.Println("Received a request to send a checkpoint to ", args.Host, args.Port)
+	log.WithFields(log.Fields{
+		"host": args.Host,
+	}).Debug("Received a request to send a checkpoint")
 
 	container, err := n.containers.GetUnlocked(args.ContainerRank)
 	if err != nil {
@@ -62,22 +21,46 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	}
 
 	err = container.Checkpoint(&libcontainer.CriuOpts{
-		ImagesDirectory: n.imagesPath(),
-		WorkDirectory:   n.criuPath(),
-		// LeaveRunning:      true,
+		ImagesDirectory:   container.CheckpointPath(),
+		LeaveRunning:      true,
 		TcpEstablished:    true,
 		ShellJob:          true,
 		FileLocks:         true,
 		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_FULL,
 	})
-	log.WithError(err).Debug("Checkpoint requeted")
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+			"path":  container.CheckpointPath(),
+			"rank":  args.ContainerRank,
+		}).Debug("Checkpoint requested")
+		return err
+	}
 
-	// address := net.JoinHostPort(args.Host, strconv.Itoa(args.Port))
-	// err = Migrate(container, address)
-	// if err != nil {
-	// 	*reply = false
-	// 	return err
-	// }
+	// Establish connection to recipient
+	migration, err := NewMigrationDonor(container, args.Host)
+	if err != nil {
+		return err
+	}
+	defer migration.Close()
+
+	// Send the checkpoint
+	err = migration.SendCheckpoint()
+	if err != nil {
+		log.WithError(err).Debug("Checkpoint send failed")
+		return err
+	}
+
+	return nil
+
+	// Launch remote checkpoint
+	err = migration.Launch()
+	if err != nil {
+		log.WithError(err).Debug("Checkpoint send failed")
+		return err
+	}
+
+	log.Printf("XXX: Need to ensure that container does not exists locally")
 
 	// n.forgetContainerRank(args.ContainerRank)
 	*reply = true

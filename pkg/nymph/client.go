@@ -36,25 +36,10 @@ func NewClient(hostname string) (*Client, error) {
 	}, nil
 }
 
-// Connect to a node-daemon and request it to prepare for the checkpoint. The node-daemon
-// responds with the port number the sender has to connect to. The caller provides only
-// the hostname, the port number of the node-daemon is taken from the configuration.
-func (c *Client) PrepareReceive() (int, error) {
-	args := &ReceiveArgs{}
-
-	var reply int
-	err := c.client.Call(rpcPrepareReceive, args, &reply)
-	if err != nil {
-		return -1, err
-	}
-
-	return reply, nil
-}
-
 // Send the checkpoint to the server at given host and port. The receiver is a nymph, but the
 // port is supposed to be not the default nymph port.
-func (c *Client) Send(containerRank container.Rank, destHost string, destPort int) error {
-	args := &SendArgs{containerRank, destHost, destPort}
+func (c *Client) Send(containerRank container.Rank, destHost string) error {
+	args := &SendArgs{containerRank, destHost}
 
 	var reply bool
 	err := c.client.Call(rpcSend, args, &reply)

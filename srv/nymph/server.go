@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -39,14 +38,6 @@ type Nymph struct {
 	hostname string
 }
 
-func (n *Nymph) imagesPath() string {
-	return path.Join(n.tmpDir, "images")
-}
-
-func (n *Nymph) criuPath() string {
-	return path.Join(n.tmpDir, "criu")
-}
-
 func (n *Nymph) createTmpDirs() error {
 	if _, err := os.Stat(n.tmpDir); !os.IsNotExist(err) {
 		log.WithFields(log.Fields{
@@ -60,14 +51,6 @@ func (n *Nymph) createTmpDirs() error {
 
 	if err := os.MkdirAll(n.tmpDir, 0770); err != nil {
 		return fmt.Errorf("Failed to create temporary directory %v: %v", n.tmpDir, err)
-	}
-
-	if err := os.MkdirAll(n.imagesPath(), 0770); err != nil {
-		return fmt.Errorf("Failed to create temporary directory %v: %v", n.imagesPath(), err)
-	}
-
-	if err := os.MkdirAll(n.criuPath(), 0770); err != nil {
-		return fmt.Errorf("Failed to create temporary directory %v: %v", n.criuPath(), err)
 	}
 
 	return nil

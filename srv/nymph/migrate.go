@@ -14,7 +14,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		"host": args.Host,
 	}).Debug("Received a request to send a checkpoint")
 
-	container, err := n.containers.GetUnlocked(args.ContainerRank)
+	container, err := n.Containers.GetUnlocked(args.ContainerRank)
 	if err != nil {
 		log.WithError(err).WithField("rank", args.ContainerRank).Error("Container not found")
 		return err

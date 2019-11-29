@@ -27,7 +27,7 @@ import (
 type Nymph struct {
 	coordinatorClient *coordinator.Client
 
-	containers *container.ContainerRegister
+	Containers *container.ContainerRegister
 
 	imagesMutex *sync.Mutex
 	images      map[string]*container.Image
@@ -86,7 +86,7 @@ func NewNymph() (*Nymph, error) {
 		return nil, err
 	}
 
-	nymph.containers = container.NewContainerRegister(nymph.tmpDir)
+	nymph.Containers = container.NewContainerRegister(nymph.tmpDir)
 
 	nymph.coordinatorClient, err = coordinator.NewClient()
 	if err != nil {
@@ -100,7 +100,7 @@ func NewNymph() (*Nymph, error) {
 func (n *Nymph) forgetContainerRank(rank container.Rank) (int, bool) {
 	log.Println("forgetContainerRank", rank)
 
-	n.containers.Delete(rank)
+	n.Containers.Delete(rank)
 
 	panic("Unimplemented")
 
@@ -265,7 +265,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return err
 	}
 
-	cont, err := n.containers.GetOrCreate(args.Rank, contName, contConfig)
+	cont, err := n.Containers.GetOrCreate(args.Rank, contName, contConfig)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Rank,
@@ -358,8 +358,8 @@ func (n *Nymph) unregisterNymph() {
 }
 
 func (n *Nymph) _Close() {
-	if n.containers != nil {
-		n.containers.Destroy()
+	if n.Containers != nil {
+		n.Containers.Destroy()
 	}
 
 	n.imagesMutex.Lock()

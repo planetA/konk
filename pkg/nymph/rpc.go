@@ -49,9 +49,10 @@ type RunArgs struct {
 }
 
 const (
-	rpcHello     = "Recipient.Hello"
 	rpcImageInfo = "Recipient.ImageInfo"
 	rpcFileInfo  = "Recipient.FileInfo"
+	rpcFileData  = "Recipient.FileData"
+	rpcRelaunch  = "Recipient.Relaunch"
 )
 
 type HelloArgs struct {
@@ -61,6 +62,7 @@ type HelloArgs struct {
 type ImageInfoArgs struct {
 	Rank container.Rank
 	ID   string
+	Args []string
 }
 
 type FileInfoArgs struct {
@@ -68,4 +70,11 @@ type FileInfoArgs struct {
 	Size     int64
 	Mode     os.FileMode
 	ModTime  time.Time
+}
+
+type FileDataArgs struct {
+	Data []byte
+}
+
+type RelaunchArgs struct {
 }

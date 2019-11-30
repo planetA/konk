@@ -11,7 +11,6 @@ import (
 	// "golang.org/x/net/context"
 
 	"github.com/planetA/konk/pkg/container"
-	"github.com/planetA/konk/pkg/konk"
 	"github.com/planetA/konk/pkg/nymph"
 )
 
@@ -40,17 +39,13 @@ func NewMigrationDonor(container *container.Container, recipient string) (*Migra
 	}, nil
 }
 
-func (migration *MigrationDonor) Send(b interface{}) error {
-	return nil
-}
-
 func (migration *MigrationDonor) sendState() error {
 	state, err := migration.Container.State()
 	if err != nil {
 		return err
 	}
 
-	if err := migration.recipientClient.ImageInfo(migration.Container.Rank(), state.ID); err != nil {
+	if err := migration.recipientClient.ImageInfo(migration.Container.Rank(), state.ID, migration.Container.Args()); err != nil {
 		return err
 	}
 
@@ -65,7 +60,7 @@ func (migration *MigrationDonor) sendState() error {
 }
 
 func (migration *MigrationDonor) sendImage() error {
-	imageDir, err := os.Open(migration.Container.CheckpointPath())
+	checkpointDir, err := os.Open(migration.Container.CheckpointPath())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"dir":   migration.Container.CheckpointPath(),
@@ -74,9 +69,9 @@ func (migration *MigrationDonor) sendImage() error {
 		return fmt.Errorf("Failed to open checkpoint dir: err", err)
 	}
 
-	files, err := imageDir.Readdir(0)
+	files, err := checkpointDir.Readdir(0)
 	if err != nil {
-		return fmt.Errorf("Failed to read the contents of image directory: %v", err)
+		return fmt.Errorf("Failed to read the contents of checkpoint directory: %v", err)
 	}
 
 	for _, file := range files {
@@ -110,8 +105,6 @@ func (migration *MigrationDonor) SendFile(filepath string) error {
 		return fmt.Errorf("Failed to send file info %s: %v", file.Name(), err)
 	}
 
-	return nil
-
 	buf := make([]byte, ChunkSize)
 
 	for {
@@ -123,39 +116,20 @@ func (migration *MigrationDonor) SendFile(filepath string) error {
 			return fmt.Errorf("Error while reading file: %v", err)
 		}
 
-		err = migration.Send(&konk.FileData{
-			FileData: &konk.FileData_FileData{
-				Data: buf[:n],
-			},
-		})
+		err = migration.recipientClient.FileData(buf[:n])
 		if err != nil {
 			return fmt.Errorf("Error while sending data: %v", err)
 		}
 	}
 
-	// Notify that the file transfer has ended
-	err = migration.Send(&konk.FileData{
-		FileEnd: &konk.FileData_FileEnd{
-			EndMarker: true,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to send end marker (%s): %v", file.Name(), err)
-	}
-
 	return nil
 }
 
-func (migration *MigrationDonor) Launch() error {
-	log.Printf("Requested launch")
+func (migration *MigrationDonor) Relaunch() error {
 
-	err := migration.Send(&konk.FileData{
-		LaunchInfo: &konk.FileData_LaunchInfo{
-			ContainerRank: -1,
-		},
-	})
-
+	err := migration.recipientClient.Relaunch()
 	if err != nil {
+		log.WithError(err).Debug("Requested launch failed")
 		return fmt.Errorf("Failed to send launch request: %v", err)
 	}
 

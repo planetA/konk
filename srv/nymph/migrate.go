@@ -22,11 +22,11 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 
 	err = container.Checkpoint(&libcontainer.CriuOpts{
 		ImagesDirectory:   container.CheckpointPath(),
-		LeaveRunning:      true,
+		LeaveRunning:      false,
 		TcpEstablished:    true,
 		ShellJob:          true,
 		FileLocks:         true,
-		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_FULL,
+		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
 	})
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -37,8 +37,21 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
+	status, err := container.Status()
+	if err != nil {
+		log.WithError(err).Error("Quering status failed")
+		return err
+	}
+
+	// Remember old ID
+
+	log.WithFields(log.Fields{
+		"cont":   container.ID(),
+		"status": status,
+	}).Debug("Container has been checkpointed")
+
 	// Establish connection to recipient
-	migration, err := NewMigrationDonor(n, container, args.Host)
+	migration, err := NewMigrationDonor(container, args.Host)
 	if err != nil {
 		return err
 	}
@@ -51,18 +64,19 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
-	return nil
-
 	// Launch remote checkpoint
-	err = migration.Launch()
+	err = migration.Relaunch()
 	if err != nil {
 		log.WithError(err).Debug("Checkpoint send failed")
 		return err
 	}
 
+	n.Containers.Delete(args.ContainerRank)
+
 	log.Printf("XXX: Need to ensure that container does not exists locally")
 
-	// n.forgetContainerRank(args.ContainerRank)
+	// XXX: Notify the coordinator of the new location
+
 	*reply = true
 	return nil
 }

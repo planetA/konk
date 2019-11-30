@@ -37,8 +37,8 @@ func NewMigrationClient(hostname string) (*MigrationClient, error) {
 	}, nil
 }
 
-func (m *MigrationClient) ImageInfo(rank container.Rank, id string) error {
-	args := &ImageInfoArgs{rank, id}
+func (m *MigrationClient) ImageInfo(rank container.Rank, id string, args []string) error {
+	imageArgs := &ImageInfoArgs{rank, id, args}
 
 	log.WithFields(log.Fields{
 		"rank": rank,
@@ -46,7 +46,7 @@ func (m *MigrationClient) ImageInfo(rank container.Rank, id string) error {
 	}).Debug("Send image info")
 
 	var seq int
-	err := m.client.Call(rpcImageInfo, args, &seq)
+	err := m.client.Call(rpcImageInfo, imageArgs, &seq)
 	if err != nil {
 		return err
 	}
@@ -64,9 +64,9 @@ func (m *MigrationClient) FileInfo(filename string, fileInfo os.FileInfo) error 
 	}
 
 	log.WithFields(log.Fields{
-		"File": filename,
-		"Size": args.Size,
-		"Mode": args.Mode,
+		"File":    filename,
+		"Size":    args.Size,
+		"Mode":    args.Mode,
 		"ModTime": args.ModTime,
 	}).Debug("Sending file info")
 
@@ -83,16 +83,31 @@ func (m *MigrationClient) FileInfo(filename string, fileInfo os.FileInfo) error 
 	return nil
 }
 
-func (m *MigrationClient) Hello(say string) error {
-	args := &HelloArgs{say}
+func (m *MigrationClient) FileData(data []byte) error {
+	args := &FileDataArgs{data}
 
-	log.WithFields(log.Fields{
-		"rpc": rpcHello,
-		"say": say,
-	}).Debug("Saying hello")
+	log.WithField("size", len(data)).Trace("Sending chunk")
 
 	var seq int
-	err := m.client.Call(rpcHello, args, &seq)
+	err := m.client.Call(rpcFileData, args, &seq)
+	if err != nil {
+		return err
+	}
+	if seq != m.seq+1 {
+		return fmt.Errorf("Unexpected sequence number: %v", seq)
+	}
+	m.seq = seq
+
+	return nil
+}
+
+func (m *MigrationClient) Relaunch() error {
+	args := &RelaunchArgs{}
+
+	log.Debug("Relaunching the container")
+
+	var seq int
+	err := m.client.Call(rpcRelaunch, args, &seq)
 	if err != nil {
 		return err
 	}

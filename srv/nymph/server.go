@@ -66,6 +66,13 @@ func NewNymph() (*Nymph, error) {
 		images:      make(map[string]*container.Image),
 	}
 
+	// Directory should be create before anybody uses it
+	nymph.rootDir = config.GetString(config.NymphRootDir)
+	if err := nymph.createRootDir(); err != nil {
+		nymph._Close()
+		return nil, err
+	}
+
 	var err error
 	nymph.hostname, err = os.Hostname()
 	if err != nil {
@@ -84,13 +91,7 @@ func NewNymph() (*Nymph, error) {
 		return nil, err
 	}
 
-	nymph.rootDir = config.GetString(config.NymphRootDir)
-	if err := nymph.createRootDir(); err != nil {
-		nymph._Close()
-		return nil, err
-	}
-
-	nymph.Containers = container.NewContainerRegister(nymph.rootDir)
+	nymph.Containers = container.NewContainerRegister()
 
 	nymph.coordinatorClient, err = coordinator.NewClient()
 	if err != nil {
@@ -99,16 +100,6 @@ func NewNymph() (*Nymph, error) {
 	}
 
 	return nymph, nil
-}
-
-func (n *Nymph) forgetContainerRank(rank container.Rank) (int, bool) {
-	log.Println("forgetContainerRank", rank)
-
-	n.Containers.Delete(rank)
-
-	panic("Unimplemented")
-
-	return 0, true
 }
 
 func (n *Nymph) getImage(imagePath string) (*container.Image, error) {
@@ -214,10 +205,10 @@ func (n *Nymph) addDevices(contConfig *configs.Config) error {
 		return err
 	}
 
+	// XXX: Give proper name
 	contConfig.Devices = append(contConfig.Devices, dev...)
 	contConfig.Cgroups = &configs.Cgroup{
-		Name:   "test-container",
-		Parent: "system",
+		Path:   "test-container",
 		Resources: &configs.Resources{
 			MemorySwappiness: nil,
 			AllowAllDevices:  nil,
@@ -225,6 +216,18 @@ func (n *Nymph) addDevices(contConfig *configs.Config) error {
 		},
 	}
 	return nil
+}
+
+func (n *Nymph) newProcess(args []string) (*libcontainer.Process, error) {
+	return &libcontainer.Process{
+		Args: args,
+		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
+		User: "root",
+		// Stdin:  os.Stdin,
+		// Stdout: os.Stdout,
+		// Stderr: os.Stderr,
+		Init: true,
+	}, nil
 }
 
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
@@ -269,7 +272,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return err
 	}
 
-	cont, err := n.Containers.GetOrCreate(args.Rank, contName, contConfig)
+	cont, err := n.Containers.GetOrCreate(args.Rank, contName, args.Args, contConfig)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"container": args.Rank,
@@ -280,14 +283,9 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 
 	userName := config.GetString(config.ContainerUsername)
 	log.WithField("user", userName).Debug("Staring process")
-	process := &libcontainer.Process{
-		Args: args.Args,
-		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User: "root",
-		// Stdin:  os.Stdin,
-		// Stdout: os.Stdout,
-		// Stderr: os.Stderr,
-		Init: true,
+	process, err := n.newProcess(args.Args)
+	if err != nil {
+		return fmt.Errorf("Failed to create new process", err)
 	}
 
 	log.WithFields(log.Fields{

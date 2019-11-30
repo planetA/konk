@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	containersDir = "./containers"
 	stateFilename = "state.json"
 )
 
@@ -25,10 +26,15 @@ type Container struct {
 	rank           Rank
 	containerPath  string
 	checkpointPath string
+	args           []string
 }
 
 func (c *Container) Rank() Rank {
 	return c.rank
+}
+
+func (c *Container) Args() []string {
+	return c.args
 }
 
 func (c *Container) CheckpointPath() string {
@@ -44,28 +50,38 @@ func (c *Container) StateFilename() string {
 }
 
 type ContainerRegister struct {
-	Factory        libcontainer.Factory
-	Mutex          *sync.Mutex
-	ContainersPath string
-	reg            map[Rank]*Container
+	Factory         libcontainer.Factory
+	Mutex           *sync.Mutex
+	ContainersPath  string
+	CheckpointsPath string
+	reg             map[Rank]*Container
 }
 
-func NewContainerRegister(tmpDir string) *ContainerRegister {
-	containersPath := path.Join(tmpDir, "containers")
+func NewContainerRegister() *ContainerRegister {
+	containersPath := path.Join("/tmp/konk/nymph", containersDir)
 	factory, err := libcontainer.New(containersPath, libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
 	if err != nil {
 		log.Panicf("Failed to create container factory: %v", err)
 	}
 
 	log.WithFields(log.Fields{
-		"container_path": containersPath,
+		"container_path": containersDir,
 	}).Trace("Created container factory")
 
+	checkpointsPath := path.Join(containersDir, "checkpoints")
+	if err := os.MkdirAll(checkpointsPath, os.ModeDir|os.ModePerm); err != nil {
+		log.WithFields(log.Fields{
+			"dir": checkpointsPath,
+		}).Panic("Failed to create directory")
+		return nil
+	}
+
 	return &ContainerRegister{
-		Factory:        factory,
-		Mutex:          &sync.Mutex{},
-		ContainersPath: containersPath,
-		reg:            make(map[Rank]*Container),
+		Factory:         factory,
+		Mutex:           &sync.Mutex{},
+		ContainersPath:  containersDir,
+		CheckpointsPath: checkpointsPath,
+		reg:             make(map[Rank]*Container),
 	}
 }
 
@@ -82,7 +98,17 @@ func (c *ContainerRegister) GetUnlocked(rank Rank) (*Container, error) {
 	return nil, fmt.Errorf("Container %v not found", rank)
 }
 
-func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.Config) (*Container, error) {
+func (c *ContainerRegister) initContainer(libCont libcontainer.Container, rank Rank, args []string) *Container {
+	return &Container{
+		Container:      libCont,
+		rank:           rank,
+		containerPath:  path.Join(c.ContainersPath, libCont.ID()),
+		checkpointPath: path.Join(c.CheckpointsPath, libCont.ID()),
+		args:           args,
+	}
+}
+
+func (c *ContainerRegister) GetOrCreate(rank Rank, name string, args []string, config *configs.Config) (*Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -96,16 +122,7 @@ func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a libcontainer container: %v", err)
 	}
-	cont = &Container{
-		libCont,
-		rank,
-		path.Join(c.ContainersPath, libCont.ID()),
-		path.Join(c.ContainersPath, "checkpoints", libCont.ID()),
-	}
-
-	if err := os.MkdirAll(cont.CheckpointPath(), os.ModeDir|os.ModePerm); err != nil {
-		return nil, err
-	}
+	cont = c.initContainer(libCont, rank, args)
 
 	// Remember container
 	c.reg[rank] = cont
@@ -116,7 +133,39 @@ func (c *ContainerRegister) GetOrCreate(rank Rank, name string, config *configs.
 	}).Debug("Create container")
 
 	return cont, nil
+}
 
+func (c *ContainerRegister) Load(rank Rank, name string, args []string) (*Container, error) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	log.WithFields(log.Fields{
+		"rank": rank,
+		"name": name,
+	}).Trace("Loading container from checkpoint")
+
+	// Check if container exists already
+	cont, ok := c.reg[rank]
+	if ok {
+		return nil, fmt.Errorf("Container already loaded")
+	}
+
+	libCont, err := c.Factory.Load(name)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to lead a libcontainer", err)
+	}
+
+	cont = c.initContainer(libCont, rank, args)
+
+	// Remember container
+	c.reg[rank] = cont
+
+	log.WithFields(log.Fields{
+		"cont": cont,
+		"rank": rank,
+	}).Debug("Load container")
+
+	return cont, nil
 }
 
 func (c *ContainerRegister) Delete(rank Rank) {
@@ -128,7 +177,11 @@ func (c *ContainerRegister) Delete(rank Rank) {
 		log.WithField("rank", rank).Panic("Container not found")
 	}
 
-	cont.Destroy()
+	err := cont.Destroy()
+	if err != nil {
+		log.WithError(err).Error("Deleting container failed")
+	}
+
 	delete(c.reg, rank)
 }
 

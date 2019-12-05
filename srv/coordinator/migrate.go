@@ -21,13 +21,13 @@ func Migrate(containerRank container.Rank, srcHost, destHost string) error {
 	// Tell the nymph to migrate the container to another nymph
 	donorClient, err := nymph.NewClient(srcHost)
 	if err != nil {
-		return fmt.Errorf("Failed to reach container-process: %v", err)
+		return fmt.Errorf("Failed to reach nymph: %v", err)
 	}
 	defer donorClient.Close()
 
 	err = donorClient.Send(containerRank, destHost)
 	if err != nil {
-		return fmt.Errorf("Container-process did not migrate: %v", err)
+		return fmt.Errorf("Container did not migrate: %v", err)
 	}
 
 	return nil

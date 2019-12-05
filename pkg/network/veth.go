@@ -61,6 +61,37 @@ func NewVethPair(rank container.Rank) (*VethPair, error) {
 	}, nil
 }
 
+// Delete veth pair. Notably, it is enough to delete only one end.
+func DeleteVethPair(rank container.Rank) error {
+	var peerErr, ethErr error
+
+	vpeerNameRank := container.GetDevName(util.VpeerName, rank)
+	vpeer, err := netlink.LinkByName(vpeerNameRank)
+	if err == nil {
+		if err := netlink.LinkDel(vpeer); err != nil {
+			log.Println("Failed to delete vpeer: ", err)
+		}
+	} else {
+		peerErr = err
+	}
+
+	vethNameRank := container.GetDevName(util.VethName, rank)
+	veth, err := netlink.LinkByName(vethNameRank)
+	if err == nil {
+		if err := netlink.LinkDel(veth); err != nil {
+			log.Println("Failed to delete vpeer: ", err)
+		}
+	} else {
+		ethErr = err
+	}
+
+	if peerErr != nil && ethErr != nil {
+		return fmt.Errorf("Failed to delete pair: vpeer: %v veth: %v", peerErr, ethErr)
+	}
+
+	return nil
+}
+
 func (v VethPair) Close() {
 	if err := netlink.LinkDel(v.veth); err != nil {
 		log.Println("Failed to delete veth: ", err)
@@ -78,6 +109,8 @@ func (v VethPair) Close() {
 }
 
 type NetworkVeth struct {
+	baseNetwork
+
 	bridge *netlink.Bridge
 	vxlan  *netlink.Vxlan
 	pairs  map[container.Rank]*VethPair
@@ -181,7 +214,20 @@ func vethPortAddr(state *specs.State) (string, error) {
 	return addr, nil
 }
 
-func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
+func vethBridgeName(state *specs.State) (string, error) {
+	bridge, ok := state.Annotations["konk-bridge"]
+	if !ok {
+		return "", fmt.Errorf("Konk bridge is not set")
+	}
+
+	return bridge, nil
+}
+
+type hooksVeth struct {
+}
+
+func (h *hooksVeth) Prestart(state *specs.State) error {
+	log.WithField("state", state).Debug("Prestart")
 	ns, err := netns.GetFromPid(state.Pid)
 	if err != nil {
 		log.WithError(err).Fatal("Getting ns from PID failed")
@@ -213,12 +259,6 @@ func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
 		return err
 	}
 
-	_, ok := n.pairs[rank]
-	if ok {
-		log.Fatal("Unexpected pair found")
-	}
-	n.pairs[rank] = pair
-
 	addr, err := netlink.ParseAddr(addrString)
 	if err != nil {
 		log.Fatal(err)
@@ -248,8 +288,18 @@ func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
 		return err
 	}
 
+	bridgeName, err := vethBridgeName(state)
+	if err != nil {
+		log.WithError(err).Fatal("Bridge name failed")
+		return err
+	}
+	bridge, err := netlink.LinkByName(bridgeName)
+	if err != nil {
+		log.WithError(err).Fatal("Did not find bridge")
+		return err
+	}
 	// Set slave-master relationships between bridge the physical interface
-	if err := netlink.LinkSetMaster(pair.vpeer, n.bridge); err != nil {
+	if err := netlink.LinkSetMaster(pair.vpeer, bridge.(*netlink.Bridge)); err != nil {
 		log.WithError(err).Fatal("Failed to set master for peer")
 		return err
 	}
@@ -261,12 +311,12 @@ func vethPrestartHook(n *NetworkVeth, state *specs.State) error {
 	return nil
 }
 
-func vethPoststartHook(n *NetworkVeth, state *specs.State) error {
+func (h *hooksVeth) Poststart(state *specs.State) error {
 	log.Debug("Poststart hook")
 	return nil
 }
 
-func vethPoststopHook(n *NetworkVeth, state *specs.State) error {
+func (h *hooksVeth) Poststop(state *specs.State) error {
 	log.Debug("Poststop hook")
 
 	rank, err := vethPortRank(state)
@@ -275,30 +325,13 @@ func vethPoststopHook(n *NetworkVeth, state *specs.State) error {
 		return nil
 	}
 
-	pair, ok := n.pairs[rank]
-	if !ok {
-		log.Debug("Pair has not been found")
-		return nil
+	err = DeleteVethPair(rank)
+	if err != nil {
+		log.WithError(err).Error("Pair has not been found")
+		return err
 	}
 
-	pair.Close()
-	return nil
-}
-
-type VethHook func(*NetworkVeth, *specs.State) error
-
-func NewVethHook(network *NetworkVeth, hook VethHook) configs.Hook {
-	return configs.NewFunctionHook(func(state *specs.State) error {
-		return hook(network, state)
-	})
-}
-
-func (n *NetworkVeth) InstallHooks(config *configs.Config) error {
-	config.Hooks.Prestart = append(config.Hooks.Prestart, NewVethHook(n, vethPrestartHook))
-	config.Hooks.Poststart = append(config.Hooks.Poststart, NewVethHook(n, vethPoststartHook))
-	config.Hooks.Poststop = append(config.Hooks.Poststop, NewVethHook(n, vethPoststopHook))
-
-	return nil
+	return fmt.Errorf("Success")
 }
 
 func destroyLink(link netlink.Link) {
@@ -312,6 +345,10 @@ func destroyLink(link netlink.Link) {
 	if err != nil {
 		log.WithError(err).Warn("Destroying brdige failed")
 	}
+}
+
+func (n *NetworkVeth) AddLabels(config *configs.Config) {
+	config.Labels = append(config.Labels, fmt.Sprintf("konk-bridge=%v", n.bridge.Name))
 }
 
 func (n *NetworkVeth) Destroy() {

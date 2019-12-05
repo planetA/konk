@@ -1,10 +1,17 @@
 package network
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 
-	"github.com/planetA/konk/pkg/util"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/planetA/konk/pkg/util"
 
 	"github.com/vishvananda/netlink"
 	// "github.com/vishvananda/netns"
@@ -13,20 +20,155 @@ import (
 type Network interface {
 	InstallHooks(config *configs.Config) error
 
+	AddLabels(config *configs.Config)
+
 	// Uninitialize the network
 	Destroy()
+
+	setNetworkType(networkType string)
 }
 
-func New(networkType string) (Network, error) {
+type Hooks interface {
+	Prestart(state *specs.State) error
+	Poststart(state *specs.State) error
+	Poststop(state *specs.State) error
+}
+
+type baseNetwork struct {
+	networkType string
+}
+
+const (
+	networkTypeOvs  = "ovs"
+	networkTypeVeth = "veth"
+)
+
+const (
+	hookTypePrestart  = "prestart"
+	hookTypePoststart = "poststart"
+	hookTypePoststop  = "poststop"
+)
+
+func (n *baseNetwork) createHook(hookType string) (configs.CommandHook, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return configs.CommandHook{}, err
+	}
+
+	args := []string{"konk",
+		"hook",
+		hookType,
+		n.networkType}
+	duration := time.Second * 3
+	return configs.NewCommandHook(configs.Command{
+		Path:    "/proc/self/exe",
+		Args:    args,
+		Env:     os.Environ(),
+		Dir:     cwd,
+		Timeout: &duration,
+	}), nil
+}
+
+func (n *baseNetwork) setNetworkType(networkType string) {
+	n.networkType = networkType
+}
+
+func readState() (*specs.State, error) {
+	var state specs.State
+
+	dec := json.NewDecoder(os.Stdin)
+	err := dec.Decode(&state)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return &state, nil
+}
+
+func RunHook(hookType, networkType string) error {
+	log.WithFields(log.Fields{
+		"hook":    hookType,
+		"network": networkType,
+	}).Debug("Calling network hook")
+
+	var hooks Hooks
+	switch networkType {
+	case networkTypeOvs:
+		hooks = &hooksOvs{}
+	case networkTypeVeth:
+		hooks = &hooksVeth{}
+	default:
+		log.WithFields(log.Fields{
+			"hook":    hookType,
+			"network": networkType,
+		}).Debug("Unknown network hook type")
+		panic("Unknown network hook type")
+	}
+
+	var hook func(*specs.State) error
+
+	switch hookType {
+	case hookTypePrestart:
+		hook = hooks.Prestart
+	case hookTypePoststart:
+		hook = hooks.Poststart
+	case hookTypePoststop:
+		hook = hooks.Poststop
+	default:
+		panic("Impossible hook type")
+	}
+
+	state, err := readState()
+	if err != nil {
+		return fmt.Errorf("Failed to read state: %v", err)
+	}
+
+	if err := hook(state); err != nil {
+		log.WithError(err).Error("Failed running hook")
+	}
+
+	log.WithError(err).WithFields(log.Fields{
+		"hook":    hookType,
+		"network": networkType,
+	}).Debug("Hook finished")
+
+	return nil
+}
+
+func (n *baseNetwork) InstallHooks(config *configs.Config) error {
+	hook, err := n.createHook(hookTypePrestart)
+	if err != nil {
+		return err
+	}
+	config.Hooks.Prestart = append(config.Hooks.Prestart, hook)
+
+	hook, err = n.createHook(hookTypePoststart)
+	if err != nil {
+		return err
+	}
+	config.Hooks.Poststart = append(config.Hooks.Poststart, hook)
+
+	hook, err = n.createHook(hookTypePoststop)
+	if err != nil {
+		return err
+	}
+	config.Hooks.Poststop = append(config.Hooks.Poststop, hook)
+
+	return nil
+}
+
+func New(networkType string) (net Network, err error) {
 	switch networkType {
 	case "ovs":
-		return NewOvs()
+		net, err = NewOvs()
 	case "veth":
-		return NewVeth()
+		net, err = NewVeth()
 	default:
 		log.WithField("type", networkType).Panicf("Unknown network type")
-		panic("Unknown network type")
+		return nil, fmt.Errorf("Unknown network type")
 	}
+
+	net.setNetworkType(networkType)
+	return net, nil
 }
 
 func getBridge(bridgeName string) *netlink.Bridge {

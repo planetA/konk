@@ -16,6 +16,8 @@ import (
 )
 
 type NetworkOvs struct {
+	baseNetwork
+
 	client    *ovs.Client
 	bridge    string
 	vxlanPort string
@@ -99,7 +101,13 @@ func ovsPortAddr(state *specs.State) (string, error) {
 	return addr, nil
 }
 
-func ovsPrestartHook(n *NetworkOvs, state *specs.State) error {
+type hooksOvs struct {
+}
+
+func (h *hooksOvs) Prestart(state *specs.State) error {
+	panic("Uniimplemented")
+	n := &NetworkOvs{}
+
 	ns, err := netns.GetFromPid(state.Pid)
 	if err != nil {
 		log.WithError(err).Fatal("Getting ns from PID failed")
@@ -174,12 +182,15 @@ func ovsPrestartHook(n *NetworkOvs, state *specs.State) error {
 	return nil
 }
 
-func ovsPoststartHook(n *NetworkOvs, state *specs.State) error {
+func (h *hooksOvs) Poststart(state *specs.State) error {
 	log.Debug("Poststart hook")
 	return nil
 }
 
-func ovsPoststopHook(n *NetworkOvs, state *specs.State) error {
+func (h *hooksOvs) Poststop(state *specs.State) error {
+	panic("Uniimplemented")
+	n := &NetworkOvs{}
+
 	log.Debug("Poststop hook")
 
 	portName, err := ovsPortName(state)
@@ -211,20 +222,7 @@ func ovsPoststopHook(n *NetworkOvs, state *specs.State) error {
 	return nil
 }
 
-type OvsHook func(*NetworkOvs, *specs.State) error
-
-func NewOvsHook(network *NetworkOvs, hook OvsHook) configs.Hook {
-	return configs.NewFunctionHook(func(state *specs.State) error {
-		return hook(network, state)
-	})
-}
-
-func (n *NetworkOvs) InstallHooks(config *configs.Config) error {
-	config.Hooks.Prestart = append(config.Hooks.Prestart, NewOvsHook(n, ovsPrestartHook))
-	config.Hooks.Poststart = append(config.Hooks.Poststart, NewOvsHook(n, ovsPoststartHook))
-	config.Hooks.Poststop = append(config.Hooks.Poststop, NewOvsHook(n, ovsPoststopHook))
-
-	return nil
+func (n *NetworkOvs) AddLabels(config *configs.Config) {
 }
 
 func (n *NetworkOvs) Destroy() {

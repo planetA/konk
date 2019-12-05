@@ -17,13 +17,15 @@ import (
 )
 
 const (
-	containersDir = "./containers"
-	stateFilename = "state.json"
+	containersDir  = "containers"
+	checkpointsDir = "checkpoints"
+	stateFilename  = "state.json"
 )
 
 type Container struct {
 	libcontainer.Container
 	rank           Rank
+	nymphRoot      string
 	containerPath  string
 	checkpointPath string
 	args           []string
@@ -41,48 +43,78 @@ func (c *Container) CheckpointPath() string {
 	return c.checkpointPath
 }
 
+func (c *Container) CheckpointPathAbs() string {
+	return path.Join(c.nymphRoot, c.CheckpointPath())
+}
+
 func (c *Container) StatePath() string {
 	return path.Join(c.containerPath, stateFilename)
+}
+
+func (c *Container) StatePathAbs() string {
+	return path.Join(c.nymphRoot, c.StatePath())
 }
 
 func (c *Container) StateFilename() string {
 	return stateFilename
 }
 
-type ContainerRegister struct {
-	Factory         libcontainer.Factory
-	Mutex           *sync.Mutex
-	ContainersPath  string
-	CheckpointsPath string
-	reg             map[Rank]*Container
+func (c *Container) Base() string {
+	return c.nymphRoot
 }
 
-func NewContainerRegister() *ContainerRegister {
-	containersPath := path.Join("/tmp/konk/nymph", containersDir)
-	factory, err := libcontainer.New(containersPath, libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
+type ContainerRegister struct {
+	Factory  libcontainer.Factory
+	Mutex    *sync.Mutex
+	NymphDir string // Root directory of container register
+	reg      map[Rank]*Container
+}
+
+func NewContainerRegister(nymphDir string) *ContainerRegister {
+	rootDir := path.Join(nymphDir, containersDir)
+	c := &ContainerRegister{
+		NymphDir: nymphDir,
+		Mutex:    &sync.Mutex{},
+		reg:      make(map[Rank]*Container),
+	}
+
+	var err error
+	c.Factory, err = libcontainer.New(c.PathAbs(), libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
 	if err != nil {
 		log.Panicf("Failed to create container factory: %v", err)
 	}
 
 	log.WithFields(log.Fields{
-		"container_path": containersDir,
+		"containers": rootDir,
+		"nymph":      nymphDir,
 	}).Trace("Created container factory")
 
-	checkpointsPath := path.Join(containersDir, "checkpoints")
-	if err := os.MkdirAll(checkpointsPath, os.ModeDir|os.ModePerm); err != nil {
+	if err := os.MkdirAll(c.CheckpointsPathAbs(), os.ModeDir|os.ModePerm); err != nil {
 		log.WithFields(log.Fields{
-			"dir": checkpointsPath,
+			"dir": c.CheckpointsPathAbs(),
 		}).Panic("Failed to create directory")
 		return nil
 	}
 
-	return &ContainerRegister{
-		Factory:         factory,
-		Mutex:           &sync.Mutex{},
-		ContainersPath:  containersDir,
-		CheckpointsPath: checkpointsPath,
-		reg:             make(map[Rank]*Container),
-	}
+	return c
+}
+
+// Returns path to container register relative from nymph root
+func (c *ContainerRegister) Path() string {
+	return containersDir
+}
+
+// Returns absolute path to container register directory
+func (c *ContainerRegister) PathAbs() string {
+	return path.Join(c.NymphDir, c.Path())
+}
+
+func (c *ContainerRegister) CheckpointsPath() string {
+	return checkpointsDir
+}
+
+func (c *ContainerRegister) CheckpointsPathAbs() string {
+	return path.Join(c.NymphDir, c.CheckpointsPath())
 }
 
 func (c *ContainerRegister) GetUnlocked(rank Rank) (*Container, error) {
@@ -102,8 +134,9 @@ func (c *ContainerRegister) initContainer(libCont libcontainer.Container, rank R
 	return &Container{
 		Container:      libCont,
 		rank:           rank,
-		containerPath:  path.Join(c.ContainersPath, libCont.ID()),
-		checkpointPath: path.Join(c.CheckpointsPath, libCont.ID()),
+		nymphRoot:      c.NymphDir,
+		containerPath:  path.Join(containersDir, libCont.ID()),
+		checkpointPath: path.Join(checkpointsDir, libCont.ID()),
 		args:           args,
 	}
 }
@@ -189,6 +222,16 @@ func (c *ContainerRegister) Destroy() {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 	for _, cont := range c.reg {
-		cont.Destroy()
+		log.WithFields(log.Fields{
+			"rank": cont.Rank(),
+			"id":   cont.ID(),
+		}).Debug("Destroying container")
+		err := cont.Destroy()
+		if err != nil {
+			log.WithError(err).WithFields(log.Fields{
+				"rank": cont.Rank(),
+				"id":   cont.ID(),
+			}).Error("Destroying failed")
+		}
 	}
 }

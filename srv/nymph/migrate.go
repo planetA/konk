@@ -21,7 +21,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	}
 
 	err = container.Checkpoint(&libcontainer.CriuOpts{
-		ImagesDirectory:   container.CheckpointPath(),
+		ImagesDirectory:   container.CheckpointPathAbs(),
 		LeaveRunning:      false,
 		TcpEstablished:    true,
 		ShellJob:          true,
@@ -31,7 +31,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
-			"path":  container.CheckpointPath(),
+			"path":  container.CheckpointPathAbs(),
 			"rank":  args.ContainerRank,
 		}).Debug("Checkpoint requested")
 		return err
@@ -51,7 +51,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	}).Debug("Container has been checkpointed")
 
 	// Establish connection to recipient
-	migration, err := NewMigrationDonor(container, args.Host)
+	migration, err := NewMigrationDonor(n.RootDir, container, args.Host)
 	if err != nil {
 		return err
 	}

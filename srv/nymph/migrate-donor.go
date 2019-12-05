@@ -23,9 +23,10 @@ type MigrationDonor struct {
 	recipientClient *nymph.MigrationClient
 	recipient       string
 	openFiles       []string
+	rootDir         string
 }
 
-func NewMigrationDonor(container *container.Container, recipient string) (*MigrationDonor, error) {
+func NewMigrationDonor(rootDir string, container *container.Container, recipient string) (*MigrationDonor, error) {
 	client, err := nymph.NewMigrationClient(recipient)
 	if err != nil {
 		log.WithError(err).Error("Client creation failed")
@@ -36,6 +37,7 @@ func NewMigrationDonor(container *container.Container, recipient string) (*Migra
 		Container:       container,
 		recipientClient: client,
 		recipient:       recipient,
+		rootDir:         rootDir,
 	}, nil
 }
 
@@ -60,13 +62,13 @@ func (migration *MigrationDonor) sendState() error {
 }
 
 func (migration *MigrationDonor) sendImage() error {
-	checkpointDir, err := os.Open(migration.Container.CheckpointPath())
+	checkpointDir, err := os.Open(migration.Container.CheckpointPathAbs())
 	if err != nil {
 		log.WithFields(log.Fields{
-			"dir":   migration.Container.CheckpointPath(),
+			"dir":   migration.Container.CheckpointPathAbs(),
 			"error": err,
 		}).Error("Failed to open checkpoint dir")
-		return fmt.Errorf("Failed to open checkpoint dir: err", err)
+		return fmt.Errorf("Failed to open checkpoint dir: %v", err)
 	}
 
 	files, err := checkpointDir.Readdir(0)
@@ -75,13 +77,13 @@ func (migration *MigrationDonor) sendImage() error {
 	}
 
 	for _, file := range files {
-		fullpath := path.Join(migration.Container.CheckpointPath(), file.Name())
-		err := migration.SendFile(fullpath)
+		filename := path.Join(migration.Container.CheckpointPath(), file.Name())
+		err := migration.SendFile(filename)
 		if err != nil {
-			return fmt.Errorf("Failed to transfer the file %s: %v", file.Name(), err)
+			return fmt.Errorf("Failed to transfer the file %s: %v", filename, err)
 		}
 
-		log.WithField("name", file.Name()).Debug("Sent a file")
+		log.WithField("name", filename).Debug("Sent a file")
 	}
 
 	return nil
@@ -89,7 +91,8 @@ func (migration *MigrationDonor) sendImage() error {
 
 // Send file path relative to container directory root.
 func (migration *MigrationDonor) SendFile(filepath string) error {
-	file, err := os.Open(filepath)
+	fullpath := path.Join(migration.rootDir, filepath)
+	file, err := os.Open(fullpath)
 	if err != nil {
 		return fmt.Errorf("Failed to open file: %v", err)
 	}

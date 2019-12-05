@@ -34,26 +34,26 @@ type Nymph struct {
 
 	network network.Network
 
-	rootDir  string
+	RootDir  string
 	hostname string
 }
 
 func (n *Nymph) createRootDir() error {
-	if _, err := os.Stat(n.rootDir); !os.IsNotExist(err) {
+	if _, err := os.Stat(n.RootDir); !os.IsNotExist(err) {
 		log.WithFields(log.Fields{
-			"path": n.rootDir,
+			"path": n.RootDir,
 		}).Info("Temp directory already exists. Purging.")
-		os.RemoveAll(n.rootDir)
+		os.RemoveAll(n.RootDir)
 	}
 	log.WithFields(log.Fields{
-		"path": n.rootDir,
+		"path": n.RootDir,
 	}).Trace("Creating temporary directory")
 
-	if err := os.MkdirAll(n.rootDir, 0770); err != nil {
-		return fmt.Errorf("Failed to create temporary directory %v: %v", n.rootDir, err)
+	if err := os.MkdirAll(n.RootDir, 0770); err != nil {
+		return fmt.Errorf("Failed to create temporary directory %v: %v", n.RootDir, err)
 	}
 
-	if err := os.Chdir(n.rootDir); err != nil {
+	if err := os.Chdir(n.RootDir); err != nil {
 		return fmt.Errorf("Failed to change to temporary directory: %v", err)
 	}
 
@@ -67,7 +67,7 @@ func NewNymph() (*Nymph, error) {
 	}
 
 	// Directory should be create before anybody uses it
-	nymph.rootDir = config.GetString(config.NymphRootDir)
+	nymph.RootDir = config.GetString(config.NymphRootDir)
 	if err := nymph.createRootDir(); err != nil {
 		nymph._Close()
 		return nil, err
@@ -91,7 +91,7 @@ func NewNymph() (*Nymph, error) {
 		return nil, err
 	}
 
-	nymph.Containers = container.NewContainerRegister()
+	nymph.Containers = container.NewContainerRegister(nymph.RootDir)
 
 	nymph.coordinatorClient, err = coordinator.NewClient()
 	if err != nil {
@@ -208,7 +208,7 @@ func (n *Nymph) addDevices(contConfig *configs.Config) error {
 	// XXX: Give proper name
 	contConfig.Devices = append(contConfig.Devices, dev...)
 	contConfig.Cgroups = &configs.Cgroup{
-		Path:   "test-container",
+		Path: "test-container",
 		Resources: &configs.Resources{
 			MemorySwappiness: nil,
 			AllowAllDevices:  nil,
@@ -265,6 +265,8 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 			log.Error("Network specification failed")
 			return err
 		}
+
+		n.network.AddLabels(contConfig)
 	}
 
 	if err := n.addDevices(contConfig); err != nil {
@@ -372,7 +374,7 @@ func (n *Nymph) _Close() {
 
 	n.unregisterNymph()
 
-	os.RemoveAll(n.rootDir)
+	os.RemoveAll(n.RootDir)
 
 	if n.network != nil {
 		n.network.Destroy()

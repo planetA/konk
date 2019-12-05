@@ -67,13 +67,13 @@ func (r *Recipient) ImageInfo(args ImageInfoArgs, seq *int) error {
 		"id":   args.ID,
 	}).Debug("Received image info")
 
-	containerPath := path.Join(r.nymph.Containers.ContainersPath, args.ID)
+	containerPath := path.Join(r.nymph.Containers.PathAbs(), args.ID)
 
 	if err := os.MkdirAll(containerPath, os.ModeDir|os.ModePerm); err != nil {
 		return err
 	}
 
-	checkpointPath := path.Join(r.nymph.Containers.CheckpointsPath, args.ID)
+	checkpointPath := path.Join(r.nymph.Containers.CheckpointsPathAbs(), args.ID)
 	if err := os.MkdirAll(checkpointPath, os.ModeDir|os.ModePerm); err != nil {
 		return err
 	}
@@ -105,10 +105,11 @@ func (r *Recipient) FileInfo(args FileInfoArgs, seq *int) error {
 	}
 
 	var err error
-	r.File, err = os.OpenFile(r.Filename, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, r.Mode)
+	fullpath := path.Join(r.nymph.RootDir, r.Filename)
+	r.File, err = os.OpenFile(fullpath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, r.Mode)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"file":  r.Filename,
+			"file":  fullpath,
 			"error": err,
 		}).Debug("Failed to create file")
 		return fmt.Errorf("Failed to create file (%s): %v", r.Filename, err)
@@ -174,7 +175,7 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 
 	process, err := r.nymph.newProcess(cont.Args())
 	err = cont.Restore(process, &libcontainer.CriuOpts{
-		ImagesDirectory:   cont.CheckpointPath(),
+		ImagesDirectory:   cont.CheckpointPathAbs(),
 		WorkDirectory:     "/tmp/criu",
 		LeaveRunning:      true,
 		TcpEstablished:    true,
@@ -184,11 +185,25 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 	})
 	if err != nil {
 		log.WithFields(log.Fields{
+			"ckpt":  cont.CheckpointPathAbs(),
 			"args":  cont.Args(),
 			"error": err,
 		}).Error("Restore failed")
 		return err
 	}
+
+	status, err := cont.Status()
+	if err != nil {
+		log.WithError(err).Error("Quering status failed")
+		return err
+	}
+
+	// Remember old ID
+
+	log.WithFields(log.Fields{
+		"cont":   cont.ID(),
+		"status": status,
+	}).Debug("Container has been restored")
 
 	return nil
 }

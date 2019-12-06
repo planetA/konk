@@ -9,17 +9,9 @@ endif
 
 GOFILES=$(shell find . -name '[^.]*\.go')
 
-KONK_PROTO_DIR=pkg/konk
-KONK_PROTO_FILE=$(KONK_PROTO_DIR)/konk.proto
-KONK_PROTO=$(KONK_PROTO_DIR)/konk.pb.go
-
 all: konk
 
-$(KONK_PROTO): $(KONK_PROTO_FILE)
-	protoc --go_out=plugins=grpc:$(shell dirname $@) -I$(shell dirname $^) $^
-
-konk: $(KONK_PROTO) $(GOFILES)
-	go get
+konk: $(GOFILES)
 	go build -tags seccomp
 
 install: konk

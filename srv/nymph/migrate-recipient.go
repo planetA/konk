@@ -179,7 +179,6 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 
 	err = cont.Restore(process, &libcontainer.CriuOpts{
 		ImagesDirectory:   cont.CheckpointPathAbs(),
-		WorkDirectory:     "/tmp/criu",
 		LeaveRunning:      true,
 		TcpEstablished:    true,
 		ShellJob:          true,

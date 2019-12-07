@@ -228,6 +228,12 @@ type hooksVeth struct {
 
 func (h *hooksVeth) Prestart(state *specs.State) error {
 	log.WithField("state", state).Debug("Prestart")
+
+	if state.Status != "creating" {
+		// nothing to do here
+		return nil
+	}
+
 	ns, err := netns.GetFromPid(state.Pid)
 	if err != nil {
 		log.WithError(err).Fatal("Getting ns from PID failed")

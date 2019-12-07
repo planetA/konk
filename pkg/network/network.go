@@ -249,7 +249,7 @@ func getBridge(bridgeName string) *netlink.Bridge {
 
 // func (n *Network) Close() {
 // 	log.Println("Closing network")
-	// for _, dev := range n.netDevs {
-	// 	dev.Close()
-	// }
+// for _, dev := range n.netDevs {
+// 	dev.Close()
+// }
 // }

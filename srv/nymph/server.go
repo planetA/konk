@@ -171,7 +171,7 @@ func addLabelIpAddr(config *configs.Config, rank container.Rank) {
 	config.Labels = append(config.Labels, fmt.Sprintf("konk-ip=%v", addr.String()))
 }
 
-func (n *Nymph) addDevices(contConfig *configs.Config) error {
+func (n *Nymph) addDevices(contConfig *configs.Config, rank container.Rank) error {
 	caps := []string{
 		"CAP_NET_ADMIN",
 		"CAP_SYS_ADMIN",
@@ -208,7 +208,7 @@ func (n *Nymph) addDevices(contConfig *configs.Config) error {
 	// XXX: Give proper name
 	contConfig.Devices = append(contConfig.Devices, dev...)
 	contConfig.Cgroups = &configs.Cgroup{
-		Path: "test-container",
+		Path: fmt.Sprintf("rank%v", rank),
 		Resources: &configs.Resources{
 			MemorySwappiness: nil,
 			AllowAllDevices:  nil,
@@ -269,7 +269,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		n.network.AddLabels(contConfig)
 	}
 
-	if err := n.addDevices(contConfig); err != nil {
+	if err := n.addDevices(contConfig, args.Rank); err != nil {
 		log.Error("Adding devices failed")
 		return err
 	}

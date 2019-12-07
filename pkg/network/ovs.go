@@ -9,6 +9,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/planetA/konk/config"
+	"github.com/planetA/konk/pkg/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -223,6 +224,11 @@ func (h *hooksOvs) Poststop(state *specs.State) error {
 }
 
 func (n *NetworkOvs) AddLabels(config *configs.Config) {
+}
+
+func (n *NetworkOvs) DeclareExternal(rank container.Rank) []string {
+	panic("Unimplemented")
+	return []string{""}
 }
 
 func (n *NetworkOvs) Destroy() {

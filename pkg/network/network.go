@@ -11,6 +11,7 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/util"
 
 	"github.com/vishvananda/netlink"
@@ -21,6 +22,9 @@ type Network interface {
 	InstallHooks(config *configs.Config) error
 
 	AddLabels(config *configs.Config)
+
+	// Add external devices for checkpointing
+	DeclareExternal(rank container.Rank) []string
 
 	// Uninitialize the network
 	Destroy()

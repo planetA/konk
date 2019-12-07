@@ -174,6 +174,9 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 	}
 
 	process, err := r.nymph.newProcess(cont.Args())
+	external := r.nymph.network.DeclareExternal(r.rank)
+	log.WithField("external", external).Debug("Create external")
+
 	err = cont.Restore(process, &libcontainer.CriuOpts{
 		ImagesDirectory:   cont.CheckpointPathAbs(),
 		WorkDirectory:     "/tmp/criu",
@@ -181,6 +184,7 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 		TcpEstablished:    true,
 		ShellJob:          true,
 		FileLocks:         true,
+		External:          external,
 		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
 	})
 	if err != nil {

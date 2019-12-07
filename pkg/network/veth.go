@@ -254,6 +254,11 @@ func (h *hooksVeth) Prestart(state *specs.State) error {
 		return err
 	}
 
+	log.WithFields(log.Fields{
+		"rank": rank,
+		"addr": addrString,
+	}).Debug("Creating veth pair")
+
 	pair, err := NewVethPair(rank)
 	if err != nil {
 		return err
@@ -349,6 +354,10 @@ func destroyLink(link netlink.Link) {
 
 func (n *NetworkVeth) AddLabels(config *configs.Config) {
 	config.Labels = append(config.Labels, fmt.Sprintf("konk-bridge=%v", n.bridge.Name))
+}
+
+func (n *NetworkVeth) DeclareExternal(rank container.Rank) []string {
+	return []string{fmt.Sprintf("veth[veth%v]:vpeer%v", rank, rank)}
 }
 
 func (n *NetworkVeth) Destroy() {

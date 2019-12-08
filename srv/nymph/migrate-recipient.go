@@ -13,25 +13,6 @@ import (
 	. "github.com/planetA/konk/pkg/nymph"
 )
 
-// Receive the checkpoint over a created listener
-// func ReceiveListener(listener net.Listener) (container.Container, error) {
-// 	migrationServer, err := newServer()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("Failed to create migration server: %v", err)
-// 	}
-// 	konk.RegisterMigrationServer(grpcServer, migrationServer)
-
-// 	cont := make(chan container.Container, 1)
-// 	go func() {
-// 		cont <- <-migrationServer.Ready
-// 		grpcServer.Stop()
-// 	}()
-
-// 	grpcServer.Serve(listener)
-
-// 	return <-cont, nil
-// }
-
 type Recipient struct {
 	nymph *Nymph
 	rank  container.Rank

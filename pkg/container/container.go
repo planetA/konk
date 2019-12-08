@@ -16,6 +16,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Rank int
+
 const (
 	containersDir  = "containers"
 	checkpointsDir = "checkpoints"

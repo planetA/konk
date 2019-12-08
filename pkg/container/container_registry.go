@@ -78,17 +78,6 @@ func (c *ContainerRegister) GetUnlocked(rank Rank) (*Container, error) {
 	return nil, fmt.Errorf("Container %v not found", rank)
 }
 
-func (c *ContainerRegister) initContainer(libCont libcontainer.Container, rank Rank, args []string) *Container {
-	return &Container{
-		Container:      libCont,
-		rank:           rank,
-		nymphRoot:      c.NymphDir,
-		containerPath:  path.Join(containersDir, libCont.ID()),
-		checkpointPath: path.Join(checkpointsDir, libCont.ID()),
-		args:           args,
-	}
-}
-
 func (c *ContainerRegister) GetOrCreate(rank Rank, name string, args []string, config *configs.Config) (*Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -103,7 +92,7 @@ func (c *ContainerRegister) GetOrCreate(rank Rank, name string, args []string, c
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a libcontainer container: %v", err)
 	}
-	cont = c.initContainer(libCont, rank, args)
+	cont = newContainer(libCont, rank, args, c.NymphDir)
 
 	// Remember container
 	c.reg[rank] = cont
@@ -136,7 +125,7 @@ func (c *ContainerRegister) Load(rank Rank, name string, args []string) (*Contai
 		return nil, fmt.Errorf("Failed to lead a libcontainer", err)
 	}
 
-	cont = c.initContainer(libCont, rank, args)
+	cont = newContainer(libCont, rank, args, c.NymphDir)
 
 	// Remember container
 	c.reg[rank] = cont

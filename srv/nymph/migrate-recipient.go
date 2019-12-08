@@ -154,7 +154,7 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 		return err
 	}
 
-	cont.Init, err = r.nymph.newProcess(cont.Args())
+	cont.Init, err = cont.NewProcess(cont.Args())
 
 	external := r.nymph.network.DeclareExternal(r.rank)
 	log.WithField("external", external).Debug("Create external")

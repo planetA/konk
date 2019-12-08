@@ -10,7 +10,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/opencontainers/runc/libcontainer/specconv"
@@ -218,18 +217,6 @@ func (n *Nymph) addDevices(contConfig *configs.Config, rank container.Rank) erro
 	return nil
 }
 
-func (n *Nymph) newProcess(args []string) (*libcontainer.Process, error) {
-	return &libcontainer.Process{
-		Args: args,
-		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User: "root",
-		// Stdin:  os.Stdin,
-		// Stdout: os.Stdout,
-		// Stderr: os.Stderr,
-		Init: true,
-	}, nil
-}
-
 func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	imagePath := args.Image
 
@@ -285,7 +272,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 
 	userName := config.GetString(config.ContainerUsername)
 	log.WithField("user", userName).Debug("Staring process")
-	process, err := n.newProcess(args.Args)
+	process, err := cont.NewProcess(args.Args)
 	if err != nil {
 		return fmt.Errorf("Failed to create new process", err)
 	}

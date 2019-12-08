@@ -171,6 +171,11 @@ func New(networkType string) (net Network, err error) {
 		return nil, fmt.Errorf("Unknown network type")
 	}
 
+	if err != nil {
+		log.WithError(err).WithField("type", networkType).Error("Failed to create network")
+		return nil, err
+	}
+
 	net.setNetworkType(networkType)
 	return net, nil
 }

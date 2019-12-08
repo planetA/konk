@@ -29,6 +29,7 @@ type Container struct {
 	containerPath  string
 	checkpointPath string
 	args           []string
+	Init           *libcontainer.Process
 }
 
 func (c *Container) Rank() Rank {
@@ -222,12 +223,15 @@ func (c *ContainerRegister) Destroy() {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 	for _, cont := range c.reg {
-		log.WithFields(log.Fields{
-			"rank": cont.Rank(),
-			"id":   cont.ID(),
-		}).Debug("Destroying container")
-		err := cont.Destroy()
-		if err != nil {
+		if cont.Init != nil {
+			err := cont.Init.Signal(os.Kill)
+			log.WithError(err).WithFields(log.Fields{
+				"rank": cont.Rank(),
+				"id":   cont.ID(),
+			}).Debug("Destroying container")
+		}
+
+		if err := cont.Destroy(); err != nil {
 			log.WithError(err).WithFields(log.Fields{
 				"rank": cont.Rank(),
 				"id":   cont.ID(),

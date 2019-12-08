@@ -173,11 +173,12 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 		return err
 	}
 
-	process, err := r.nymph.newProcess(cont.Args())
+	cont.Init, err = r.nymph.newProcess(cont.Args())
+
 	external := r.nymph.network.DeclareExternal(r.rank)
 	log.WithField("external", external).Debug("Create external")
 
-	err = cont.Restore(process, &libcontainer.CriuOpts{
+	err = cont.Restore(cont.Init, &libcontainer.CriuOpts{
 		ImagesDirectory:   cont.CheckpointPathAbs(),
 		LeaveRunning:      true,
 		TcpEstablished:    true,

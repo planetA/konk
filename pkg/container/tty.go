@@ -5,10 +5,8 @@
 package container
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"sync"
 
 	"github.com/containerd/console"
@@ -68,28 +66,20 @@ func (t *tty) recvtty(process *libcontainer.Process, socket *os.File) (Err error
 	go t.copyIO(os.Stdout, epollConsole)
 
 	// set raw mode to stdin and also handle interrupt
-	stdin, err := console.ConsoleFromFile(os.Stdin)
-	if err != nil {
-		return err
-	}
-	if err := stdin.SetRaw(); err != nil {
-		return fmt.Errorf("failed to set the terminal from the stdin: %v", err)
-	}
-	go handleInterrupt(stdin)
+	// stdin, err := console.ConsoleFromFile(os.Stdin)
+	// if err != nil {
+	// 	return err
+	// }
+	// if err := stdin.SetRaw(); err != nil {
+	// 	return fmt.Errorf("failed to set the terminal from the stdin: %v", err)
+	// }
 
 	t.epoller = epoller
-	t.stdin = stdin
+	// t.stdin = stdin
+	t.stdin = nil
 	t.console = epollConsole
 	t.closers = []io.Closer{epollConsole}
 	return nil
-}
-
-func handleInterrupt(c console.Console) {
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, os.Interrupt)
-	<-sigchan
-	c.Reset()
-	os.Exit(0)
 }
 
 func (t *tty) waitConsole() error {

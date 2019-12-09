@@ -6,13 +6,22 @@
 package container
 
 import (
-	"os"
+	"fmt"
 	"path"
 
 	"github.com/opencontainers/runc/libcontainer"
+	"github.com/opencontainers/runc/libcontainer/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 type Rank int
+
+type StartType int
+
+const (
+	Start StartType = iota
+	Restore
+)
 
 const (
 	containersDir  = "containers"
@@ -22,19 +31,19 @@ const (
 
 type Container struct {
 	libcontainer.Container
-	rank           Rank
-	nymphRoot      string
-	args           []string
-	Init           *libcontainer.Process
+	rank      Rank
+	nymphRoot string
+	args      []string
+	Init      *libcontainer.Process
 }
 
-func newContainer(libCont libcontainer.Container, rank Rank, args []string, nymphRoot string) *Container {
+func newContainer(libCont libcontainer.Container, rank Rank, args []string, nymphRoot string) (*Container, error) {
 	return &Container{
-		Container:      libCont,
-		rank:           rank,
-		nymphRoot:      nymphRoot,
-		args:           args,
-	}
+		Container: libCont,
+		rank:      rank,
+		nymphRoot: nymphRoot,
+		args:      args,
+	}, nil
 }
 
 func (c *Container) Rank() Rank {
@@ -74,13 +83,64 @@ func (c *Container) Base() string {
 }
 
 func (c *Container) NewProcess(args []string) (*libcontainer.Process, error) {
-	return &libcontainer.Process{
-		Args:   args,
-		Env:    []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User:   "root",
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-		Init:   true,
-	}, nil
+	process := &libcontainer.Process{
+		Args: args,
+		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
+		User: "root",
+		Init: true,
+	}
+
+	return process, nil
+}
+
+// setupIO modifies the given process config according to the options.
+func setupIO(process *libcontainer.Process, rootuid, rootgid int) (*tty, error) {
+	process.Stdin = nil
+	process.Stdout = nil
+	process.Stderr = nil
+	t := &tty{}
+	parent, child, err := utils.NewSockPair("console")
+	if err != nil {
+		return nil, err
+	}
+	process.ConsoleSocket = child
+	t.postStart = append(t.postStart, parent, child)
+	t.consoleC = make(chan error, 1)
+	go func() {
+		if err := t.recvtty(process, parent); err != nil {
+			t.consoleC <- err
+		}
+		t.consoleC <- nil
+	}()
+	return t, nil
+}
+
+func (c *Container) Launch(startType StartType, args []string) (*libcontainer.Process, error) {
+	process, err := c.NewProcess(args)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create new process", err)
+	}
+
+	rootuid, err := c.Config().HostRootUID()
+	if err != nil {
+		return nil, err
+	}
+	rootgid, err := c.Config().HostRootGID()
+	if err != nil {
+		return nil, err
+	}
+
+	tty, err := setupIO(process, rootuid, rootgid)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to setup IO", err)
+	}
+	defer tty.Close()
+
+	log.WithFields(log.Fields{
+		"start_type":    startType,
+		"containerRank": c.args,
+		"args":          args,
+	}).Info("Launching process inside a container")
+
+	return process, nil
 }

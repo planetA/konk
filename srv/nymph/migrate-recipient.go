@@ -154,19 +154,23 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 		return err
 	}
 
-	cont.Init, err = cont.NewProcess(cont.Args())
-
 	external := r.nymph.network.DeclareExternal(r.rank)
 	log.WithField("external", external).Debug("Create external")
 
-	err = cont.Restore(cont.Init, &libcontainer.CriuOpts{
-		ImagesDirectory:   cont.CheckpointPathAbs(),
-		LeaveRunning:      true,
-		TcpEstablished:    true,
-		ShellJob:          true,
-		FileLocks:         true,
-		External:          external,
-		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
+	proc, err := cont.Launch(container.Restore, r.args)
+	if err != nil {
+		return err
+	}
+
+	err = cont.Restore(proc, &libcontainer.CriuOpts{
+		ImagesDirectory:         cont.CheckpointPathAbs(),
+		LeaveRunning:            true,
+		TcpEstablished:          true,
+		ShellJob:                true,
+		FileLocks:               true,
+		External:                external,
+		ExternalUnixConnections: true,
+		ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
 	})
 	if err != nil {
 		log.WithFields(log.Fields{

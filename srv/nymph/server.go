@@ -270,19 +270,10 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
-	userName := config.GetString(config.ContainerUsername)
-	log.WithField("user", userName).Debug("Staring process")
-	process, err := cont.NewProcess(args.Args)
+	process, err := cont.Launch(container.Start, args.Args)
 	if err != nil {
-		return fmt.Errorf("Failed to create new process", err)
+		return err
 	}
-
-	log.WithFields(log.Fields{
-		"containerRank": args.Rank,
-		"image":         args.Image,
-		"args":          args.Args,
-		"container":     cont,
-	}).Info("Launching process inside a container")
 
 	if err := cont.Run(process); err != nil {
 		log.Info(err)

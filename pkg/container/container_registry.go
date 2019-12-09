@@ -92,7 +92,11 @@ func (c *ContainerRegister) GetOrCreate(rank Rank, name string, args []string, c
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a libcontainer container: %v", err)
 	}
-	cont = newContainer(libCont, rank, args, c.NymphDir)
+
+	cont, err = newContainer(libCont, rank, args, c.NymphDir)
+	if err != nil {
+		return nil, err
+	}
 
 	// Remember container
 	c.reg[rank] = cont
@@ -125,7 +129,10 @@ func (c *ContainerRegister) Load(rank Rank, name string, args []string) (*Contai
 		return nil, fmt.Errorf("Failed to lead a libcontainer", err)
 	}
 
-	cont = newContainer(libCont, rank, args, c.NymphDir)
+	cont, err = newContainer(libCont, rank, args, c.NymphDir)
+	if err != nil {
+		return nil, err
+	}
 
 	// Remember container
 	c.reg[rank] = cont

@@ -180,6 +180,15 @@ func (c *Container) Launch(startType StartType, cr ContainerRegistrator) error {
 		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}
 
+	go func() {
+		ret, err := process.Wait()
+		if err != nil {
+			log.Error("Waiting for process failed", err)
+		}
+
+		log.WithField("return", ret).Trace("Finished process")
+	}()
+
 	return nil
 }
 

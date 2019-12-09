@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"syscall"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/nymph"
 )
@@ -29,6 +30,8 @@ func Migrate(containerRank container.Rank, srcHost, destHost string) error {
 	if err != nil {
 		return fmt.Errorf("Container did not migrate: %v", err)
 	}
+
+	log.Debug("Migration finished successfully")
 
 	return nil
 }

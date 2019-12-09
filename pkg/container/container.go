@@ -121,9 +121,7 @@ func setupIO(process *libcontainer.Process, rootuid, rootgid int) (*tty, error) 
 	return t, nil
 }
 
-type ContainerRegistrator func(Rank) error
-
-func (c *Container) Launch(startType StartType, cr ContainerRegistrator) error {
+func (c *Container) Launch(startType StartType) error {
 	process, err := c.NewProcess(c.Args())
 	if err != nil {
 		return fmt.Errorf("Failed to create new process", err)
@@ -174,10 +172,6 @@ func (c *Container) Launch(startType StartType, cr ContainerRegistrator) error {
 			}).Error("Restore failed")
 			return err
 		}
-	}
-
-	if err := cr(c.Rank()); err != nil {
-		return fmt.Errorf("Registering at the coordinator failed: %v", err)
 	}
 
 	go func() {

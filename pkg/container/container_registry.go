@@ -166,14 +166,6 @@ func (c *ContainerRegister) Destroy() {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 	for _, cont := range c.reg {
-		if cont.Init != nil {
-			err := cont.Init.Signal(os.Kill)
-			log.WithError(err).WithFields(log.Fields{
-				"rank": cont.Rank(),
-				"id":   cont.ID(),
-			}).Debug("Destroying container")
-		}
-
 		if err := cont.Destroy(); err != nil {
 			log.WithError(err).WithFields(log.Fields{
 				"rank": cont.Rank(),

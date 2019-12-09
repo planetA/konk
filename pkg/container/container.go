@@ -6,6 +6,7 @@
 package container
 
 import (
+	"os"
 	"fmt"
 	"path"
 
@@ -36,7 +37,6 @@ type Container struct {
 	args      []string
 	external  []string
 	tty       *tty
-	Init      *libcontainer.Process
 }
 
 func newContainer(libCont libcontainer.Container, rank Rank, args []string, nymphRoot string) (*Container, error) {
@@ -193,6 +193,14 @@ func (c *Container) Launch(startType StartType, cr ContainerRegistrator) error {
 }
 
 func (c *Container) Destroy() (err error) {
+	log.WithField("rank", c.Rank()).Debug("Destroying container")
+
+	err = c.Signal(os.Kill, true)
+	log.WithError(err).WithFields(log.Fields{
+		"rank": c.Rank(),
+		"id":   c.ID(),
+	}).Debug("Destroying container")
+
 	if c.tty != nil {
 		err = c.tty.Close()
 	}

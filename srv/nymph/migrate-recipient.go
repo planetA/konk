@@ -8,7 +8,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/opencontainers/runc/libcontainer"
 	"github.com/planetA/konk/pkg/container"
 	. "github.com/planetA/konk/pkg/nymph"
 )
@@ -154,30 +153,9 @@ func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
 		return err
 	}
 
-	external := r.nymph.network.DeclareExternal(r.rank)
-	log.WithField("external", external).Debug("Create external")
+	cont.AddExternal(r.nymph.network.DeclareExternal(cont.Rank()))
 
-	proc, err := cont.Launch(container.Restore, r.args)
-	if err != nil {
-		return err
-	}
-
-	err = cont.Restore(proc, &libcontainer.CriuOpts{
-		ImagesDirectory:         cont.CheckpointPathAbs(),
-		LeaveRunning:            true,
-		TcpEstablished:          true,
-		ShellJob:                true,
-		FileLocks:               true,
-		External:                external,
-		ExternalUnixConnections: true,
-		ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
-	})
-	if err != nil {
-		log.WithFields(log.Fields{
-			"ckpt":  cont.CheckpointPathAbs(),
-			"args":  cont.Args(),
-			"error": err,
-		}).Error("Restore failed")
+	if err := cont.Launch(container.Restore, r.nymph.registrator); err != nil {
 		return err
 	}
 

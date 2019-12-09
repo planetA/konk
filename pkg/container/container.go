@@ -34,6 +34,8 @@ type Container struct {
 	rank      Rank
 	nymphRoot string
 	args      []string
+	external  []string
+	tty       *tty
 	Init      *libcontainer.Process
 }
 
@@ -52,6 +54,10 @@ func (c *Container) Rank() Rank {
 
 func (c *Container) Args() []string {
 	return c.args
+}
+
+func (c *Container) AddExternal(external []string) {
+	c.external = append(c.external, external...)
 }
 
 func (c *Container) ContainerPath() string {
@@ -115,32 +121,78 @@ func setupIO(process *libcontainer.Process, rootuid, rootgid int) (*tty, error) 
 	return t, nil
 }
 
-func (c *Container) Launch(startType StartType, args []string) (*libcontainer.Process, error) {
-	process, err := c.NewProcess(args)
+type ContainerRegistrator func(Rank) error
+
+func (c *Container) Launch(startType StartType, cr ContainerRegistrator) error {
+	process, err := c.NewProcess(c.Args())
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create new process", err)
+		return fmt.Errorf("Failed to create new process", err)
 	}
 
 	rootuid, err := c.Config().HostRootUID()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	rootgid, err := c.Config().HostRootGID()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	tty, err := setupIO(process, rootuid, rootgid)
+	c.tty, err = setupIO(process, rootuid, rootgid)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to setup IO", err)
+		return fmt.Errorf("Failed to setup IO", err)
 	}
-	defer tty.Close()
 
 	log.WithFields(log.Fields{
 		"start_type":    startType,
-		"containerRank": c.args,
-		"args":          args,
+		"containerRank": c.Rank(),
+		"args":          c.Args(),
 	}).Info("Launching process inside a container")
 
-	return process, nil
+	switch startType {
+	case Start:
+		if err := c.Run(process); err != nil {
+			log.Info(err)
+			return fmt.Errorf("Failed to launch container in a process", err)
+		}
+	case Restore:
+		err = c.Restore(process, &libcontainer.CriuOpts{
+			ImagesDirectory:         c.CheckpointPathAbs(),
+			LeaveRunning:            true,
+			TcpEstablished:          true,
+			ShellJob:                true,
+			FileLocks:               true,
+			External:                c.external,
+			ExternalUnixConnections: true,
+			ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
+		})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"ckpt":  c.CheckpointPathAbs(),
+				"args":  c.Args(),
+				"error": err,
+			}).Error("Restore failed")
+			return err
+		}
+	}
+
+	if err := cr(c.Rank()); err != nil {
+		return fmt.Errorf("Registering at the coordinator failed: %v", err)
+	}
+
+	return nil
 }
+
+func (c *Container) Destroy() (err error) {
+	if c.tty != nil {
+		err = c.tty.Close()
+	}
+
+	cerr := c.Container.Destroy()
+	if err != nil {
+		return err
+	}
+
+	return cerr
+}
+

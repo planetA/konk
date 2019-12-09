@@ -25,6 +25,7 @@ import (
 // Type for the server state of the connection to a nymph daemon
 type Nymph struct {
 	coordinatorClient *coordinator.Client
+	registrator container.ContainerRegistrator
 
 	Containers *container.ContainerRegister
 
@@ -96,6 +97,10 @@ func NewNymph() (*Nymph, error) {
 	if err != nil {
 		nymph._Close()
 		return nil, fmt.Errorf("Failed to connect to the coordinator: %v", err)
+	}
+
+	nymph.registrator = func(rank container.Rank) error {
+		return nymph.coordinatorClient.RegisterContainer(rank, nymph.hostname)
 	}
 
 	return nymph, nil
@@ -270,28 +275,9 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
-	process, err := cont.Launch(container.Start, args.Args)
-	if err != nil {
+	if err := cont.Launch(container.Start, n.registrator); err != nil {
 		return err
 	}
-
-	if err := cont.Run(process); err != nil {
-		log.Info(err)
-		return fmt.Errorf("Failed to launch container in a process", err)
-	}
-
-	err = n.coordinatorClient.RegisterContainer(args.Rank, n.hostname)
-	if err != nil {
-		return fmt.Errorf("Registering at the coordinator failed: %v", err)
-	}
-
-	ret, err := process.Wait()
-	if err != nil {
-		log.Info(err)
-		return fmt.Errorf("Waiting for process failed", err)
-	}
-
-	log.WithField("return", ret).Trace("Finished process")
 
 	return nil
 }

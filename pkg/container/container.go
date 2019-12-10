@@ -6,8 +6,8 @@
 package container
 
 import (
-	"os"
 	"fmt"
+	"os"
 	"path"
 
 	"github.com/opencontainers/runc/libcontainer"
@@ -27,6 +27,7 @@ const (
 const (
 	containersDir  = "containers"
 	checkpointsDir = "checkpoints"
+	factoryDir     = containersDir + "/factory"
 	stateFilename  = "state.json"
 )
 
@@ -38,16 +39,18 @@ type Container struct {
 	external  []string
 	tty       *tty
 
-	checkpoints []Checkpoint
+	checkpoints      []Checkpoint
+	nextCheckpointId int
 }
 
 func newContainer(libCont libcontainer.Container, rank Rank, args []string, nymphRoot string) (*Container, error) {
 	return &Container{
-		Container: libCont,
-		rank:      rank,
-		nymphRoot: nymphRoot,
-		args:      args,
-		checkpoints: make([]Checkpoint, 0),
+		Container:        libCont,
+		rank:             rank,
+		nymphRoot:        nymphRoot,
+		args:             args,
+		checkpoints:      make([]Checkpoint, 0),
+		nextCheckpointId: 0,
 	}, nil
 }
 
@@ -64,7 +67,7 @@ func (c *Container) AddExternal(external []string) {
 }
 
 func (c *Container) ContainerPath() string {
-	return path.Join(containersDir, c.ID())
+	return path.Join(factoryDir, c.ID())
 }
 
 func (c *Container) CheckpointPath() string {
@@ -209,4 +212,3 @@ func (c *Container) Destroy() (err error) {
 
 	return cerr
 }
-

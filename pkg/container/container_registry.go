@@ -19,22 +19,29 @@ type ContainerRegister struct {
 }
 
 func NewContainerRegister(nymphDir string) *ContainerRegister {
-	rootDir := path.Join(nymphDir, containersDir)
 	c := &ContainerRegister{
 		NymphDir: nymphDir,
 		Mutex:    &sync.Mutex{},
 		reg:      make(map[Rank]*Container),
 	}
 
+	if err := os.MkdirAll(c.FactoryPathAbs(), os.ModeDir|os.ModePerm); err != nil {
+		log.WithFields(log.Fields{
+			"dir": c.FactoryPathAbs(),
+		}).Panic("Failed to create directory")
+		return nil
+	}
+
 	var err error
-	c.Factory, err = libcontainer.New(c.PathAbs(), libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
+	c.Factory, err = libcontainer.New(c.FactoryPathAbs(), libcontainer.Cgroupfs, libcontainer.InitArgs(os.Args[0], "init"))
 	if err != nil {
 		log.Panicf("Failed to create container factory: %v", err)
 	}
 
 	log.WithFields(log.Fields{
-		"containers": rootDir,
-		"nymph":      nymphDir,
+		"factory":     c.FactoryPath(),
+		"checkpoints": c.CheckpointsPath(),
+		"nymph":       nymphDir,
 	}).Trace("Created container factory")
 
 	if err := os.MkdirAll(c.CheckpointsPathAbs(), os.ModeDir|os.ModePerm); err != nil {
@@ -47,14 +54,12 @@ func NewContainerRegister(nymphDir string) *ContainerRegister {
 	return c
 }
 
-// Returns path to container register relative from nymph root
-func (c *ContainerRegister) Path() string {
-	return containersDir
+func (c *ContainerRegister) FactoryPath() string {
+	return factoryDir
 }
 
-// Returns absolute path to container register directory
-func (c *ContainerRegister) PathAbs() string {
-	return path.Join(c.NymphDir, c.Path())
+func (c *ContainerRegister) FactoryPathAbs() string {
+	return path.Join(c.NymphDir, c.FactoryPath())
 }
 
 func (c *ContainerRegister) CheckpointsPath() string {

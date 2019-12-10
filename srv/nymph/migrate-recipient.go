@@ -47,7 +47,7 @@ func (r *Recipient) ImageInfo(args ImageInfoArgs, seq *int) error {
 		"id":   args.ID,
 	}).Debug("Received image info")
 
-	containerPath := path.Join(r.nymph.Containers.PathAbs(), args.ID)
+	containerPath := path.Join(r.nymph.Containers.FactoryPathAbs(), args.ID)
 
 	if err := os.MkdirAll(containerPath, os.ModeDir|os.ModePerm); err != nil {
 		return err

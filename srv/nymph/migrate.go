@@ -27,7 +27,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
-	if err := checkpoint.Dump(); err != nil {
+	if err := checkpoint.Dump(args.PreDump); err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
 			"path":  checkpoint.PathAbs(),
@@ -50,18 +50,18 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
-	// Launch remote checkpoint
-	err = migration.Relaunch()
-	if err != nil {
-		log.WithError(err).Debug("Checkpoint send failed")
-		return err
+	log.Trace("Checkpoint has been sent")
+
+	if ! args.PreDump {
+		// Launch remote checkpoint
+		err = migration.Relaunch()
+		if err != nil {
+			log.WithError(err).Debug("Checkpoint send failed")
+			return err
+		}
+
+		n.Containers.DeleteUnlocked(args.ContainerRank)
 	}
-
-	n.Containers.DeleteUnlocked(args.ContainerRank)
-
-	log.Printf("XXX: Need to ensure that container does not exists locally")
-
-	// XXX: Notify the coordinator of the new location
 
 	*reply = true
 	return nil

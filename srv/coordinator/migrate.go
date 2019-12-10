@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/nymph"
+	log "github.com/sirupsen/logrus"
 )
 
 // The scheduler coordinates the migration process between container process and a node-daemon.
@@ -25,6 +25,13 @@ func Migrate(containerRank container.Rank, srcHost, destHost string, preDump boo
 		return fmt.Errorf("Failed to reach nymph: %v", err)
 	}
 	defer donorClient.Close()
+
+	log.WithFields(log.Fields{
+		"rank":     containerRank,
+		"src":      srcHost,
+		"dst":      destHost,
+		"pre-dump": preDump,
+	}).Trace("Requesting migration")
 
 	err = donorClient.Send(containerRank, destHost, preDump)
 	if err != nil {

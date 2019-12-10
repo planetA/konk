@@ -20,7 +20,7 @@ type Checkpoint interface {
 	Rank() Rank
 
 	// Dump process into checkpoint
-	Dump() error
+	Dump(preDump bool) error
 
 	// Restore process from checkpoint
 	Restore(process *libcontainer.Process) error
@@ -58,6 +58,7 @@ func (c *Container) NewCheckpoint() (Checkpoint, error) {
 	}
 
 	c.checkpoints = append(c.checkpoints, checkpoint)
+	c.nextCheckpointId = c.nextCheckpointId + 1
 
 	return checkpoint, nil
 }
@@ -115,17 +116,28 @@ func (c *checkpoint) PathAbs() string {
 	return c.container.PathAbs(c.Path())
 }
 
-func (c *checkpoint) Dump() error {
-	err := c.container.Checkpoint(&libcontainer.CriuOpts{
+func (c *checkpoint) Dump(preDump bool) error {
+	criuOpts := &libcontainer.CriuOpts{
 		ImagesDirectory:   c.PathAbs(),
 		LeaveRunning:      false,
 		TcpEstablished:    true,
 		ShellJob:          true,
 		FileLocks:         true,
 		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
-	})
+	}
 
-	return err
+	if preDump {
+		criuOpts.LeaveRunning = true
+		criuOpts.PreDump = true
+	}
+
+	err := c.container.Checkpoint(criuOpts)
+	if err != nil {
+		log.WithError(err).Error("Failed to checkpoint")
+		return err
+	}
+
+	return nil
 }
 
 func (c *checkpoint) Restore(process *libcontainer.Process) error {

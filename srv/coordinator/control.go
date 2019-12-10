@@ -98,7 +98,9 @@ func (c *Control) migrateImpl(args *MigrateArgs) error {
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
 
-	c.locationDB.Set(args.Rank, Location{args.DestHost})
+	if ! args.PreDump {
+		c.locationDB.Set(args.Rank, Location{args.DestHost})
+	}
 
 	return nil
 }

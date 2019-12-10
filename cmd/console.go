@@ -52,8 +52,9 @@ var migrateCmd = &cobra.Command{
 		defer coord.Close()
 
 		log.WithFields(log.Fields{
-			"rank": Rank,
-			"dest": Destination,
+			"rank":     Rank,
+			"dest":     Destination,
+			"pre-dump": PreDump,
 		}).Debug("Requesting migration")
 
 		if err := coord.Migrate(container.Rank(Rank), Destination, PreDump); err != nil {

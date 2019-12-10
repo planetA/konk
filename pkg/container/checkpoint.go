@@ -144,9 +144,16 @@ func (c *checkpoint) Dump(preDump bool) error {
 }
 
 func (c *checkpoint) Restore(process *libcontainer.Process) error {
+	var parent string
+	if c.last != nil {
+		parent = c.last.PathAbs()
+	} else {
+		parent = ""
+	}
+
 	criuOpts := &libcontainer.CriuOpts{
 		ImagesDirectory:         c.PathAbs(),
-		ParentImage:             c.last.PathAbs(),
+		ParentImage:             parent,
 		LeaveRunning:            true,
 		TcpEstablished:          true,
 		ShellJob:                true,

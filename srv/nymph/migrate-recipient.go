@@ -104,11 +104,6 @@ func (r *Recipient) FileInfo(args FileInfoArgs, seq *int) error {
 
 func (r *Recipient) FileData(args FileDataArgs, seq *int) error {
 	dataLen := int64(len(args.Data))
-	log.WithFields(log.Fields{
-		"size":     dataLen,
-		"to_write": r.ToWrite,
-	}).Trace("Sending data chunk")
-
 	if r.ToWrite < dataLen {
 		log.WithFields(log.Fields{
 			"size":     dataLen,
@@ -129,7 +124,6 @@ func (r *Recipient) FileData(args FileDataArgs, seq *int) error {
 	r.ToWrite = r.ToWrite - dataLen
 
 	if r.ToWrite == 0 {
-		log.Trace("Closing file")
 		r.File.Close()
 
 		r.File = nil

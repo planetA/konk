@@ -11,7 +11,8 @@ import (
 // Send the checkpoint to the receiving nymph
 func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.WithFields(log.Fields{
-		"host": args.Host,
+		"host":     args.Host,
+		"pre-dump": args.PreDump,
 	}).Debug("Received a request to send a checkpoint")
 
 	container, err := n.Containers.GetUnlocked(args.ContainerRank)

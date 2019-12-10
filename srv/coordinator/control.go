@@ -2,7 +2,7 @@ package coordinator
 
 import (
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	. "github.com/planetA/konk/pkg/coordinator"
 )
@@ -83,14 +83,18 @@ func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
 }
 
 func (c *Control) migrateImpl(args *MigrateArgs) error {
-	log.Printf("Received a request to move rank %v to %v\n", args.Rank, args.DestHost)
+	log.WithFields(log.Fields{
+		"rank":     args.Rank,
+		"dest":     args.DestHost,
+		"pre-dump": args.PreDump,
+	}).Debug("Received a request to migrate")
 
 	src, ok := c.locationDB.Get(args.Rank)
 	if !ok {
 		return fmt.Errorf("Container %v is not known", args.Rank)
 	}
 
-	if err := Migrate(args.Rank, src.Hostname, args.DestHost); err != nil {
+	if err := Migrate(args.Rank, src.Hostname, args.DestHost, args.PreDump); err != nil {
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
 

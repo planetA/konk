@@ -14,7 +14,7 @@ import (
 // checkpoint. The nymph returns the port number that should be used specifically for transferring
 // this particular checkpoint. Then, the coordinator contacts the source nymph, tells it the
 // destination hostname and port number, and asks to send the checkpoint.
-func Migrate(containerRank container.Rank, srcHost, destHost string) error {
+func Migrate(containerRank container.Rank, srcHost, destHost string, preDump bool) error {
 	if srcHost == destHost {
 		return fmt.Errorf("The container is already at the destination")
 	}
@@ -26,7 +26,7 @@ func Migrate(containerRank container.Rank, srcHost, destHost string) error {
 	}
 	defer donorClient.Close()
 
-	err = donorClient.Send(containerRank, destHost)
+	err = donorClient.Send(containerRank, destHost, preDump)
 	if err != nil {
 		return fmt.Errorf("Container did not migrate: %v", err)
 	}

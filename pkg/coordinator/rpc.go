@@ -31,6 +31,7 @@ type UnregisterContainerArgs struct {
 type MigrateArgs struct {
 	Rank     container.Rank
 	DestHost string
+	PreDump  bool
 }
 
 type SignalArgs struct {

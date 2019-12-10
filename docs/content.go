@@ -17,6 +17,10 @@ const (
 	ConsoleShort string = `Access coordinator over a console`
 	ConsoleLong  string = ``
 
+	ConsoleMigrateUse   string = `migrate <args>`
+	ConsoleMigrateShort string = `Migrate rank from ane node to another`
+	ConsoleMigrateLong  string = ``
+
 	MpirunUse   string = `mpirun <image> <program> <args>`
 	MpirunShort string = `Wrapper for the mpirun command`
 	MpirunLong  string = ``

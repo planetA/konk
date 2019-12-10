@@ -59,8 +59,8 @@ func (c *Client) UnregisterContainer(rank container.Rank) error {
 }
 
 // Request the coordinator to coordinate migration of a process to another node
-func (c *Client) Migrate(rank container.Rank, destHost string) error {
-	args := &MigrateArgs{rank, destHost}
+func (c *Client) Migrate(rank container.Rank, destHost string, preDump bool) error {
+	args := &MigrateArgs{rank, destHost, preDump}
 
 	log.Println(args)
 	var reply bool

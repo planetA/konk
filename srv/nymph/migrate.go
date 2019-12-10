@@ -15,6 +15,9 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		"pre-dump": args.PreDump,
 	}).Debug("Received a request to send a checkpoint")
 
+	n.Containers.Mutex.Lock()
+	defer n.Containers.Mutex.Unlock()
+
 	container, err := n.Containers.GetUnlocked(args.ContainerRank)
 	if err != nil {
 		log.WithError(err).WithField("rank", args.ContainerRank).Error("Container not found")
@@ -72,7 +75,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
-	n.Containers.Delete(args.ContainerRank)
+	n.Containers.DeleteUnlocked(args.ContainerRank)
 
 	log.Printf("XXX: Need to ensure that container does not exists locally")
 

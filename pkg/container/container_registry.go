@@ -145,10 +145,7 @@ func (c *ContainerRegister) Load(rank Rank, name string, args []string) (*Contai
 	return cont, nil
 }
 
-func (c *ContainerRegister) Delete(rank Rank) {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
+func (c *ContainerRegister) DeleteUnlocked(rank Rank) {
 	cont, ok := c.reg[rank]
 	if !ok {
 		log.WithField("rank", rank).Panic("Container not found")

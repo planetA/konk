@@ -39,35 +39,19 @@ func NewContainerRegister(nymphDir string) *ContainerRegister {
 	}
 
 	log.WithFields(log.Fields{
-		"factory":     c.FactoryPath(),
-		"checkpoints": c.CheckpointsPath(),
-		"nymph":       nymphDir,
+		"factory": c.FactoryPath(),
+		"nymph":   nymphDir,
 	}).Trace("Created container factory")
-
-	if err := os.MkdirAll(c.CheckpointsPathAbs(), os.ModeDir|os.ModePerm); err != nil {
-		log.WithFields(log.Fields{
-			"dir": c.CheckpointsPathAbs(),
-		}).Panic("Failed to create directory")
-		return nil
-	}
 
 	return c
 }
 
 func (c *ContainerRegister) FactoryPath() string {
-	return factoryDir
+	return path.Join(containersDir, factoryDir)
 }
 
 func (c *ContainerRegister) FactoryPathAbs() string {
 	return path.Join(c.NymphDir, c.FactoryPath())
-}
-
-func (c *ContainerRegister) CheckpointsPath() string {
-	return checkpointsDir
-}
-
-func (c *ContainerRegister) CheckpointsPathAbs() string {
-	return path.Join(c.NymphDir, c.CheckpointsPath())
 }
 
 func (c *ContainerRegister) GetUnlocked(rank Rank) (*Container, error) {
@@ -136,6 +120,10 @@ func (c *ContainerRegister) Load(rank Rank, name string, args []string) (*Contai
 
 	cont, err = newContainer(libCont, rank, args, c.NymphDir)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := cont.LoadCheckpoints(); err != nil {
 		return nil, err
 	}
 

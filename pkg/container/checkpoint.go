@@ -1,9 +1,13 @@
 package container
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/opencontainers/runc/libcontainer"
+	log "github.com/sirupsen/logrus"
 )
 
 type Checkpoint interface {
@@ -15,7 +19,11 @@ type Checkpoint interface {
 
 	Rank() Rank
 
+	// Dump process into checkpoint
 	Dump() error
+
+	// Restore process from checkpoint
+	Restore(process *libcontainer.Process) error
 
 	// Path to the current state file
 	StatePath() string
@@ -37,12 +45,46 @@ type checkpoint struct {
 
 func (c *Container) NewCheckpoint() (Checkpoint, error) {
 	checkpoint := &checkpoint{
-		id:        "",
+		id:        fmt.Sprintf("%v", c.nextCheckpointId),
 		container: c,
 	}
-	c.checkpoints = append(c.checkpoints)
+
+	if err := os.MkdirAll(checkpoint.PathAbs(), os.ModeDir|os.ModePerm); err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+			"dir":   checkpoint.PathAbs(),
+		}).Error("Failed to create directory")
+		return nil, err
+	}
+
+	c.checkpoints = append(c.checkpoints, checkpoint)
 
 	return checkpoint, nil
+}
+
+func (c *Container) LoadCheckpoints() error {
+	files, err := ioutil.ReadDir(c.CheckpointsPath())
+	if err != nil {
+		log.WithError(err).WithField("dir", c.CheckpointsPath()).Error("Failed to open dir")
+		return err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() {
+			log.WithFields(log.Fields{
+				"name": file.Name(),
+			}).Debug("Unexpected entry in checkpoint directory")
+			continue
+		}
+		log.WithField("name", file.Name()).Trace("Found ckpt")
+
+		c.checkpoints = append(c.checkpoints, &checkpoint{
+			id:        file.Name(),
+			container: c,
+		})
+	}
+
+	return nil
 }
 
 func (c *checkpoint) Rank() Rank {
@@ -66,11 +108,11 @@ func (c *checkpoint) StatePath() string {
 }
 
 func (c *checkpoint) Path() string {
-	return path.Join(c.container.CheckpointPath(), c.ID())
+	return path.Join(c.container.CheckpointsPath(), c.ID())
 }
 
 func (c *checkpoint) PathAbs() string {
-	return path.Join(c.container.CheckpointPathAbs(), c.ID())
+	return c.container.PathAbs(c.Path())
 }
 
 func (c *checkpoint) Dump() error {
@@ -81,6 +123,21 @@ func (c *checkpoint) Dump() error {
 		ShellJob:          true,
 		FileLocks:         true,
 		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
+	})
+
+	return err
+}
+
+func (c *checkpoint) Restore(process *libcontainer.Process) error {
+	err := c.container.Restore(process, &libcontainer.CriuOpts{
+		ImagesDirectory:         c.PathAbs(),
+		LeaveRunning:            true,
+		TcpEstablished:          true,
+		ShellJob:                true,
+		FileLocks:               true,
+		External:                c.container.external,
+		ExternalUnixConnections: true,
+		ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
 	})
 
 	return err

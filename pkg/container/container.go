@@ -27,7 +27,7 @@ const (
 const (
 	containersDir  = "containers"
 	checkpointsDir = "checkpoints"
-	factoryDir     = containersDir + "/factory"
+	factoryDir     = "factory"
 	stateFilename  = "state.json"
 )
 
@@ -66,16 +66,16 @@ func (c *Container) AddExternal(external []string) {
 	c.external = append(c.external, external...)
 }
 
+func (c *Container) PathAbs(pathRel string) string {
+	return path.Join(c.nymphRoot, pathRel)
+}
+
 func (c *Container) ContainerPath() string {
-	return path.Join(factoryDir, c.ID())
+	return path.Join(containersDir, factoryDir, c.ID())
 }
 
-func (c *Container) CheckpointPath() string {
-	return path.Join(checkpointsDir, c.ID())
-}
-
-func (c *Container) CheckpointPathAbs() string {
-	return path.Join(c.nymphRoot, c.CheckpointPath())
+func (c *Container) StateFilename() string {
+	return stateFilename
 }
 
 func (c *Container) StatePath() string {
@@ -83,11 +83,11 @@ func (c *Container) StatePath() string {
 }
 
 func (c *Container) StatePathAbs() string {
-	return path.Join(c.nymphRoot, c.StatePath())
+	return c.PathAbs(c.StatePath())
 }
 
-func (c *Container) StateFilename() string {
-	return stateFilename
+func (c *Container) CheckpointsPath() string {
+	return path.Join(checkpointsDir, c.ID())
 }
 
 func (c *Container) Base() string {
@@ -127,6 +127,15 @@ func setupIO(process *libcontainer.Process, rootuid, rootgid int) (*tty, error) 
 	return t, nil
 }
 
+func (c *Container) latestCheckpoint() (Checkpoint, error) {
+	if len(c.checkpoints) < 1 {
+		return nil, fmt.Errorf("No checkpoints")
+	}
+
+	last := len(c.checkpoints) - 1
+	return c.checkpoints[last], nil
+}
+
 func (c *Container) Launch(startType StartType) error {
 	process, err := c.NewProcess(c.Args())
 	if err != nil {
@@ -160,20 +169,16 @@ func (c *Container) Launch(startType StartType) error {
 			return fmt.Errorf("Failed to launch container in a process", err)
 		}
 	case Restore:
-		err = c.Restore(process, &libcontainer.CriuOpts{
-			ImagesDirectory:         c.CheckpointPathAbs(),
-			LeaveRunning:            true,
-			TcpEstablished:          true,
-			ShellJob:                true,
-			FileLocks:               true,
-			External:                c.external,
-			ExternalUnixConnections: true,
-			ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
-		})
+		checkpoint, err := c.latestCheckpoint()
+		if err != nil {
+			return err
+		}
+
+		err = checkpoint.Restore(process)
 		if err != nil {
 			log.WithFields(log.Fields{
-				"ckpt":  c.CheckpointPathAbs(),
-				"args":  c.Args(),
+				"ckpt":  checkpoint.PathAbs(),
+				"args":  checkpoint.Args(),
 				"error": err,
 			}).Error("Restore failed")
 			return err

@@ -47,17 +47,6 @@ func (r *Recipient) ImageInfo(args ImageInfoArgs, seq *int) error {
 		"id":   args.ID,
 	}).Debug("Received image info")
 
-	containerPath := path.Join(r.nymph.Containers.FactoryPathAbs(), args.ID)
-
-	if err := os.MkdirAll(containerPath, os.ModeDir|os.ModePerm); err != nil {
-		return err
-	}
-
-	checkpointPath := path.Join(r.nymph.Containers.CheckpointsPathAbs(), args.ID)
-	if err := os.MkdirAll(checkpointPath, os.ModeDir|os.ModePerm); err != nil {
-		return err
-	}
-
 	*seq = r.seq
 	r.seq = r.seq + 1
 	return nil
@@ -86,6 +75,17 @@ func (r *Recipient) FileInfo(args FileInfoArgs, seq *int) error {
 
 	var err error
 	fullpath := path.Join(r.nymph.RootDir, r.Filename)
+
+	dir, _ := path.Split(fullpath)
+	if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
+		log.WithFields(log.Fields{
+			"dir":      dir,
+			"fullpath": fullpath,
+			"error":    err,
+		}).Error("Failed to create directory")
+		return err
+	}
+
 	r.File, err = os.OpenFile(fullpath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, r.Mode)
 	if err != nil {
 		log.WithFields(log.Fields{

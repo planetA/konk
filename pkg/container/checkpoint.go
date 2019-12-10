@@ -41,12 +41,14 @@ type Checkpoint interface {
 type checkpoint struct {
 	id        string
 	container *Container
+	last      Checkpoint
 }
 
 func (c *Container) NewCheckpoint() (Checkpoint, error) {
 	checkpoint := &checkpoint{
 		id:        fmt.Sprintf("%v", c.nextCheckpointId),
 		container: c,
+		last:      c.latestCheckpoint(),
 	}
 
 	if err := os.MkdirAll(checkpoint.PathAbs(), os.ModeDir|os.ModePerm); err != nil {
@@ -82,6 +84,7 @@ func (c *Container) LoadCheckpoints() error {
 		c.checkpoints = append(c.checkpoints, &checkpoint{
 			id:        file.Name(),
 			container: c,
+			last:      c.latestCheckpoint(),
 		})
 	}
 
@@ -141,8 +144,9 @@ func (c *checkpoint) Dump(preDump bool) error {
 }
 
 func (c *checkpoint) Restore(process *libcontainer.Process) error {
-	err := c.container.Restore(process, &libcontainer.CriuOpts{
+	criuOpts := &libcontainer.CriuOpts{
 		ImagesDirectory:         c.PathAbs(),
+		ParentImage:             c.last.PathAbs(),
 		LeaveRunning:            true,
 		TcpEstablished:          true,
 		ShellJob:                true,
@@ -150,7 +154,14 @@ func (c *checkpoint) Restore(process *libcontainer.Process) error {
 		External:                c.container.external,
 		ExternalUnixConnections: true,
 		ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
-	})
+	}
+
+	log.WithFields(log.Fields{
+		"image":  criuOpts.ImagesDirectory,
+		"parent": criuOpts.ParentImage,
+	}).Debug("Restoring checkpoint")
+
+	err := c.container.Restore(process, criuOpts)
 
 	return err
 }

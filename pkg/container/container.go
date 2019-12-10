@@ -127,13 +127,13 @@ func setupIO(process *libcontainer.Process, rootuid, rootgid int) (*tty, error) 
 	return t, nil
 }
 
-func (c *Container) latestCheckpoint() (Checkpoint, error) {
+func (c *Container) latestCheckpoint() Checkpoint {
 	if len(c.checkpoints) < 1 {
-		return nil, fmt.Errorf("No checkpoints")
+		return nil
 	}
 
 	last := len(c.checkpoints) - 1
-	return c.checkpoints[last], nil
+	return c.checkpoints[last]
 }
 
 func (c *Container) Launch(startType StartType) error {
@@ -169,9 +169,9 @@ func (c *Container) Launch(startType StartType) error {
 			return fmt.Errorf("Failed to launch container in a process", err)
 		}
 	case Restore:
-		checkpoint, err := c.latestCheckpoint()
-		if err != nil {
-			return err
+		checkpoint := c.latestCheckpoint()
+		if checkpoint == nil {
+			return fmt.Errorf("No checkpoint")
 		}
 
 		err = checkpoint.Restore(process)

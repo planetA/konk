@@ -17,14 +17,14 @@ const (
 )
 
 type MigrationDonor struct {
-	Container       *container.Container
+	Checkpoint      container.Checkpoint
 	recipientClient *nymph.MigrationClient
 	recipient       string
 	openFiles       []string
 	rootDir         string
 }
 
-func NewMigrationDonor(rootDir string, container *container.Container, recipient string) (*MigrationDonor, error) {
+func NewMigrationDonor(rootDir string, checkpoint container.Checkpoint, recipient string) (*MigrationDonor, error) {
 	client, err := nymph.NewMigrationClient(recipient)
 	if err != nil {
 		log.WithError(err).Error("Client creation failed")
@@ -32,26 +32,22 @@ func NewMigrationDonor(rootDir string, container *container.Container, recipient
 	}
 
 	return &MigrationDonor{
-		Container:       container,
+		Checkpoint:      checkpoint,
 		recipientClient: client,
 		recipient:       recipient,
 		rootDir:         rootDir,
 	}, nil
 }
 
-func (migration *MigrationDonor) sendState() error {
-	state, err := migration.Container.State()
+func (m *MigrationDonor) sendState() error {
+	err := m.recipientClient.ImageInfo(m.Checkpoint.Rank(), m.Checkpoint.ContainerID(), m.Checkpoint.Args())
 	if err != nil {
 		return err
 	}
 
-	if err := migration.recipientClient.ImageInfo(migration.Container.Rank(), state.ID, migration.Container.Args()); err != nil {
-		return err
-	}
+	stateFile := m.Checkpoint.StatePath()
 
-	stateFile := migration.Container.StatePath()
-
-	if err := migration.SendFile(stateFile); err != nil {
+	if err := m.SendFile(stateFile); err != nil {
 		return fmt.Errorf("Failed to transfer the file %s: %v", stateFile, err)
 	}
 
@@ -60,10 +56,10 @@ func (migration *MigrationDonor) sendState() error {
 }
 
 func (migration *MigrationDonor) sendImage() error {
-	checkpointDir, err := os.Open(migration.Container.CheckpointPathAbs())
+	checkpointDir, err := os.Open(migration.Checkpoint.PathAbs())
 	if err != nil {
 		log.WithFields(log.Fields{
-			"dir":   migration.Container.CheckpointPathAbs(),
+			"dir":   migration.Checkpoint.PathAbs(),
 			"error": err,
 		}).Error("Failed to open checkpoint dir")
 		return fmt.Errorf("Failed to open checkpoint dir: %v", err)
@@ -75,7 +71,7 @@ func (migration *MigrationDonor) sendImage() error {
 	}
 
 	for _, file := range files {
-		filename := path.Join(migration.Container.CheckpointPath(), file.Name())
+		filename := path.Join(migration.Checkpoint.Path(), file.Name())
 		err := migration.SendFile(filename)
 		if err != nil {
 			return fmt.Errorf("Failed to transfer the file %s: %v", filename, err)

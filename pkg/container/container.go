@@ -37,6 +37,8 @@ type Container struct {
 	args      []string
 	external  []string
 	tty       *tty
+
+	checkpoints []Checkpoint
 }
 
 func newContainer(libCont libcontainer.Container, rank Rank, args []string, nymphRoot string) (*Container, error) {
@@ -45,6 +47,7 @@ func newContainer(libCont libcontainer.Container, rank Rank, args []string, nymp
 		rank:      rank,
 		nymphRoot: nymphRoot,
 		args:      args,
+		checkpoints: make([]Checkpoint, 0),
 	}, nil
 }
 

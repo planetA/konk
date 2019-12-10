@@ -1,8 +1,6 @@
 package nymph
 
 import (
-	"github.com/opencontainers/runc/libcontainer"
-
 	log "github.com/sirupsen/logrus"
 
 	. "github.com/planetA/konk/pkg/nymph"
@@ -24,38 +22,22 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
-	err = container.Checkpoint(&libcontainer.CriuOpts{
-		ImagesDirectory:   container.CheckpointPathAbs(),
-		LeaveRunning:      false,
-		TcpEstablished:    true,
-		ShellJob:          true,
-		FileLocks:         true,
-		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
-	})
+	checkpoint, err := container.NewCheckpoint()
 	if err != nil {
+		return err
+	}
+
+	if err := checkpoint.Dump(); err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
-			"path":  container.CheckpointPathAbs(),
+			"path":  checkpoint.PathAbs(),
 			"rank":  args.ContainerRank,
 		}).Debug("Checkpoint requested")
 		return err
 	}
 
-	status, err := container.Status()
-	if err != nil {
-		log.WithError(err).Error("Quering status failed")
-		return err
-	}
-
-	// Remember old ID
-
-	log.WithFields(log.Fields{
-		"cont":   container.ID(),
-		"status": status,
-	}).Debug("Container has been checkpointed")
-
 	// Establish connection to recipient
-	migration, err := NewMigrationDonor(n.RootDir, container, args.Host)
+	migration, err := NewMigrationDonor(n.RootDir, checkpoint, args.Host)
 	if err != nil {
 		return err
 	}

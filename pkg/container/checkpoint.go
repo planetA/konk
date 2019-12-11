@@ -10,6 +10,27 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type MigrationType int
+
+const (
+	Migrate MigrationType = iota
+	PreDump
+	WithPreDump
+)
+
+func (m MigrationType) String() string {
+	switch m {
+	case Migrate:
+		return "migrate"
+	case PreDump:
+		return "pre-dump"
+	case WithPreDump:
+		return "migrate-with-pre-dump"
+	default:
+		panic("Unreachable")
+	}
+}
+
 type Checkpoint interface {
 	// Id of a checkpoint
 	ID() string

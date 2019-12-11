@@ -26,7 +26,7 @@ type ReceiveArgs struct {
 type SendArgs struct {
 	ContainerRank container.Rank
 	Host          string
-	PreDump       bool
+	MigrationType container.MigrationType
 }
 
 type CreateContainerArgs struct {

@@ -40,29 +40,30 @@ func (n *Nymph) sendCheckpoint(checkpoint container.Checkpoint, dest string, lau
 // Send the checkpoint to the receiving nymph
 func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	log.WithFields(log.Fields{
-		"host":     args.Host,
-		"pre-dump": args.PreDump,
+		"host": args.Host,
+		"type": args.MigrationType,
 	}).Debug("Received a request to send a checkpoint")
 
 	n.Containers.Mutex.Lock()
 	defer n.Containers.Mutex.Unlock()
 
-	container, err := n.Containers.GetUnlocked(args.ContainerRank)
+	cont, err := n.Containers.GetUnlocked(args.ContainerRank)
 	if err != nil {
 		log.WithError(err).WithField("rank", args.ContainerRank).Error("Container not found")
 		return err
 	}
 
-	checkpoint, err := container.NewCheckpoint()
-	if err != nil {
-		return err
-	}
-
-	if args.PreDump {
-		// If with pre-dump, send checkpoint and make a new one
+	var checkpoint container.Checkpoint
+	if args.MigrationType == container.PreDump || args.MigrationType == container.WithPreDump {
+		// If we need to make pre-dump checkpoint
 
 		// First make checkpoint
-		if err := checkpoint.Dump(args.PreDump); err != nil {
+		checkpoint, err := cont.NewCheckpoint()
+		if err != nil {
+			return err
+		}
+
+		if err := checkpoint.Dump(true); err != nil {
 			log.WithFields(log.Fields{
 				"error": err,
 				"path":  checkpoint.PathAbs(),
@@ -72,34 +73,35 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		}
 
 		// Send without launching
-		err := n.sendCheckpoint(checkpoint, args.Host, false)
-		if err != nil {
+		if err := n.sendCheckpoint(checkpoint, args.Host, false); err != nil {
 			return err
 		}
+	}
 
+	if args.MigrationType == container.Migrate || args.MigrationType == container.WithPreDump {
 		// Initiate new checkpoint
-		checkpoint, err = container.NewCheckpoint()
+		checkpoint, err = cont.NewCheckpoint()
 		if err != nil {
 			return err
 		}
-	}
 
-	// Second checkpoint without predump (or first of pre-dump is off)
-	if err := checkpoint.Dump(false); err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-			"path":  checkpoint.PathAbs(),
-			"rank":  args.ContainerRank,
-		}).Debug("Checkpoint requested")
-		return err
-	}
+		// Second checkpoint without predump (or first of pre-dump is off)
+		if err := checkpoint.Dump(false); err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+				"path":  checkpoint.PathAbs(),
+				"rank":  args.ContainerRank,
+			}).Debug("Checkpoint requested")
+			return err
+		}
 
-	// Now, send a checkpoint and launch it
-	if err := n.sendCheckpoint(checkpoint, args.Host, true); err != nil {
-		return err
-	}
+		// Now, send a checkpoint and launch it
+		if err := n.sendCheckpoint(checkpoint, args.Host, true); err != nil {
+			return err
+		}
 
-	n.Containers.DeleteUnlocked(args.ContainerRank)
+		n.Containers.DeleteUnlocked(args.ContainerRank)
+	}
 
 	*reply = true
 	return nil

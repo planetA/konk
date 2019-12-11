@@ -78,7 +78,7 @@ func (s *Scheduler) Start() {
 		targetLoc := locs[rand.Intn(len(locs))]
 
 		log.Printf("Migrating %v from %v to %v\n", targetCont, srcLoc, targetLoc)
-		migrateReq := &MigrateArgs{targetCont, targetLoc.Hostname, false}
+		migrateReq := &MigrateArgs{targetCont, targetLoc.Hostname, container.Migrate}
 		if err := s.control.Request(migrateReq); err != nil {
 			log.Println("Failed to migrate: %v", err)
 		}

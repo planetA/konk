@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/planetA/konk/pkg/container"
 	. "github.com/planetA/konk/pkg/coordinator"
 )
 
@@ -84,9 +85,9 @@ func (c *Control) unregisterImpl(args *UnregisterContainerArgs) error {
 
 func (c *Control) migrateImpl(args *MigrateArgs) error {
 	log.WithFields(log.Fields{
-		"rank":     args.Rank,
-		"dest":     args.DestHost,
-		"pre-dump": args.PreDump,
+		"rank": args.Rank,
+		"dest": args.DestHost,
+		"type": args.MigrationType,
 	}).Debug("Received a request to migrate")
 
 	src, ok := c.locationDB.Get(args.Rank)
@@ -94,11 +95,11 @@ func (c *Control) migrateImpl(args *MigrateArgs) error {
 		return fmt.Errorf("Container %v is not known", args.Rank)
 	}
 
-	if err := Migrate(args.Rank, src.Hostname, args.DestHost, args.PreDump); err != nil {
+	if err := Migrate(args.Rank, src.Hostname, args.DestHost, args.MigrationType); err != nil {
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
 
-	if ! args.PreDump {
+	if args.MigrationType != container.PreDump {
 		c.locationDB.Set(args.Rank, Location{args.DestHost})
 	}
 

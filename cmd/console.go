@@ -17,6 +17,7 @@ var (
 	Rank            int    = -1
 	Destination     string = ""
 	PreDump         bool   = false
+	WithPreDump     bool   = false
 )
 
 var consoleCmd = &cobra.Command{
@@ -42,6 +43,13 @@ var migrateCmd = &cobra.Command{
 	Use:              docs.ConsoleMigrateUse,
 	Short:            docs.ConsoleMigrateShort,
 	Long:             docs.ConsoleMigrateLong,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if PreDump == true && WithPreDump == true {
+			return fmt.Errorf("Flags pre-dump and with-pre-dump are conflicting")
+		}
+
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		log.Debug("Executing migration command")
 
@@ -51,13 +59,23 @@ var migrateCmd = &cobra.Command{
 		}
 		defer coord.Close()
 
+		var migrationType container.MigrationType
+		switch {
+		case PreDump == true:
+			migrationType = container.PreDump
+		case WithPreDump == true:
+			migrationType = container.WithPreDump
+		default:
+			migrationType = container.Migrate
+		}
+
 		log.WithFields(log.Fields{
-			"rank":     Rank,
-			"dest":     Destination,
-			"pre-dump": PreDump,
+			"rank": Rank,
+			"dest": Destination,
+			"type": migrationType,
 		}).Debug("Requesting migration")
 
-		if err := coord.Migrate(container.Rank(Rank), Destination, PreDump); err != nil {
+		if err := coord.Migrate(container.Rank(Rank), Destination, migrationType); err != nil {
 			return fmt.Errorf("Migration failed: %v", err)
 		}
 		return nil
@@ -71,7 +89,10 @@ func init() {
 	migrateCmd.Flags().StringVar(&Destination, "dest", "", "New destination of a rank")
 	migrateCmd.MarkFlagRequired("dest")
 
-	migrateCmd.Flags().BoolVarP(&PreDump, "pre-dump", "p", false, "Run predump command")
+	migrateCmd.Flags().BoolVar(&PreDump, "pre-dump", false, "Run predump command")
+	migrateCmd.MarkFlagRequired("dest")
+
+	migrateCmd.Flags().BoolVar(&WithPreDump, "with-pre-dump", false, "Migrate, but run predump command")
 	migrateCmd.MarkFlagRequired("dest")
 
 	consoleCmd.AddCommand(migrateCmd)

@@ -29,9 +29,9 @@ type UnregisterContainerArgs struct {
 }
 
 type MigrateArgs struct {
-	Rank     container.Rank
-	DestHost string
-	PreDump  bool
+	Rank          container.Rank
+	DestHost      string
+	MigrationType container.MigrationType
 }
 
 type SignalArgs struct {

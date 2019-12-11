@@ -27,7 +27,7 @@ func executeSafe(args []string) error {
 	defer logFile.Close()
 
 	log.SetOutput(logFile)
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.FatalLevel)
 
 	if err := network.RunHook(hookType, netType); err != nil {
 		return err

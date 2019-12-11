@@ -10,8 +10,8 @@ import (
 	_ "github.com/opencontainers/runc/libcontainer/nsenter"
 
 	"github.com/planetA/konk/cmd"
-	"github.com/planetA/konk/pkg/launch"
 	"github.com/planetA/konk/pkg/hook"
+	"github.com/planetA/konk/pkg/launch"
 )
 
 func init() {
@@ -32,7 +32,7 @@ func init() {
 }
 
 func main() {
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.InfoLevel)
 
 	if len(os.Args) > 1 && os.Args[1] == "launch" {
 		launch.Launch(os.Args[2:])

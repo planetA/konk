@@ -3,6 +3,7 @@ package coordinator
 import (
 	"fmt"
 	"syscall"
+	"time"
 
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/nymph"
@@ -33,12 +34,13 @@ func Migrate(containerRank container.Rank, srcHost, destHost string, migrationTy
 		"type": migrationType,
 	}).Trace("Requesting migration")
 
+	start := time.Now()
 	err = donorClient.Send(containerRank, destHost, migrationType)
 	if err != nil {
 		return fmt.Errorf("Container did not migrate: %v", err)
 	}
 
-	log.Debug("Migration finished successfully")
+	log.WithField("elapsed", time.Since(start)).Info("Migration finished successfully")
 
 	return nil
 }

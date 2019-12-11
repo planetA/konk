@@ -1,6 +1,8 @@
 package nymph
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/planetA/konk/pkg/container"
@@ -16,13 +18,14 @@ func (n *Nymph) sendCheckpoint(checkpoint container.Checkpoint, dest string, lau
 	defer migration.Close()
 
 	// Send the checkpoint
+	start := time.Now()
 	err = migration.SendCheckpoint()
 	if err != nil {
 		log.WithError(err).Debug("Checkpoint send failed")
 		return err
 	}
 
-	log.Trace("Checkpoint has been sent")
+	log.WithField("elapsed", time.Since(start)).Info("Checkpoint has been sent")
 
 	if launch {
 		// Launch remote checkpoint
@@ -33,6 +36,7 @@ func (n *Nymph) sendCheckpoint(checkpoint container.Checkpoint, dest string, lau
 		}
 
 	}
+	log.WithField("elapsed", time.Since(start)).Info("Relaunch finished")
 
 	return nil
 }

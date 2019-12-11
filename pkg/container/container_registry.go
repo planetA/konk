@@ -98,41 +98,49 @@ func (c *ContainerRegister) GetOrCreate(rank Rank, name string, args []string, c
 	return cont, nil
 }
 
-func (c *ContainerRegister) Load(rank Rank, name string, args []string) (*Container, error) {
+func (c *ContainerRegister) Load(imageInfo ImageInfoArgs) (*Container, error) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
 	log.WithFields(log.Fields{
-		"rank": rank,
-		"name": name,
+		"rank": imageInfo.Rank,
+		"name": imageInfo.ID,
 	}).Trace("Loading container from checkpoint")
 
 	// Check if container exists already
-	cont, ok := c.reg[rank]
+	cont, ok := c.reg[imageInfo.Rank]
 	if ok {
 		return nil, fmt.Errorf("Container already loaded")
 	}
 
-	libCont, err := c.Factory.Load(name)
+	libCont, err := c.Factory.Load(imageInfo.ID)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to lead a libcontainer", err)
 	}
 
-	cont, err = newContainer(libCont, rank, args, c.NymphDir)
+	cont, err = newContainer(libCont, imageInfo.Rank, imageInfo.Args, c.NymphDir)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cont.LoadCheckpoints(); err != nil {
+	if err := cont.LoadCheckpoint(imageInfo.Generation); err != nil {
 		return nil, err
 	}
 
+	if imageInfo.Parent != -1 {
+		if err := cont.LoadCheckpoint(imageInfo.Parent); err != nil {
+			return nil, err
+		}
+	}
+
+	cont.nextCheckpointId = imageInfo.Generation + 1
+
 	// Remember container
-	c.reg[rank] = cont
+	c.reg[imageInfo.Rank] = cont
 
 	log.WithFields(log.Fields{
 		"cont": cont,
-		"rank": rank,
+		"rank": imageInfo.Rank,
 	}).Debug("Load container")
 
 	return cont, nil

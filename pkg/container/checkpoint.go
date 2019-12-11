@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/opencontainers/runc/libcontainer"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ func (m MigrationType) String() string {
 
 type Checkpoint interface {
 	// Id of a checkpoint
-	ID() string
+	Generation() int
 
 	// Id of a container owning a checkpoint
 	ContainerID() string
@@ -57,19 +58,31 @@ type Checkpoint interface {
 
 	// Args used to launch the container
 	Args() []string
+
+	ImageInfo() *ImageInfoArgs
 }
 
 type checkpoint struct {
-	id        string
-	container *Container
-	last      Checkpoint
+	generation int
+	parent     Checkpoint
+	container  *Container
 }
 
-func (c *Container) NewCheckpoint() (Checkpoint, error) {
+func (c *Container) getCheckpoint(generation int) (Checkpoint, error) {
+	for _, ckpt := range c.checkpoints {
+		if ckpt.Generation() == generation {
+			return ckpt, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Checkpoint %v not found", generation)
+}
+
+func (c *Container) NewCheckpoint(parent Checkpoint) (Checkpoint, error) {
 	checkpoint := &checkpoint{
-		id:        fmt.Sprintf("%v", c.nextCheckpointId),
-		container: c,
-		last:      c.latestCheckpoint(),
+		generation: c.nextCheckpointId,
+		container:  c,
+		parent:     parent,
 	}
 
 	if err := os.MkdirAll(checkpoint.PathAbs(), os.ModeDir|os.ModePerm); err != nil {
@@ -86,28 +99,18 @@ func (c *Container) NewCheckpoint() (Checkpoint, error) {
 	return checkpoint, nil
 }
 
-func (c *Container) LoadCheckpoints() error {
-	files, err := ioutil.ReadDir(c.CheckpointsPath())
+func (c *Container) LoadCheckpoint(target int) error {
+	ckptPath := path.Join(c.CheckpointsPath(), strconv.Itoa(target))
+	_, err := ioutil.ReadDir(ckptPath)
 	if err != nil {
-		log.WithError(err).WithField("dir", c.CheckpointsPath()).Error("Failed to open dir")
+		log.WithError(err).WithField("dir", ckptPath).Error("Failed to open dir")
 		return err
 	}
 
-	for _, file := range files {
-		if !file.IsDir() {
-			log.WithFields(log.Fields{
-				"name": file.Name(),
-			}).Debug("Unexpected entry in checkpoint directory")
-			continue
-		}
-		log.WithField("name", file.Name()).Trace("Found ckpt")
-
-		c.checkpoints = append(c.checkpoints, &checkpoint{
-			id:        file.Name(),
-			container: c,
-			last:      c.latestCheckpoint(),
-		})
-	}
+	c.checkpoints = append(c.checkpoints, &checkpoint{
+		generation: target,
+		container:  c,
+	})
 
 	return nil
 }
@@ -116,8 +119,8 @@ func (c *checkpoint) Rank() Rank {
 	return c.container.Rank()
 }
 
-func (c *checkpoint) ID() string {
-	return c.id
+func (c *checkpoint) Generation() int {
+	return c.generation
 }
 
 func (c *checkpoint) ContainerID() string {
@@ -133,11 +136,20 @@ func (c *checkpoint) StatePath() string {
 }
 
 func (c *checkpoint) Path() string {
-	return path.Join(c.container.CheckpointsPath(), c.ID())
+	return path.Join(c.container.CheckpointsPath(), strconv.Itoa(c.Generation()))
 }
 
 func (c *checkpoint) PathAbs() string {
 	return c.container.PathAbs(c.Path())
+}
+
+func (c *checkpoint) ImageInfo() *ImageInfoArgs {
+	return &ImageInfoArgs{
+		Rank:       c.Rank(),
+		ID:         c.ContainerID(),
+		Args:       c.Args(),
+		Generation: c.generation,
+	}
 }
 
 func (c *checkpoint) Dump(preDump bool) error {
@@ -166,8 +178,8 @@ func (c *checkpoint) Dump(preDump bool) error {
 
 func (c *checkpoint) Restore(process *libcontainer.Process) error {
 	var parent string
-	if c.last != nil {
-		parent = c.last.PathAbs()
+	if c.parent != nil {
+		parent = c.parent.PathAbs()
 	} else {
 		parent = ""
 	}

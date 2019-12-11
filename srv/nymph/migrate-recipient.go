@@ -9,15 +9,16 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/planetA/konk/pkg/container"
-	. "github.com/planetA/konk/pkg/nymph"
 )
 
 type Recipient struct {
-	nymph *Nymph
-	rank  container.Rank
-	id    string
-	seq   int
-	args  []string
+	nymph      *Nymph
+	imageInfo  container.ImageInfoArgs
+	rank       container.Rank
+	id         string
+	seq        int
+	generation int
+	args       []string
 
 	// Current file data
 	Filename string
@@ -36,23 +37,20 @@ func NewRecipient(nymph *Nymph) (*Recipient, error) {
 	}, nil
 }
 
-func (r *Recipient) ImageInfo(args ImageInfoArgs, seq *int) error {
-
-	r.rank = args.Rank
-	r.id = args.ID
-	r.args = args.Args
-
+func (r *Recipient) ImageInfo(args container.ImageInfoArgs, seq *int) error {
 	log.WithFields(log.Fields{
 		"rank": args.Rank,
 		"id":   args.ID,
 	}).Debug("Received image info")
+
+	r.imageInfo = args
 
 	*seq = r.seq
 	r.seq = r.seq + 1
 	return nil
 }
 
-func (r *Recipient) FileInfo(args FileInfoArgs, seq *int) error {
+func (r *Recipient) FileInfo(args container.FileInfoArgs, seq *int) error {
 	log.WithFields(log.Fields{
 		"file": args.Filename,
 		"size": args.Size,
@@ -102,7 +100,7 @@ func (r *Recipient) FileInfo(args FileInfoArgs, seq *int) error {
 	return nil
 }
 
-func (r *Recipient) FileData(args FileDataArgs, seq *int) error {
+func (r *Recipient) FileData(args container.FileDataArgs, seq *int) error {
 	dataLen := int64(len(args.Data))
 	if r.ToWrite < dataLen {
 		log.WithFields(log.Fields{
@@ -135,10 +133,10 @@ func (r *Recipient) FileData(args FileDataArgs, seq *int) error {
 	return nil
 }
 
-func (r *Recipient) Relaunch(args RelaunchArgs, seq *int) error {
+func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 	// Load container from checkpoint
 
-	cont, err := r.nymph.Containers.Load(r.rank, r.id, r.args)
+	cont, err := r.nymph.Containers.Load(r.imageInfo)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"id":   r.id,

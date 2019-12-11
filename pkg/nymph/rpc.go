@@ -1,9 +1,7 @@
 package nymph
 
 import (
-	"os"
 	"syscall"
-	"time"
 
 	"github.com/planetA/konk/pkg/container"
 )
@@ -55,27 +53,3 @@ const (
 	rpcFileData  = "Recipient.FileData"
 	rpcRelaunch  = "Recipient.Relaunch"
 )
-
-type HelloArgs struct {
-	Say string
-}
-
-type ImageInfoArgs struct {
-	Rank container.Rank
-	ID   string
-	Args []string
-}
-
-type FileInfoArgs struct {
-	Filename string
-	Size     int64
-	Mode     os.FileMode
-	ModTime  time.Time
-}
-
-type FileDataArgs struct {
-	Data []byte
-}
-
-type RelaunchArgs struct {
-}

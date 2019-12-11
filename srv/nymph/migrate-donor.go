@@ -40,7 +40,7 @@ func NewMigrationDonor(rootDir string, checkpoint container.Checkpoint, recipien
 }
 
 func (m *MigrationDonor) sendState() error {
-	err := m.recipientClient.ImageInfo(m.Checkpoint.Rank(), m.Checkpoint.ContainerID(), m.Checkpoint.Args())
+	err := m.recipientClient.ImageInfo(m.Checkpoint.ImageInfo())
 	if err != nil {
 		return err
 	}

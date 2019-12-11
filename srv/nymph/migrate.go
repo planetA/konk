@@ -53,12 +53,12 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
-	var checkpoint container.Checkpoint
+	var checkpoint container.Checkpoint = nil
 	if args.MigrationType == container.PreDump || args.MigrationType == container.WithPreDump {
 		// If we need to make pre-dump checkpoint
 
-		// First make checkpoint
-		checkpoint, err := cont.NewCheckpoint()
+		// First make checkpoint, that has no parent
+		checkpoint, err := cont.NewCheckpoint(nil)
 		if err != nil {
 			return err
 		}
@@ -79,8 +79,8 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 	}
 
 	if args.MigrationType == container.Migrate || args.MigrationType == container.WithPreDump {
-		// Initiate new checkpoint
-		checkpoint, err = cont.NewCheckpoint()
+		// Initiate new checkpoint. If there was parent, we use it.
+		checkpoint, err = cont.NewCheckpoint(checkpoint)
 		if err != nil {
 			return err
 		}

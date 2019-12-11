@@ -37,12 +37,12 @@ func NewMigrationClient(hostname string) (*MigrationClient, error) {
 	}, nil
 }
 
-func (m *MigrationClient) ImageInfo(rank container.Rank, id string, args []string) error {
-	imageArgs := &ImageInfoArgs{rank, id, args}
-
+func (m *MigrationClient) ImageInfo(imageArgs *container.ImageInfoArgs) error {
 	log.WithFields(log.Fields{
-		"rank": rank,
-		"id":   id,
+		"rank":       imageArgs.Rank,
+		"id":         imageArgs.ID,
+		"generation": imageArgs.Generation,
+		"parent":     imageArgs.Parent,
 	}).Debug("Send image info")
 
 	var seq int
@@ -56,7 +56,7 @@ func (m *MigrationClient) ImageInfo(rank container.Rank, id string, args []strin
 }
 
 func (m *MigrationClient) FileInfo(filename string, fileInfo os.FileInfo) error {
-	args := &FileInfoArgs{
+	args := &container.FileInfoArgs{
 		Filename: filename,
 		Size:     fileInfo.Size(),
 		Mode:     fileInfo.Mode(),
@@ -84,7 +84,7 @@ func (m *MigrationClient) FileInfo(filename string, fileInfo os.FileInfo) error 
 }
 
 func (m *MigrationClient) FileData(data []byte) error {
-	args := &FileDataArgs{data}
+	args := &container.FileDataArgs{data}
 
 	log.WithField("size", len(data)).Trace("Sending chunk")
 
@@ -102,7 +102,7 @@ func (m *MigrationClient) FileData(data []byte) error {
 }
 
 func (m *MigrationClient) Relaunch() error {
-	args := &RelaunchArgs{}
+	args := &container.RelaunchArgs{}
 
 	log.Debug("Relaunching the container")
 

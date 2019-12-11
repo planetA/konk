@@ -113,7 +113,6 @@ type NetworkVeth struct {
 
 	bridge *netlink.Bridge
 	vxlan  *netlink.Vxlan
-	pairs  map[container.Rank]*VethPair
 }
 
 func createVxlan() (*netlink.Vxlan, error) {
@@ -156,9 +155,7 @@ func NewVeth() (Network, error) {
 	log.Trace("Init veth network")
 
 	var err error
-	net := &NetworkVeth{
-		pairs: make(map[container.Rank]*VethPair),
-	}
+	net := &NetworkVeth{}
 	defer func() {
 		if err != nil {
 			net.Destroy()
@@ -364,6 +361,26 @@ func (n *NetworkVeth) AddLabels(config *configs.Config) {
 
 func (n *NetworkVeth) DeclareExternal(rank container.Rank) []string {
 	return []string{fmt.Sprintf("veth[veth%v]:vpeer%v", rank, rank)}
+}
+
+func (n *NetworkVeth) PostRestore(cont *container.Container) error {
+	vpeerNameRank := container.GetDevName(util.VpeerName, cont.Rank())
+	vpeer, err := netlink.LinkByName(vpeerNameRank)
+	if err != nil {
+		return fmt.Errorf("Can't get a peer link %s: %v", vpeerNameRank, err)
+	}
+
+	// Set slave-master relationships between bridge the physical interface
+	if err := netlink.LinkSetMaster(vpeer, n.bridge); err != nil {
+		log.WithError(err).Fatal("Failed to set master for peer")
+		return err
+	}
+
+	if err := netlink.LinkSetUp(vpeer); err != nil {
+		return fmt.Errorf("Could not set interface %s up: %v", vpeer.Attrs().Name, err)
+	}
+
+	return nil
 }
 
 func (n *NetworkVeth) Destroy() {

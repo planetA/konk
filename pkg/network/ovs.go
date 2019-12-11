@@ -231,6 +231,10 @@ func (n *NetworkOvs) DeclareExternal(rank container.Rank) []string {
 	return []string{""}
 }
 
+func (n *NetworkOvs) PostRestore(container *container.Container) error {
+	return nil
+}
+
 func (n *NetworkOvs) Destroy() {
 	n.cleanupPort(n.vxlanPort)
 	n.client.VSwitch.DeleteBridge(n.bridge)

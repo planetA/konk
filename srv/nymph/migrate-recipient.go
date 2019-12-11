@@ -151,6 +151,10 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 		return err
 	}
 
+	if err := r.nymph.network.PostRestore(cont); err != nil {
+		return err
+	}
+
 	status, err := cont.Status()
 	if err != nil {
 		log.WithError(err).Error("Quering status failed")

@@ -29,6 +29,9 @@ type Network interface {
 	// Uninitialize the network
 	Destroy()
 
+	// That is bad hack. No idea how to do it right.
+	PostRestore(container *container.Container) error
+
 	setNetworkType(networkType string)
 }
 

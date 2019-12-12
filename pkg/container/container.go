@@ -136,8 +136,8 @@ func (c *Container) latestCheckpoint() Checkpoint {
 	return c.checkpoints[last]
 }
 
-func (c *Container) Launch(startType StartType) error {
-	process, err := c.NewProcess(c.Args())
+func (c *Container) Launch(startType StartType, args []string) error {
+	process, err := c.NewProcess(args)
 	if err != nil {
 		return fmt.Errorf("Failed to create new process", err)
 	}

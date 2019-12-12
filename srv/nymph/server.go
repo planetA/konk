@@ -270,7 +270,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Container creation failed: %v", err)
 	}
 
-	if err := cont.Launch(container.Start); err != nil {
+	if err := cont.Launch(container.Start, args.Args); err != nil {
 		return err
 	}
 

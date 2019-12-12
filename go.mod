@@ -2,7 +2,10 @@ module github.com/planetA/konk
 
 go 1.13
 
-replace github.com/opencontainers/runc => github.com/planeta/runc v1.0.0-rc9.0.20191206160324-51eabe724369
+replace (
+	github.com/godbus/dbus => github.com/godbus/dbus/v5 v5.0.3
+	github.com/opencontainers/runc => github.com/planeta/runc v1.0.0-rc9.0.20191206160324-51eabe724369
+)
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -13,7 +16,7 @@ require (
 	github.com/digitalocean/go-openvswitch v0.0.0-20191122155805-8ce3b4218729
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/godbus/dbus v5.0.0+incompatible // indirect
+	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/mrunalp/fileutils v0.0.0-20171103030105-7d4729fb3618 // indirect
 	github.com/opencontainers/runc v1.0.0-rc9.0.20191206223258-201b06374548

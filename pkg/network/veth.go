@@ -1,7 +1,10 @@
 package network
 
 import (
+	"crypto/sha512"
 	"fmt"
+	"net"
+	"os"
 	"strconv"
 
 	//"strings"
@@ -139,12 +142,44 @@ func createVxlan() (*netlink.Vxlan, error) {
 	return vxlan, nil
 }
 
+const (
+	BridgeHwaddrBase string = "c6:56:8e:a3:aa:3a"
+)
+
+func getBridgeHwaddr() (net.HardwareAddr, error) {
+	// XXX: very hacky
+	base, err := net.ParseMAC(BridgeHwaddrBase)
+	if err != nil {
+		return nil, err
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	s := sha512.New512_256()
+	s.Write([]byte(hostname))
+	sum := s.Sum(nil)
+
+	base[len(base)-1] = base[len(base)-1] + sum[len(sum)-1]
+	base[len(base)-2] = base[len(base)-2] + sum[len(sum)-2]
+
+	return base, nil
+}
+
 func createBridge() (*netlink.Bridge, error) {
+	var err error
+
 	la := netlink.NewLinkAttrs()
 	la.Name = config.GetString(config.VethBridgeName)
-	bridge := &netlink.Bridge{LinkAttrs: la}
-	err := netlink.LinkAdd(bridge)
+	la.HardwareAddr, err = getBridgeHwaddr()
 	if err != nil {
+		return nil, err
+	}
+
+	bridge := &netlink.Bridge{LinkAttrs: la}
+	if err := netlink.LinkAdd(bridge); err != nil {
 		return nil, err
 	}
 

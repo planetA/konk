@@ -29,7 +29,10 @@ func (n *NetworkOvs) configurePeers() error {
 		return err
 	}
 
-	otherPeers, err := getOtherPeers()
+	panic("Unimplemented")
+	// peerNames := config.GetStringSlice(config.NymphNetworkPeers)
+	peerNames := []string{}
+	otherPeers, err := getOtherPeers(peerNames)
 	if err != nil {
 		return fmt.Errorf("Getting other peers failed: %v", err)
 	}

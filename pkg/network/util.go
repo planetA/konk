@@ -5,12 +5,10 @@ import (
 	"net"
 	"os"
 
-	"github.com/planetA/konk/config"
 	log "github.com/sirupsen/logrus"
 )
 
-func getOtherPeers() ([]string, error) {
-	peerNames := config.GetStringSlice(config.NymphNetworkPeers)
+func getOtherPeers(peerNames []string) ([]string, error) {
 	if len(peerNames) < 2 {
 		log.Debug("No peers to connect")
 		return nil, fmt.Errorf("No peers to connect: %v", peerNames)

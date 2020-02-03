@@ -31,7 +31,7 @@ type Nymph struct {
 	imagesMutex *sync.Mutex
 	images      map[string]*container.Image
 
-	network network.Network
+	networks []network.Network
 
 	RootDir  string
 	hostname string
@@ -59,10 +59,30 @@ func (n *Nymph) createRootDir() error {
 	return nil
 }
 
+func (n *Nymph) instantiateNetworks() error {
+	networks := config.GetStringSlice(config.NymphNetworks)
+
+	for _, networkType := range networks {
+		network, err := network.New(networkType)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"network": networkType,
+				"error":   err,
+			}).Error("Failed to create network")
+			return err
+		}
+
+		n.networks = append(n.networks, network)
+	}
+
+	return nil
+}
+
 func NewNymph() (*Nymph, error) {
 	nymph := &Nymph{
 		imagesMutex: &sync.Mutex{},
 		images:      make(map[string]*container.Image),
+		networks:    make([]network.Network, 0),
 	}
 
 	// Directory should be create before anybody uses it
@@ -79,13 +99,7 @@ func NewNymph() (*Nymph, error) {
 		return nil, fmt.Errorf("Failed to get hostname: %v", err)
 	}
 
-	networkType := config.GetString(config.NymphNetworkType)
-	nymph.network, err = network.New(networkType)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"network": networkType,
-			"error":   err,
-		}).Error("Failed to create network")
+	if err := nymph.instantiateNetworks(); err != nil {
 		nymph._Close()
 		return nil, err
 	}
@@ -247,13 +261,13 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	addLabelRank(contConfig, args.Rank)
 	addLabelIpAddr(contConfig, args.Rank)
 
-	if n.network != nil {
-		if err := n.network.InstallHooks(contConfig); err != nil {
+	for _, net := range n.networks {
+		if err := net.InstallHooks(contConfig); err != nil {
 			log.Error("Network specification failed")
 			return err
 		}
 
-		n.network.AddLabels(contConfig)
+		net.AddLabels(contConfig)
 	}
 
 	if err := n.addDevices(contConfig, args.Rank); err != nil {
@@ -339,7 +353,7 @@ func (n *Nymph) _Close() {
 
 	os.RemoveAll(n.RootDir)
 
-	if n.network != nil {
-		n.network.Destroy()
+	for _, net := range n.networks {
+		net.Destroy()
 	}
 }

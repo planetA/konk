@@ -14,12 +14,11 @@ type ViperKey string
 
 // Constants used by viper to lookup configuration
 const (
-	NymphHost         ViperKey = "nymph.host"
-	NymphPort                  = "nymph.port"
-	NymphRootDir               = "nymph.root_dir"
-	NymphCniPath               = "nymph.cni_path"
-	NymphNetworkType           = "nymph.network.type"
-	NymphNetworkPeers          = "nymph.network.peers"
+	NymphHost     ViperKey = "nymph.host"
+	NymphPort              = "nymph.port"
+	NymphRootDir           = "nymph.root_dir"
+	NymphCniPath           = "nymph.cni_path"
+	NymphNetworks          = "nymph.networks"
 
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"
@@ -46,6 +45,7 @@ const (
 	MpirunNameHosts   = "mpirun.name.hosts"
 
 	OvsBridgeName = "ovs.bridge.name"
+	OvsPeers      = "ovs.peers"
 
 	VethBridgeName = "veth.bridge.name"
 

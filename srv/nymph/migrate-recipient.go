@@ -145,14 +145,18 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 		return err
 	}
 
-	cont.AddExternal(r.nymph.network.DeclareExternal(cont.Rank()))
+	for _, net := range r.nymph.networks {
+		cont.AddExternal(net.DeclareExternal(cont.Rank()))
+	}
 
 	if err := cont.Launch(container.Restore, cont.Args()); err != nil {
 		return err
 	}
 
-	if err := r.nymph.network.PostRestore(cont); err != nil {
-		return err
+	for _, net := range r.nymph.networks {
+		if err := net.PostRestore(cont); err != nil {
+			return err
+		}
 	}
 
 	status, err := cont.Status()

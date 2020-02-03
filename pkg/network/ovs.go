@@ -106,7 +106,7 @@ type hooksOvs struct {
 }
 
 func (h *hooksOvs) Prestart(state *specs.State) error {
-	panic("Uniimplemented")
+	panic("Unimplemented")
 	n := &NetworkOvs{}
 
 	ns, err := netns.GetFromPid(state.Pid)
@@ -189,7 +189,7 @@ func (h *hooksOvs) Poststart(state *specs.State) error {
 }
 
 func (h *hooksOvs) Poststop(state *specs.State) error {
-	panic("Uniimplemented")
+	panic("Unimplemented")
 	n := &NetworkOvs{}
 
 	log.Debug("Poststop hook")

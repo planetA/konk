@@ -66,6 +66,7 @@ type baseNetwork struct {
 const (
 	networkTypeOvs  = "ovs"
 	networkTypeVeth = "veth"
+	networkTypeRxe  = "rxe"
 )
 
 const (
@@ -121,6 +122,8 @@ func RunHook(hookType, networkType string) error {
 		hooks = &hooksOvs{}
 	case networkTypeVeth:
 		hooks = &hooksVeth{}
+	case networkTypeRxe:
+		hooks = &hooksRxe{}
 	default:
 		log.WithFields(log.Fields{
 			"hook":    hookType,
@@ -198,6 +201,8 @@ func (n *baseNetwork) Destroy() {
 
 func New(networkType string) (net Network, err error) {
 	switch networkType {
+	case "rxe":
+		net, err = NewRxe()
 	case "ovs":
 		net, err = NewOvs()
 	case "veth":

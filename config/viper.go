@@ -54,6 +54,8 @@ const (
 	VethVxlanPort  = "veth.vxlan.port"
 	VethVxlanDev   = "veth.vxlan.dev"
 	VethVxlanGroup = "veth.vxlan.group"
+
+	RxeQpnpn = "rxe.qpnpn"
 )
 
 func GetString(key ViperKey) string {

@@ -225,11 +225,6 @@ func (h *hooksOvs) Poststop(state *specs.State) error {
 	return nil
 }
 
-func (n *NetworkOvs) DeclareExternal(rank container.Rank) []string {
-	panic("Unimplemented")
-	return []string{""}
-}
-
 func (n *NetworkOvs) PostRestore(container *container.Container) error {
 	return nil
 }

@@ -146,7 +146,9 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 	}
 
 	for _, net := range r.nymph.networks {
-		cont.AddExternal(net.DeclareExternal(cont.Rank()))
+		if external, ok := net.DeclareExternal(cont.Rank()); ok {
+			cont.AddExternal(external)
+		}
 	}
 
 	if err := cont.Launch(container.Restore, cont.Args()); err != nil {

@@ -24,7 +24,7 @@ type Network interface {
 	AddLabels(labels container.Labels) error
 
 	// Add external devices for checkpointing
-	DeclareExternal(rank container.Rank) []string
+	DeclareExternal(rank container.Rank) ([]string, bool)
 
 	// Uninitialize the network
 	Destroy()
@@ -165,6 +165,10 @@ func (n *baseNetwork) InstallHooks(config *configs.Config) error {
 
 func (n *baseNetwork) AddLabels(labels container.Labels) error {
 	return nil
+}
+
+func (n *baseNetwork) DeclareExternal(rank container.Rank) ([]string, bool) {
+	return []string{}, false
 }
 
 func New(networkType string) (net Network, err error) {

@@ -393,8 +393,8 @@ func (n *NetworkVeth) AddLabels(labels container.Labels) error {
 	return labels.AddLabel("bridge", n.bridge.Name)
 }
 
-func (n *NetworkVeth) DeclareExternal(rank container.Rank) []string {
-	return []string{fmt.Sprintf("veth[veth%v]:vpeer%v", rank, rank)}
+func (n *NetworkVeth) DeclareExternal(rank container.Rank) ([]string, bool) {
+	return []string{fmt.Sprintf("veth[veth%v]:vpeer%v", rank, rank)}, true
 }
 
 func (n *NetworkVeth) PostRestore(cont *container.Container) error {

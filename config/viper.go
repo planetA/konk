@@ -77,6 +77,13 @@ func GetInt(key ViperKey) int {
 	return viper.GetInt(string(key))
 }
 
+func GetUint(key ViperKey) uint {
+	if !viper.IsSet(string(key)) {
+		log.Panicf("The key '%v' was not set and does not have a default value", key)
+	}
+	return viper.GetUint(string(key))
+}
+
 func GetIP(key ViperKey) net.IP {
 	if !viper.IsSet(string(key)) {
 		log.Panicf("The key '%v' was not set and does not have a default value", key)

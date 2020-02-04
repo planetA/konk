@@ -189,6 +189,13 @@ func (n *baseNetwork) DeclareExternal(rank container.Rank) ([]string, bool) {
 	return []string{}, false
 }
 
+func (n *baseNetwork) PostRestore(cont *container.Container) error {
+	return nil
+}
+
+func (n *baseNetwork) Destroy() {
+}
+
 func New(networkType string) (net Network, err error) {
 	switch networkType {
 	case "ovs":

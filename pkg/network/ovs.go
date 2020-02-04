@@ -8,7 +8,6 @@ import (
 	"github.com/digitalocean/go-openvswitch/ovs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/planetA/konk/config"
-	"github.com/planetA/konk/pkg/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -218,10 +217,6 @@ func (h *hooksOvs) Poststop(state *specs.State) error {
 	netlink.LinkSetNsPid(port, os.Getpid())
 
 	n.cleanupPort(portName)
-	return nil
-}
-
-func (n *NetworkOvs) PostRestore(container *container.Container) error {
 	return nil
 }
 

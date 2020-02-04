@@ -33,5 +33,6 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+	github.com/willf/bitset v1.1.10
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 )

@@ -9,8 +9,9 @@ import (
 )
 
 type Request struct {
-	args interface{}
-	err  chan error
+	args  interface{}
+	reply interface{}
+	err   chan error
 }
 
 type Control struct {
@@ -40,7 +41,7 @@ func (c *Control) Start() {
 		case *SignalArgs:
 			err = c.signalImpl(args)
 		case *RegisterNymphArgs:
-			err = c.registerNymphImpl(args)
+			err = c.registerNymphImpl(args, req.reply)
 		case *UnregisterNymphArgs:
 			err = c.unregisterNymphImpl(args)
 		default:
@@ -56,7 +57,19 @@ func (c *Control) Start() {
 
 func (c *Control) Request(args interface{}) error {
 	errChan := make(chan error)
-	c.requests <- Request{args, errChan}
+	c.requests <- Request{args, nil, errChan}
+
+	err := <-errChan
+	if err != nil {
+		return fmt.Errorf("Request to coordinator control failed: %v", err)
+	}
+
+	return nil
+}
+
+func (c *Control) RequestReply(args interface{}, reply interface{}) error {
+	errChan := make(chan error)
+	c.requests <- Request{args, reply, errChan}
 
 	err := <-errChan
 	if err != nil {
@@ -122,9 +135,15 @@ func (c *Control) signalImpl(args *SignalArgs) error {
 	return anyErr
 }
 
-func (c *Control) registerNymphImpl(args *RegisterNymphArgs) error {
-	c.nymphSet.Add(Location{args.Hostname})
-	log.Printf("Registered a nymph: %v\n\t\t%v\n", args, c.nymphSet.GetNymphs())
+func (c *Control) registerNymphImpl(args *RegisterNymphArgs, reply interface{}) error {
+	// XXX: somehowe uint becomes int. I think of bug in MessagePack
+	id, ok := reply.(*int)
+	if !ok {
+		return fmt.Errorf("Failed to parse reply parameter")
+	}
+
+	*id = int(c.nymphSet.Add(Location{args.Hostname}))
+	log.Printf("Registered a nymph: %v id=%v\n\t\t%v\n", args, *id, c.nymphSet.GetNymphs())
 	return nil
 }
 

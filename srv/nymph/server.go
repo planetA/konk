@@ -35,6 +35,7 @@ type Nymph struct {
 
 	RootDir  string
 	hostname string
+	Id       uint
 }
 
 func (n *Nymph) createRootDir() error {
@@ -301,7 +302,7 @@ func (n *Nymph) registerNymphOnce() error {
 		return fmt.Errorf("Failed to get hostname: %v", err)
 	}
 
-	if err := n.coordinatorClient.RegisterNymph(hostname); err != nil {
+	if n.Id, err = n.coordinatorClient.RegisterNymph(hostname); err != nil {
 		return fmt.Errorf("Failed to register nymph: %v", err)
 	}
 

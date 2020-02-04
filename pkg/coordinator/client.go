@@ -83,14 +83,14 @@ func (c *Client) Signal(signal syscall.Signal) error {
 	return err
 }
 
-func (c *Client) RegisterNymph(hostname string) error {
+func (c *Client) RegisterNymph(hostname string) (uint, error) {
 	args := &RegisterNymphArgs{hostname}
 
 	log.Println("Registering nymph ", hostname)
-	var reply bool
+	var reply uint
 	err := c.client.Call(rpcRegisterNymph, args, &reply)
 
-	return err
+	return reply, err
 }
 
 func (c *Client) UnregisterNymph(hostname string) error {

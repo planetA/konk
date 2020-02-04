@@ -218,7 +218,6 @@ func NewVeth() (Network, error) {
 		return nil, fmt.Errorf("Failed to put bridge up: %v", err)
 	}
 
-	// Connect to other peers
 	return net, nil
 }
 

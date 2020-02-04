@@ -176,15 +176,6 @@ func ContainerName(imageName string, rank container.Rank) string {
 	return hex.EncodeToString(s.Sum(nil))
 }
 
-func addLabelRank(config *configs.Config, rank container.Rank) {
-	config.Labels = append(config.Labels, fmt.Sprintf("konk-rank=%v", rank))
-}
-
-func addLabelIpAddr(config *configs.Config, rank container.Rank) {
-	addr := container.CreateContainerAddr(rank)
-	config.Labels = append(config.Labels, fmt.Sprintf("konk-ip=%v", addr.String()))
-}
-
 func (n *Nymph) addDevices(contConfig *configs.Config, rank container.Rank) error {
 	caps := []string{
 		"CAP_NET_ADMIN",
@@ -259,8 +250,13 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 		return fmt.Errorf("Failed converting spec to config", err)
 	}
 
-	addLabelRank(contConfig, args.Rank)
-	addLabelIpAddr(contConfig, args.Rank)
+	labels := container.NewLabels()
+
+	labels.AddLabel("nymph-id", n.Id)
+	labels.AddLabel("rank", args.Rank)
+
+	addr := container.CreateContainerAddr(args.Rank)
+	labels.AddLabel("ip", addr.String())
 
 	for _, net := range n.networks {
 		if err := net.InstallHooks(contConfig); err != nil {
@@ -268,8 +264,10 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 			return err
 		}
 
-		net.AddLabels(contConfig)
+		net.AddLabels(labels)
 	}
+
+	contConfig.Labels = append(contConfig.Labels, labels.ToStringSlice()...)
 
 	if err := n.addDevices(contConfig, args.Rank); err != nil {
 		log.Error("Adding devices failed")

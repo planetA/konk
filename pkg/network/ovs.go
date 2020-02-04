@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/digitalocean/go-openvswitch/ovs"
-	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/container"
@@ -224,9 +223,6 @@ func (h *hooksOvs) Poststop(state *specs.State) error {
 
 	n.cleanupPort(portName)
 	return nil
-}
-
-func (n *NetworkOvs) AddLabels(config *configs.Config) {
 }
 
 func (n *NetworkOvs) DeclareExternal(rank container.Rank) []string {

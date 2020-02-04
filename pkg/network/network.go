@@ -21,7 +21,7 @@ import (
 type Network interface {
 	InstallHooks(config *configs.Config) error
 
-	AddLabels(config *configs.Config)
+	AddLabels(labels container.Labels) error
 
 	// Add external devices for checkpointing
 	DeclareExternal(rank container.Rank) []string
@@ -160,6 +160,10 @@ func (n *baseNetwork) InstallHooks(config *configs.Config) error {
 	}
 	config.Hooks.Poststop = append(config.Hooks.Poststop, hook)
 
+	return nil
+}
+
+func (n *baseNetwork) AddLabels(labels container.Labels) error {
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 
 	//"strings"
 
-	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/pkg/util"
@@ -390,8 +389,8 @@ func destroyLink(link netlink.Link) {
 	}
 }
 
-func (n *NetworkVeth) AddLabels(config *configs.Config) {
-	config.Labels = append(config.Labels, fmt.Sprintf("konk-bridge=%v", n.bridge.Name))
+func (n *NetworkVeth) AddLabels(labels container.Labels) error {
+	return labels.AddLabel("bridge", n.bridge.Name)
 }
 
 func (n *NetworkVeth) DeclareExternal(rank container.Rank) []string {

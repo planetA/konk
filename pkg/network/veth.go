@@ -254,6 +254,7 @@ func vethBridgeName(state *specs.State) (string, error) {
 }
 
 type hooksVeth struct {
+	baseHooks
 }
 
 func (h *hooksVeth) Prestart(state *specs.State) error {
@@ -349,11 +350,6 @@ func (h *hooksVeth) Prestart(state *specs.State) error {
 		return fmt.Errorf("Could not set interface %s up: %v", pair.vpeer.Attrs().Name, err)
 	}
 
-	return nil
-}
-
-func (h *hooksVeth) Poststart(state *specs.State) error {
-	log.Debug("Poststart hook")
 	return nil
 }
 

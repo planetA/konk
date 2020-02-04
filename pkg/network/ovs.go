@@ -105,6 +105,7 @@ func ovsPortAddr(state *specs.State) (string, error) {
 }
 
 type hooksOvs struct {
+	baseHooks
 }
 
 func (h *hooksOvs) Prestart(state *specs.State) error {
@@ -182,11 +183,6 @@ func (h *hooksOvs) Prestart(state *specs.State) error {
 		return err
 	}
 
-	return nil
-}
-
-func (h *hooksOvs) Poststart(state *specs.State) error {
-	log.Debug("Poststart hook")
 	return nil
 }
 

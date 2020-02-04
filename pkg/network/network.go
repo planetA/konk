@@ -41,6 +41,24 @@ type Hooks interface {
 	Poststop(state *specs.State) error
 }
 
+type baseHooks struct {
+}
+
+func (h *baseHooks) Prestart(state *specs.State) error {
+	log.Debug("Prestart hook")
+	return nil
+}
+
+func (h *baseHooks) Poststart(state *specs.State) error {
+	log.Debug("Poststart hook")
+	return nil
+}
+
+func (h *baseHooks) Poststop(state *specs.State) error {
+	log.Debug("Poststop hook")
+	return nil
+}
+
 type baseNetwork struct {
 	networkType string
 }

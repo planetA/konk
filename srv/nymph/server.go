@@ -310,7 +310,7 @@ func (n *Nymph) registerNymphOnce() error {
 func (n *Nymph) registerNymph() error {
 	for {
 		if err := n.registerNymphOnce(); err != nil {
-			log.Println("Registration has failed: %v", err)
+			log.Printf("Registration has failed: %v", err)
 		} else {
 			return nil
 		}

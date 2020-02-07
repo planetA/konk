@@ -21,15 +21,14 @@ const (
 
 type NetworkRxe struct {
 	baseNetwork
-	qpnpn uint
+	qpnpn  uint
+	minqpn uint
 }
 
 func NewRxe() (Network, error) {
 	log.Trace("Init rxe network")
 
 	var err error
-
-	qpnpn := config.GetUint(config.RxeQpnpn)
 
 	f, err := os.Open(lastQpnPath)
 	if err != nil {
@@ -50,7 +49,8 @@ func NewRxe() (Network, error) {
 
 	// Connect to other peers
 	return &NetworkRxe{
-		qpnpn: qpnpn,
+		qpnpn: config.GetUint(config.RxeQpnpn),
+		minqpn: config.GetUint(config.RxeMinqpn),
 	}, nil
 }
 
@@ -68,6 +68,7 @@ func (h *hooksRxe) Prestart(state *specs.State) error {
 	if err != nil {
 		return fmt.Errorf("Failed to open last_qpn file: %v", err)
 	}
+	defer f.Close()
 
 	_, err = f.WriteString(qpnStart)
 	if err != nil {
@@ -83,6 +84,6 @@ func (n *NetworkRxe) AddLabels(labels container.Labels) error {
 		return err
 	}
 
-	qpnStart := id * n.qpnpn
+	qpnStart := id * n.qpnpn + n.minqpn
 	return labels.AddLabel("rxe-qpnstart", qpnStart)
 }

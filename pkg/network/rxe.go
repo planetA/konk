@@ -17,12 +17,15 @@ import (
 
 const (
 	lastQpnPath = "/proc/sys/net/rdma_rxe/last_qpn"
+	lastMrnPath = "/proc/sys/net/rdma_rxe/last_mrn"
 )
 
 type NetworkRxe struct {
 	baseNetwork
 	qpnpn  uint
 	minqpn uint
+	mrnpn  uint
+	minmrn uint
 }
 
 func NewRxe() (Network, error) {
@@ -49,13 +52,30 @@ func NewRxe() (Network, error) {
 
 	// Connect to other peers
 	return &NetworkRxe{
-		qpnpn: config.GetUint(config.RxeQpnpn),
+		qpnpn:  config.GetUint(config.RxeQpnpn),
 		minqpn: config.GetUint(config.RxeMinqpn),
+		mrnpn:  config.GetUint(config.RxeMrnpn),
+		minmrn: config.GetUint(config.RxeMinmrn),
 	}, nil
 }
 
 type hooksRxe struct {
 	baseHooks
+}
+
+func writeParameter(path string, value string) error {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return fmt.Errorf("Failed to open last_qpn file: %v", err)
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(value)
+	if err != nil {
+		return fmt.Errorf("Failed to read last qpn file: %v", err)
+	}
+
+	return nil
 }
 
 func (h *hooksRxe) Prestart(state *specs.State) error {
@@ -64,15 +84,17 @@ func (h *hooksRxe) Prestart(state *specs.State) error {
 		return fmt.Errorf("Konk rank is not set")
 	}
 
-	f, err := os.OpenFile(lastQpnPath, os.O_WRONLY, 0)
-	if err != nil {
-		return fmt.Errorf("Failed to open last_qpn file: %v", err)
+	if err := writeParameter(lastQpnPath, qpnStart); err != nil {
+		return err
 	}
-	defer f.Close()
 
-	_, err = f.WriteString(qpnStart)
-	if err != nil {
-		return fmt.Errorf("Failed to read last qpn file: %v", err)
+	mrnStart, ok := state.Annotations["konk-rxe-mrnstart"]
+	if !ok {
+		return fmt.Errorf("Konk rank is not set")
+	}
+
+	if err := writeParameter(lastMrnPath, mrnStart); err != nil {
+		return err
 	}
 
 	return nil
@@ -84,6 +106,15 @@ func (n *NetworkRxe) AddLabels(labels container.Labels) error {
 		return err
 	}
 
-	qpnStart := id * n.qpnpn + n.minqpn
-	return labels.AddLabel("rxe-qpnstart", qpnStart)
+	qpnStart := id*n.qpnpn + n.minqpn
+	if err := labels.AddLabel("rxe-qpnstart", qpnStart); err != nil {
+		return err
+	}
+
+	mrnStart := id*n.mrnpn + n.minmrn
+	if err := labels.AddLabel("rxe-mrnstart", mrnStart); err != nil {
+		return err
+	}
+
+	return nil
 }

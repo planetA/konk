@@ -57,6 +57,8 @@ const (
 
 	RxeQpnpn  = "rxe.qpnpn"
 	RxeMinqpn = "rxe.minqpn"
+	RxeMrnpn  = "rxe.mrnpn"
+	RxeMinmrn = "rxe.minmrn"
 )
 
 func GetString(key ViperKey) string {

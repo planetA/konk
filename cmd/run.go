@@ -55,6 +55,9 @@ var RunCmd = &cobra.Command{
 
 func init() {
 	// Configure a unique Rank of a container in a network
+	RunCmd.Flags().String("rank", "", "Environment variable containing rank")
+	config.BindPFlag(config.ContainerRank, RunCmd.Flags().Lookup("rank"))
+
 	RunCmd.Flags().String("rank_env", "", "Environment variable containing rank")
 	config.BindPFlag(config.ContainerRankEnv, RunCmd.Flags().Lookup("rank_env"))
 
@@ -74,8 +77,16 @@ func init() {
 // Return a unique Rank of a container in a network. It either can be set over a command line,
 // or obtained from an environment variable.
 func GetContainerRank() (container.Rank, error) {
+	containerRankInt, err := config.GetIntErr(config.ContainerRank)
+	if err == nil {
+		return container.Rank(containerRankInt), nil
+	}
+
 	// Environment variable containing the Rank
-	envVarRank := config.GetString(config.ContainerRankEnv)
+	envVarRank, err := config.GetStringErr(config.ContainerRankEnv)
+	if err != nil {
+		return -1, err
+	}
 
 	var containerRank container.Rank
 	if len(envVarRank) != 0 {

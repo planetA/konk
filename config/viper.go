@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -23,6 +24,7 @@ const (
 	CoordinatorHost = "coordinator.host"
 	CoordinatorPort = "coordinator.port"
 
+	ContainerRank     = "container.rank"
 	ContainerRankEnv  = "container.rank_env"
 	ContainerImage    = "container.image"
 	ContainerRootDir  = "container.root_dir"
@@ -68,6 +70,13 @@ func GetString(key ViperKey) string {
 	return viper.GetString(string(key))
 }
 
+func GetStringErr(key ViperKey) (string, error) {
+	if !viper.IsSet(string(key)) {
+		return "", fmt.Errorf("The key '%v' was not set and does not have a default value", key)
+	}
+	return viper.GetString(string(key)), nil
+}
+
 func GetStringSlice(key ViperKey) []string {
 	if !viper.IsSet(string(key)) {
 		log.Panicf("The key '%v' was not set and does not have a default value", key)
@@ -80,6 +89,13 @@ func GetInt(key ViperKey) int {
 		log.Panicf("The key '%v' was not set and does not have a default value", key)
 	}
 	return viper.GetInt(string(key))
+}
+
+func GetIntErr(key ViperKey) (int, error) {
+	if !viper.IsSet(string(key)) {
+		return 0, fmt.Errorf("The key '%v' was not set and does not have a default value", key)
+	}
+	return viper.GetInt(string(key)), nil
 }
 
 func GetUint(key ViperKey) uint {

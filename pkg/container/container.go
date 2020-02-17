@@ -13,6 +13,8 @@ import (
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/utils"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/planetA/konk/config"
 )
 
 type Rank int
@@ -95,10 +97,15 @@ func (c *Container) Base() string {
 }
 
 func (c *Container) NewProcess(args []string) (*libcontainer.Process, error) {
+	user, err := config.GetStringErr(config.ContainerUsername)
+	if err != nil {
+		return nil, err
+	}
+
 	process := &libcontainer.Process{
 		Args: args,
 		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
-		User: "root",
+		User: user,
 		Init: true,
 	}
 

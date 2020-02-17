@@ -31,6 +31,7 @@ const (
 	ContainerBaseName = "container.base_name"
 	ContainerUsername = "container.user"
 	ContainerHostname = "container.hostname"
+	ContainerInit     = "container.init"
 
 	ContainerDevicePath = "container.device.path"
 
@@ -82,6 +83,13 @@ func GetStringSlice(key ViperKey) []string {
 		log.Panicf("The key '%v' was not set and does not have a default value", key)
 	}
 	return viper.GetStringSlice(string(key))
+}
+
+func GetBool(key ViperKey) (bool, error) {
+	if !viper.IsSet(string(key)) {
+		return false, fmt.Errorf("The key '%v' was not set and does not have a default value", key)
+	}
+	return viper.GetBool(string(key)), nil
 }
 
 func GetInt(key ViperKey) int {

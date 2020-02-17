@@ -151,7 +151,7 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 		}
 	}
 
-	if err := cont.Launch(container.Restore, cont.Args()); err != nil {
+	if err := cont.Launch(container.Restore, cont.Args(), true); err != nil {
 		return err
 	}
 

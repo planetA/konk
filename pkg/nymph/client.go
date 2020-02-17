@@ -64,9 +64,7 @@ func (c *Client) Signal(containerRank container.Rank, signal syscall.Signal) err
 	return nil
 }
 
-func (c *Client) Run(containerRank container.Rank, image string, args []string) error {
-	runArgs := &RunArgs{containerRank, image, args}
-
+func (c *Client) Run(runArgs *RunArgs) error {
 	var reply bool
 	if err := c.client.Call(rpcRun, runArgs, &reply); err != nil {
 		return fmt.Errorf("RPC call failed: %v", err)

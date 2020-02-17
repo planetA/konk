@@ -45,6 +45,7 @@ type RunArgs struct {
 	Rank  container.Rank
 	Image string
 	Args  []string
+	Init  bool
 }
 
 const (

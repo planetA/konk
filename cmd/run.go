@@ -27,13 +27,23 @@ var RunCmd = &cobra.Command{
 		image := config.GetString(config.ContainerImage)
 		hostname := config.GetString(config.ContainerHostname)
 
-		nymph, err := nymph.NewClient(hostname)
+		n, err := nymph.NewClient(hostname)
 		if err != nil {
 			return fmt.Errorf("Failed to connect to Nymph: %v", err)
 		}
-		defer nymph.Close()
+		defer n.Close()
 
-		if err := nymph.Run(containerRank, image, args); err != nil {
+		init, err := config.GetBool(config.ContainerInit)
+		if err != nil {
+			init = false
+		}
+
+		if err := n.Run(&nymph.RunArgs{
+			Rank:  containerRank,
+			Image: image,
+			Args:  args,
+			Init:  init,
+		}); err != nil {
 			log.WithFields(log.Fields{
 				"containerRank": containerRank,
 				"image":         image,
@@ -42,7 +52,7 @@ var RunCmd = &cobra.Command{
 
 		log.Info("Running container")
 
-		ret, err := nymph.Wait(containerRank)
+		ret, err := n.Wait(containerRank)
 		if err != nil {
 			return fmt.Errorf("Waiting failed: %v", err)
 		}
@@ -68,8 +78,11 @@ func init() {
 	RunCmd.Flags().String("hostname", "localhost", "Where the application should run")
 	config.BindPFlag(config.ContainerHostname, RunCmd.Flags().Lookup("hostname"))
 
-	RunCmd.Flags().String("user", "user", "Where the application should run")
+	RunCmd.Flags().String("user", "user", "The user that should launch the process")
 	config.BindPFlag(config.ContainerUsername, RunCmd.Flags().Lookup("user"))
+
+	RunCmd.Flags().Bool("init", true, "Tell if the process should be init process")
+	config.BindPFlag(config.ContainerInit, RunCmd.Flags().Lookup("init"))
 
 	KonkCmd.AddCommand(RunCmd)
 }

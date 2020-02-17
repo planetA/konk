@@ -96,7 +96,7 @@ func (c *Container) Base() string {
 	return c.nymphRoot
 }
 
-func (c *Container) NewProcess(args []string) (*libcontainer.Process, error) {
+func (c *Container) NewProcess(args []string, init bool) (*libcontainer.Process, error) {
 	user, err := config.GetStringErr(config.ContainerUsername)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (c *Container) NewProcess(args []string) (*libcontainer.Process, error) {
 		Args: args,
 		Env:  []string{"PATH=/usr/local/bin:/usr/bin:/bin"},
 		User: user,
-		Init: true,
+		Init: init,
 	}
 
 	return process, nil
@@ -143,8 +143,8 @@ func (c *Container) latestCheckpoint() Checkpoint {
 	return c.checkpoints[last]
 }
 
-func (c *Container) Launch(startType StartType, args []string) error {
-	process, err := c.NewProcess(args)
+func (c *Container) Launch(startType StartType, args []string, init bool) error {
+	process, err := c.NewProcess(args, init)
 	if err != nil {
 		return fmt.Errorf("Failed to create new process", err)
 	}

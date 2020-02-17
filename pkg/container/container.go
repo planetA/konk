@@ -7,6 +7,7 @@ package container
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path"
 
@@ -113,24 +114,43 @@ func (c *Container) NewProcess(args []string, init bool) (*libcontainer.Process,
 }
 
 // setupIO modifies the given process config according to the options.
-func setupIO(process *libcontainer.Process, rootuid, rootgid int) (*tty, error) {
+func setupIO(process *libcontainer.Process, rootuid, rootgid int, detach bool, sockpath string) (*tty, error) {
 	process.Stdin = nil
 	process.Stdout = nil
 	process.Stderr = nil
 	t := &tty{}
-	parent, child, err := utils.NewSockPair("console")
-	if err != nil {
-		return nil, err
-	}
-	process.ConsoleSocket = child
-	t.postStart = append(t.postStart, parent, child)
-	t.consoleC = make(chan error, 1)
-	go func() {
-		if err := t.recvtty(process, parent); err != nil {
-			t.consoleC <- err
+	if !detach {
+		parent, child, err := utils.NewSockPair("console")
+		if err != nil {
+			return nil, err
 		}
-		t.consoleC <- nil
-	}()
+		process.ConsoleSocket = child
+		t.postStart = append(t.postStart, parent, child)
+		t.consoleC = make(chan error, 1)
+		go func() {
+			if err := t.recvtty(process, parent); err != nil {
+				t.consoleC <- err
+			}
+			t.consoleC <- nil
+		}()
+	} else {
+		// the caller of runc will handle receiving the console master
+		conn, err := net.Dial("unix", sockpath)
+		if err != nil {
+			return nil, err
+		}
+		uc, ok := conn.(*net.UnixConn)
+		if !ok {
+			return nil, fmt.Errorf("casting to UnixConn failed")
+		}
+		t.postStart = append(t.postStart, uc)
+		socket, err := uc.File()
+		if err != nil {
+			return nil, err
+		}
+		t.postStart = append(t.postStart, socket)
+		process.ConsoleSocket = socket
+	}
 	return t, nil
 }
 
@@ -158,7 +178,9 @@ func (c *Container) Launch(startType StartType, args []string, init bool) error 
 		return err
 	}
 
-	c.tty, err = setupIO(process, rootuid, rootgid)
+	detach := false
+	sockpath := ""
+	c.tty, err = setupIO(process, rootuid, rootgid, detach, sockpath)
 	if err != nil {
 		return fmt.Errorf("Failed to setup IO", err)
 	}

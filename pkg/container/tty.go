@@ -65,7 +65,7 @@ func (t *tty) recvtty(process *libcontainer.Process, socket *os.File) (Err error
 	t.wg.Add(1)
 	go t.copyIO(os.Stdout, epollConsole)
 
-	// set raw mode to stdin and also handle interrupt
+	// // set raw mode to stdin and also handle interrupt
 	// stdin, err := console.ConsoleFromFile(os.Stdin)
 	// if err != nil {
 	// 	return err

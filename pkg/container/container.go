@@ -166,13 +166,15 @@ func (c *Container) Launch(startType StartType, args []string) error {
 	log.WithFields(log.Fields{
 		"start_type":    startType,
 		"containerRank": c.Rank(),
-		"args":          c.Args(),
+		"process":       process,
 	}).Info("Launching process inside a container")
 
 	switch startType {
 	case Start:
 		if err := c.Run(process); err != nil {
-			log.Info(err)
+			log.WithFields(log.Fields{
+				"process": process,
+			}).WithError(err).Error("Failed to launch container in a process")
 			return fmt.Errorf("Failed to launch container in a process", err)
 		}
 	case Restore:

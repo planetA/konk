@@ -268,6 +268,7 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	}
 
 	contConfig.Labels = append(contConfig.Labels, labels.ToStringSlice()...)
+	contConfig.Hostname = fmt.Sprintf("rank%d", args.Rank)
 
 	if err := n.addDevices(contConfig, args.Rank); err != nil {
 		log.Error("Adding devices failed")

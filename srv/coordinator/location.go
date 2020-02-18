@@ -54,6 +54,29 @@ func (l *LocationDB) Unset(rank container.Rank, oldLocation Location) error {
 	return nil
 }
 
+type LocationInfo struct {
+	ContainerCount int
+}
+
+func (l *LocationDB) LocationsStat() map[Location]LocationInfo {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	infoMap := make(map[Location]LocationInfo)
+
+	for _, location := range l.db {
+		if info, ok := infoMap[location]; ok != true {
+			infoMap[location] = LocationInfo{
+				ContainerCount: 1,
+			}
+		} else {
+			info.ContainerCount = info.ContainerCount + 1
+		}
+	}
+
+	return infoMap
+}
+
 func (l *LocationDB) Dump() LocationDB {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()

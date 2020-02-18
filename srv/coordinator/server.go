@@ -14,6 +14,14 @@ func NewCoordinator(control *Control) *Coordinator {
 	}
 }
 
+func (c *Coordinator) AllocateHost(args *AllocateHostArgs, hostname *string) error {
+	if err := c.control.RequestReply(args, hostname); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Coordinator) RegisterContainer(args *RegisterContainerArgs, reply *bool) error {
 	if err := c.control.Request(args); err != nil {
 		*reply = false

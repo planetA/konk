@@ -2,6 +2,8 @@ package coordinator
 
 import (
 	"fmt"
+	"math"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/planetA/konk/pkg/container"
@@ -32,6 +34,8 @@ func (c *Control) Start() {
 	for req := range c.requests {
 		var err error
 		switch args := req.args.(type) {
+		case *AllocateHostArgs:
+			err = c.allocateHost(args, req.reply)
 		case *RegisterContainerArgs:
 			err = c.registerImpl(args)
 		case *UnregisterContainerArgs:
@@ -76,6 +80,42 @@ func (c *Control) RequestReply(args interface{}, reply interface{}) error {
 		return fmt.Errorf("Request to coordinator control failed: %v", err)
 	}
 
+	return nil
+}
+
+func (c *Control) allocateHost(args *AllocateHostArgs, reply interface{}) error {
+	hostname, ok := reply.(*string)
+	if !ok {
+		return fmt.Errorf("Failed to parse reply parameter")
+	}
+
+	location, ok := c.locationDB.Get(args.Rank)
+	if ok {
+		*hostname = location.Hostname
+		return nil
+	}
+
+	infoMap := c.locationDB.LocationsStat()
+
+	var minLocation Location
+	minLocationInfo := LocationInfo{
+		ContainerCount: math.MaxInt32,
+	}
+
+	for location, info := range infoMap {
+		if info.ContainerCount < minLocationInfo.ContainerCount {
+			minLocation = location
+			minLocationInfo = info
+		}
+	}
+
+	if minLocationInfo.ContainerCount == math.MaxInt32 {
+		return fmt.Errorf("No location has been found")
+	}
+
+	*hostname = minLocation.Hostname
+
+	log.Printf("Allocation offer: %v", *hostname)
 	return nil
 }
 

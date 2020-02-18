@@ -33,6 +33,18 @@ func NewClient() (*Client, error) {
 }
 
 // The container-process tells the coordinator its container rank, and address to connect
+func (c *Client) AllocateHost(rank container.Rank) (string, error) {
+	args := &AllocateHostArgs{
+		Rank: rank,
+	}
+
+	var hostname string
+	err := c.client.Call(rpcAllocateHost, args, &hostname)
+
+	return hostname, err
+}
+
+// The container-process tells the coordinator its container rank, and address to connect
 func (c *Client) RegisterContainer(rank container.Rank, hostname string) error {
 	args := &RegisterContainerArgs{rank, hostname}
 

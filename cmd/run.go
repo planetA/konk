@@ -11,8 +11,19 @@ import (
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/docs"
 	"github.com/planetA/konk/pkg/container"
+	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/nymph"
 )
+
+func requestCoordinatorAllocation(rank container.Rank) (string, error) {
+	c, err := coordinator.NewClient()
+	if err != nil {
+		return "", err
+	}
+	defer c.Close()
+
+	return c.AllocateHost(rank)
+}
 
 var RunCmd = &cobra.Command{
 	Use:   docs.RunUse,
@@ -25,7 +36,13 @@ var RunCmd = &cobra.Command{
 		}
 
 		image := config.GetString(config.ContainerImage)
-		hostname := config.GetString(config.ContainerHostname)
+		hostname, ok := config.GetStringOk(config.ContainerHostname)
+		if ok != true {
+			hostname, err = requestCoordinatorAllocation(containerRank)
+			if err != nil {
+				return fmt.Errorf("Failed to get host allocation: %v", err)
+			}
+		}
 
 		n, err := nymph.NewClient(hostname)
 		if err != nil {

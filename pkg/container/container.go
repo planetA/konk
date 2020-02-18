@@ -98,9 +98,9 @@ func (c *Container) Base() string {
 }
 
 func (c *Container) NewProcess(args []string, init bool) (*libcontainer.Process, error) {
-	user, err := config.GetStringErr(config.ContainerUsername)
-	if err != nil {
-		return nil, err
+	user, ok := config.GetStringOk(config.ContainerUsername)
+	if ok != true {
+		return nil, fmt.Errorf("Username has not been found")
 	}
 
 	process := &libcontainer.Process{

@@ -71,11 +71,11 @@ func GetString(key ViperKey) string {
 	return viper.GetString(string(key))
 }
 
-func GetStringErr(key ViperKey) (string, error) {
+func GetStringOk(key ViperKey) (string, bool) {
 	if !viper.IsSet(string(key)) {
-		return "", fmt.Errorf("The key '%v' was not set and does not have a default value", key)
+		return "", false
 	}
-	return viper.GetString(string(key)), nil
+	return viper.GetString(string(key)), true
 }
 
 func GetStringSlice(key ViperKey) []string {
@@ -99,11 +99,11 @@ func GetInt(key ViperKey) int {
 	return viper.GetInt(string(key))
 }
 
-func GetIntErr(key ViperKey) (int, error) {
+func GetIntOk(key ViperKey) (int, bool) {
 	if !viper.IsSet(string(key)) {
-		return 0, fmt.Errorf("The key '%v' was not set and does not have a default value", key)
+		return 0, false
 	}
-	return viper.GetInt(string(key)), nil
+	return viper.GetInt(string(key)), true
 }
 
 func GetUint(key ViperKey) uint {

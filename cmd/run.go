@@ -90,15 +90,14 @@ func init() {
 // Return a unique Rank of a container in a network. It either can be set over a command line,
 // or obtained from an environment variable.
 func GetContainerRank() (container.Rank, error) {
-	containerRankInt, err := config.GetIntErr(config.ContainerRank)
-	if err == nil {
+	if containerRankInt, ok := config.GetIntOk(config.ContainerRank); ok == true {
 		return container.Rank(containerRankInt), nil
 	}
 
 	// Environment variable containing the Rank
-	envVarRank, err := config.GetStringErr(config.ContainerRankEnv)
-	if err != nil {
-		return -1, err
+	envVarRank, ok := config.GetStringOk(config.ContainerRankEnv)
+	if ok != true {
+		return -1, fmt.Errorf("Could not determine container rank")
 	}
 
 	var containerRank container.Rank

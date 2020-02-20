@@ -28,13 +28,16 @@ type Image struct {
 	Spec     *specs.Spec
 }
 
-// Convert permission and mode from tar to os.FileMode. Potentially need
-// sanitising the input.
-func tarToOsMode(header *tar.Header) os.FileMode {
-	return os.FileMode(header.Mode)
-}
-
 func setFileAttributes(fullPath string, header *tar.Header) error {
+	mode := header.FileInfo().Mode()
+	if mode & os.ModeSymlink == 0 {
+		// Make sure that only changeable flags are set
+		mode = mode & (os.ModeSticky | os.ModeSetgid | os.ModeSetuid | os.ModePerm)
+		if err := os.Chmod(fullPath, mode); err != nil {
+			return fmt.Errorf("Failed to set file mode: %v", err)
+		}
+	}
+
 	if err := os.Lchown(fullPath, header.Uid, header.Gid); err != nil {
 		return fmt.Errorf("Failed to set user and group ID for %v: %v", fullPath, err)
 	}
@@ -59,7 +62,7 @@ func createDir(extractDir string, header *tar.Header) error {
 	log.WithFields(log.Fields{
 		"path": fullPath,
 	}).Trace("Creating directory")
-	if err := os.Mkdir(fullPath, tarToOsMode(header)); err != nil {
+	if err := os.Mkdir(fullPath, header.FileInfo().Mode()); err != nil {
 		return fmt.Errorf("Failed to create directory %v: %v", fullPath, err)
 	}
 
@@ -68,7 +71,7 @@ func createDir(extractDir string, header *tar.Header) error {
 
 func writeFile(extractDir string, header *tar.Header, reader io.Reader) error {
 	fullPath := path.Join(extractDir, header.Name)
-	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, tarToOsMode(header))
+	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, header.FileInfo().Mode())
 	if err != nil {
 		return fmt.Errorf("Failed to create file %v: %v", fullPath, err)
 	}

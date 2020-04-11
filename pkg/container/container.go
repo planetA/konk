@@ -159,8 +159,14 @@ func (c *Container) latestCheckpoint() Checkpoint {
 		return nil
 	}
 
-	last := len(c.checkpoints) - 1
-	return c.checkpoints[last]
+	latest := 0
+	for i, ckpt := range c.checkpoints {
+		if ckpt.Generation() > c.checkpoints[latest].Generation() {
+			latest = i
+		}
+	}
+
+	return c.checkpoints[latest]
 }
 
 func (c *Container) Launch(startType StartType, args []string, init bool) error {

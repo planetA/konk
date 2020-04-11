@@ -167,6 +167,10 @@ func (c *checkpoint) Dump(preDump bool) error {
 		criuOpts.PreDump = true
 	}
 
+	if c.parent != nil {
+		criuOpts.ParentImage = c.parent.PathAbs()
+	}
+
 	err := c.container.Checkpoint(criuOpts)
 	if err != nil {
 		log.WithError(err).Error("Failed to checkpoint")

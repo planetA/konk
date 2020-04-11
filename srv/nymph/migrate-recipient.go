@@ -50,6 +50,49 @@ func (r *Recipient) ImageInfo(args container.ImageInfoArgs, seq *int) error {
 	return nil
 }
 
+func (r *Recipient) LinkInfo(args container.LinkInfoArgs, seq *int) error {
+	log.WithFields(log.Fields{
+		"file": args.Filename,
+		"link": args.Link,
+		"size": args.Size,
+		"mode": args.Mode,
+		"time": args.ModTime,
+	}).Debug("Received link info")
+
+	if r.File != nil {
+		log.WithFields(log.Fields{
+			"file":     r.File.Name(),
+			"to_write": r.ToWrite,
+		}).Error("Found unfinished file")
+		return fmt.Errorf("Found unfinished file")
+	}
+
+	fullpath := path.Join(r.nymph.RootDir, args.Filename)
+
+	dir, _ := path.Split(fullpath)
+	if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
+		log.WithFields(log.Fields{
+			"dir":      dir,
+			"fullpath": fullpath,
+			"error":    err,
+		}).Error("Failed to create directory")
+		return err
+	}
+
+	if err := os.Symlink(args.Link, fullpath); err != nil {
+		log.WithFields(log.Fields{
+			"file":  fullpath,
+			"link":  args.Link,
+			"error": err,
+		}).Debug("Failed to create symlink")
+		return fmt.Errorf("Failed to create symlink (%s) -> (%s): %v", args.Link, args.Filename, err)
+	}
+
+	*seq = r.seq
+	r.seq = r.seq + 1
+	return nil
+}
+
 func (r *Recipient) FileInfo(args container.FileInfoArgs, seq *int) error {
 	log.WithFields(log.Fields{
 		"file": args.Filename,

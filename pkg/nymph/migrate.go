@@ -55,6 +55,36 @@ func (m *MigrationClient) ImageInfo(imageArgs *container.ImageInfoArgs) error {
 	return nil
 }
 
+func (m *MigrationClient) LinkInfo(filename string, fileInfo os.FileInfo, link string) error {
+	args := &container.LinkInfoArgs{
+		Filename: filename,
+		Link:     link,
+		Size:     fileInfo.Size(),
+		Mode:     fileInfo.Mode(),
+		ModTime:  fileInfo.ModTime(),
+	}
+
+	log.WithFields(log.Fields{
+		"File":    filename,
+		"Link":    link,
+		"Size":    args.Size,
+		"Mode":    args.Mode,
+		"ModTime": args.ModTime,
+	}).Debug("Sending link info")
+
+	var seq int
+	err := m.client.Call(rpcLinkInfo, args, &seq)
+	if err != nil {
+		return err
+	}
+	if seq != m.seq+1 {
+		return fmt.Errorf("Unexpected sequence number: %v", seq)
+	}
+	m.seq = seq
+
+	return nil
+}
+
 func (m *MigrationClient) FileInfo(filename string, fileInfo os.FileInfo) error {
 	args := &container.FileInfoArgs{
 		Filename: filename,

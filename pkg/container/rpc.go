@@ -13,8 +13,16 @@ type ImageInfoArgs struct {
 	Rank       Rank
 	ID         string
 	Args       []string
-	Generation int  // Checkpoint generation number
-	Parent     int  // Parent checkpoint generation number
+	Generation int // Checkpoint generation number
+	Parent     int // Parent checkpoint generation number
+}
+
+type LinkInfoArgs struct {
+	Filename string
+	Link     string
+	Size     int64
+	Mode     os.FileMode
+	ModTime  time.Time
 }
 
 type FileInfoArgs struct {

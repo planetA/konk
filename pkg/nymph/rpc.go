@@ -50,6 +50,7 @@ type RunArgs struct {
 
 const (
 	rpcImageInfo = "Recipient.ImageInfo"
+	rpcLinkInfo  = "Recipient.LinkInfo"
 	rpcFileInfo  = "Recipient.FileInfo"
 	rpcFileData  = "Recipient.FileData"
 	rpcRelaunch  = "Recipient.Relaunch"

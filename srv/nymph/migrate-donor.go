@@ -86,21 +86,30 @@ func (migration *MigrationDonor) sendImage() error {
 // Send file path relative to container directory root.
 func (migration *MigrationDonor) SendFile(filepath string) error {
 	fullpath := path.Join(migration.rootDir, filepath)
+
+	fileInfo, err := os.Lstat(fullpath)
+	if err != nil {
+		return fmt.Errorf("Failed to get file state: %v", err)
+	}
+
+	if fileInfo.Mode() & os.ModeSymlink != 0 {
+		link, err := os.Readlink(fullpath)
+		if err != nil {
+			return err
+		}
+		return migration.recipientClient.LinkInfo(filepath, fileInfo, link)
+	}
+
+	err = migration.recipientClient.FileInfo(filepath, fileInfo)
+	if err != nil {
+		return fmt.Errorf("Failed to send file info %s: %v", filepath, err)
+	}
+
 	file, err := os.Open(fullpath)
 	if err != nil {
 		return fmt.Errorf("Failed to open file: %v", err)
 	}
 	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("Failed to get file state: %v", err)
-	}
-
-	err = migration.recipientClient.FileInfo(filepath, fileInfo)
-	if err != nil {
-		return fmt.Errorf("Failed to send file info %s: %v", file.Name(), err)
-	}
 
 	buf := make([]byte, ChunkSize)
 

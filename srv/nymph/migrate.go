@@ -82,6 +82,10 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		}
 	}
 
+	if args.MigrationType == container.WithPreDump {
+		time.Sleep(10 * time.Second)
+	}
+
 	if args.MigrationType == container.Migrate || args.MigrationType == container.WithPreDump {
 		// Initiate new checkpoint. If there was parent, we use it.
 		checkpoint, err = cont.NewCheckpoint(checkpoint)

@@ -93,6 +93,51 @@ func (r *Recipient) LinkInfo(args container.LinkInfoArgs, seq *int) error {
 	return nil
 }
 
+func (r *Recipient) createDir(args container.FileInfoArgs) error {
+	dir := path.Join(r.nymph.RootDir, r.Filename)
+
+	if err := os.MkdirAll(dir, args.Mode); err != nil {
+		log.WithFields(log.Fields{
+			"dir":      dir,
+			"error":    err,
+		}).Error("Failed to create directory")
+		return err
+	}
+
+	r.File = nil
+	r.ToWrite = 0
+
+	return nil
+}
+
+func (r *Recipient) createFile(args container.FileInfoArgs) error {
+	fullpath := path.Join(r.nymph.RootDir, r.Filename)
+	dir, _ := path.Split(fullpath)
+
+	if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
+		log.WithFields(log.Fields{
+			"dir":      dir,
+			"fullpath": fullpath,
+			"error":    err,
+		}).Error("Failed to create directory")
+		return err
+	}
+
+	var err error
+	r.File, err = os.OpenFile(fullpath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, r.Mode)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"file":  fullpath,
+			"error": err,
+		}).Debug("Failed to create file")
+		return fmt.Errorf("Failed to create file (%s): %v", r.Filename, err)
+	}
+
+	r.ToWrite = r.Size
+
+	return nil
+}
+
 func (r *Recipient) FileInfo(args container.FileInfoArgs, seq *int) error {
 	log.WithFields(log.Fields{
 		"file": args.Filename,
@@ -115,32 +160,20 @@ func (r *Recipient) FileInfo(args container.FileInfoArgs, seq *int) error {
 	}
 
 	var err error
-	fullpath := path.Join(r.nymph.RootDir, r.Filename)
-
-	dir, _ := path.Split(fullpath)
-	if err := os.MkdirAll(dir, os.ModeDir|os.ModePerm); err != nil {
-		log.WithFields(log.Fields{
-			"dir":      dir,
-			"fullpath": fullpath,
-			"error":    err,
-		}).Error("Failed to create directory")
-		return err
+	if args.Mode.IsDir() {
+		err = r.createDir(args)
+	} else {
+		err = r.createFile(args)
 	}
 
-	r.File, err = os.OpenFile(fullpath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, r.Mode)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"file":  fullpath,
-			"error": err,
-		}).Debug("Failed to create file")
-		return fmt.Errorf("Failed to create file (%s): %v", r.Filename, err)
-	}
-
-	r.ToWrite = r.Size
+	log.WithFields(log.Fields{
+		"error": err,
+		"is-dir": args.Mode.IsDir(),
+	}).Debug("Created file")
 
 	*seq = r.seq
 	r.seq = r.seq + 1
-	return nil
+	return err
 }
 
 func (r *Recipient) FileData(args container.FileDataArgs, seq *int) error {

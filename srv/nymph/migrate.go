@@ -9,7 +9,7 @@ import (
 	. "github.com/planetA/konk/pkg/nymph"
 )
 
-func (n *Nymph) sendCheckpoint(checkpoint container.Checkpoint, dest string, launch bool) error {
+func (n *Nymph) sendCheckpoint(cont *container.Container, checkpoint container.Checkpoint, dest string, launch bool) error {
 	// Establish connection to recipient
 	migration, err := NewMigrationDonor(n.RootDir, checkpoint, dest)
 	if err != nil {
@@ -19,7 +19,7 @@ func (n *Nymph) sendCheckpoint(checkpoint container.Checkpoint, dest string, lau
 
 	// Send the checkpoint
 	start := time.Now()
-	err = migration.SendCheckpoint()
+	err = migration.SendCheckpoint(cont)
 	if err != nil {
 		log.WithError(err).Debug("Checkpoint send failed")
 		return err
@@ -77,7 +77,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		}
 
 		// Send without launching
-		if err := n.sendCheckpoint(checkpoint, args.Host, false); err != nil {
+		if err := n.sendCheckpoint(nil, checkpoint, args.Host, false); err != nil {
 			return err
 		}
 	}
@@ -104,7 +104,7 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		}
 
 		// Now, send a checkpoint and launch it
-		if err := n.sendCheckpoint(checkpoint, args.Host, true); err != nil {
+		if err := n.sendCheckpoint(cont, checkpoint, args.Host, true); err != nil {
 			return err
 		}
 

@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -83,6 +85,38 @@ func (migration *MigrationDonor) sendImage() error {
 	return nil
 }
 
+func (migration *MigrationDonor) sendTmpFiles(cont *container.Container) error {
+	rootfs := cont.Config().Rootfs
+	tmpPath := fmt.Sprintf("%s/tmp", rootfs)
+
+	if !strings.HasPrefix(tmpPath, migration.rootDir) {
+		return fmt.Errorf("Path mismatch")
+	}
+
+	err := filepath.Walk(tmpPath,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			filePath := path[len(migration.rootDir):]
+
+			if !(info.IsDir() || info.Mode().IsRegular()) {
+				log.WithFields(log.Fields{
+					"file-path": filePath,
+					"mode":      info.Mode(),
+				}).Debug("Skipping file")
+				return nil
+			}
+
+			return migration.SendFile(filePath)
+		})
+
+	if err != nil {
+		log.WithError(err).Error("Failed to get files")
+	}
+	return err
+}
+
 // Send file path relative to container directory root.
 func (migration *MigrationDonor) SendFile(filepath string) error {
 	fullpath := path.Join(migration.rootDir, filepath)
@@ -92,7 +126,7 @@ func (migration *MigrationDonor) SendFile(filepath string) error {
 		return fmt.Errorf("Failed to get file state: %v", err)
 	}
 
-	if fileInfo.Mode() & os.ModeSymlink != 0 {
+	if fileInfo.Mode()&os.ModeSymlink != 0 {
 		link, err := os.Readlink(fullpath)
 		if err != nil {
 			return err
@@ -104,6 +138,16 @@ func (migration *MigrationDonor) SendFile(filepath string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to send file info %s: %v", filepath, err)
 	}
+
+	log.WithFields(log.Fields{
+		"file":   filepath,
+		"is-dir": fileInfo.IsDir(),
+	}).Debug("Sent file info")
+
+	if fileInfo.IsDir() {
+		return nil
+	}
+
 
 	file, err := os.Open(fullpath)
 	if err != nil {
@@ -142,13 +186,19 @@ func (migration *MigrationDonor) Relaunch() error {
 	return nil
 }
 
-func (migration *MigrationDonor) SendCheckpoint() error {
+func (migration *MigrationDonor) SendCheckpoint(cont *container.Container) error {
 	if err := migration.sendState(); err != nil {
 		return err
 	}
 
 	if err := migration.sendImage(); err != nil {
 		return err
+	}
+
+	if cont != nil {
+		if err := migration.sendTmpFiles(cont); err != nil {
+			return err
+		}
 	}
 
 	return nil

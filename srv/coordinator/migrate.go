@@ -45,6 +45,27 @@ func Migrate(containerRank container.Rank, srcHost, destHost string, migrationTy
 	return nil
 }
 
+func Delete(containerRank container.Rank, destHost string) error {
+	// Tell the nymph to migrate the container to another nymph
+	client, err := nymph.NewClient(destHost)
+	if err != nil {
+		return fmt.Errorf("Failed to reach nymph: %v", err)
+	}
+	defer client.Close()
+
+	log.WithFields(log.Fields{
+		"rank": containerRank,
+		"host": destHost,
+	}).Trace("Deleting container")
+
+	err = client.Delete(containerRank)
+	if err != nil {
+		return fmt.Errorf("Failed to delete container: %v", err)
+	}
+
+	return nil
+}
+
 func Signal(containerRank container.Rank, host string, signal syscall.Signal) error {
 	client, err := nymph.NewClient(host)
 	if err != nil {

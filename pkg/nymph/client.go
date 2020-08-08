@@ -50,6 +50,18 @@ func (c *Client) Send(containerRank container.Rank, destHost string, migrationTy
 	return nil
 }
 
+func (c *Client) Delete(containerRank container.Rank) error {
+	args := &DeleteArgs{containerRank}
+
+	var reply bool
+	err := c.client.Call(rpcDelete, args, &reply)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Client) Signal(containerRank container.Rank, signal syscall.Signal) error {
 	args := &SignalArgs{containerRank, signal}
 

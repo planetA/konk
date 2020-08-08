@@ -81,6 +81,16 @@ func (c *Client) Migrate(rank container.Rank, destHost string, migrationType con
 	return err
 }
 
+// Request the coordinator to coordinate migration of a process to another node
+func (c *Client) Delete(rank container.Rank) error {
+	args := &DeleteArgs{rank}
+
+	var reply bool
+	err := c.client.Call(rpcDelete, args, &reply)
+
+	return err
+}
+
 // Send signal to all registered containers via nymphs
 //
 // XXX: This break single responsibility principle, because migrate and signal interfaces

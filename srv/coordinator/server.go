@@ -54,6 +54,17 @@ func (c *Coordinator) Migrate(args *MigrateArgs, reply *bool) error {
 	return nil
 }
 
+// Coordinator can receive a request to delete a container from an external entity.
+func (c *Coordinator) Delete(args *DeleteArgs, reply *bool) error {
+	if err := c.control.Request(args); err != nil {
+		*reply = false
+		return err
+	}
+
+	*reply = true
+	return nil
+}
+
 func (c *Coordinator) Signal(args *SignalArgs, anyErr *error) error {
 	if err := c.control.Request(args); err != nil {
 		*anyErr = err

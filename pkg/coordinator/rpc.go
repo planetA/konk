@@ -9,11 +9,12 @@ import (
 // RPC method names
 
 const (
-	rpcAllocateHost   = "Coordinator.AllocateHost"
+	rpcAllocateHost = "Coordinator.AllocateHost"
 
 	rpcRegisterContainer   = "Coordinator.RegisterContainer"
 	rpcUnregisterContainer = "Coordinator.UnregisterContainer"
 	rpcMigrate             = "Coordinator.Migrate"
+	rpcDelete              = "Coordinator.Delete"
 	rpcSignal              = "Coordinator.Signal"
 
 	rpcRegisterNymph   = "Coordinator.RegisterNymph"
@@ -38,6 +39,10 @@ type MigrateArgs struct {
 	Rank          container.Rank
 	DestHost      string
 	MigrationType container.MigrationType
+}
+
+type DeleteArgs struct {
+	Rank container.Rank
 }
 
 type SignalArgs struct {

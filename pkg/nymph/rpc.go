@@ -11,6 +11,7 @@ import (
 const (
 	rpcPrepareReceive = "Nymph.PrepareReceive"
 	rpcSend           = "Nymph.Send"
+	rpcDelete         = "Nymph.Delete"
 
 	rpcSignal = "Nymph.Signal"
 
@@ -25,6 +26,10 @@ type SendArgs struct {
 	ContainerRank container.Rank
 	Host          string
 	MigrationType container.MigrationType
+}
+
+type DeleteArgs struct {
+	ContainerRank container.Rank
 }
 
 type CreateContainerArgs struct {

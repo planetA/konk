@@ -295,6 +295,21 @@ func (n *Nymph) Run(args RunArgs, reply *bool) error {
 	return nil
 }
 
+// Delete a container on the nymph
+func (n *Nymph) Delete(args *DeleteArgs, reply *bool) error {
+	log.WithFields(log.Fields{
+		"host": args.ContainerRank,
+	}).Debug("Received a request to delete a container")
+
+	n.Containers.Mutex.Lock()
+	defer n.Containers.Mutex.Unlock()
+
+	n.Containers.DeleteUnlocked(args.ContainerRank)
+
+	*reply = true
+	return nil
+}
+
 func (n *Nymph) registerNymphOnce() error {
 	hostname, err := os.Hostname()
 	if err != nil {

@@ -42,6 +42,8 @@ func (c *Control) Start() {
 			err = c.unregisterImpl(args)
 		case *MigrateArgs:
 			err = c.migrateImpl(args)
+		case *DeleteArgs:
+			err = c.deleteImpl(args)
 		case *SignalArgs:
 			err = c.signalImpl(args)
 		case *RegisterNymphArgs:
@@ -154,6 +156,27 @@ func (c *Control) migrateImpl(args *MigrateArgs) error {
 
 	if args.MigrationType != container.PreDump {
 		c.locationDB.Set(args.Rank, Location{args.DestHost})
+	}
+
+	return nil
+}
+
+func (c *Control) deleteImpl(args *DeleteArgs) error {
+	log.WithFields(log.Fields{
+		"rank": args.Rank,
+	}).Debug("Received a request to delete a container")
+
+	dest, ok := c.locationDB.Get(args.Rank)
+	if !ok {
+		return fmt.Errorf("Container %v is not known", args.Rank)
+	}
+
+	if err := Delete(args.Rank, dest.Hostname); err != nil {
+		return fmt.Errorf("Failed to delete: %v", err)
+	}
+
+	if err := c.locationDB.Unset(args.Rank, dest); err != nil {
+		log.WithError(err).Panic("Container is not registered where expected")
 	}
 
 	return nil

@@ -82,6 +82,30 @@ var migrateCmd = &cobra.Command{
 	},
 }
 
+var deleteCmd = &cobra.Command{
+	Use: docs.ConsoleDeleteUse,
+	Short: docs.ConsoleDeleteShort,
+	Long: docs.ConsoleDeleteLong,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		log.Debug("Deleting container")
+
+		coord, err := coordinator.NewClient()
+		if err != nil {
+			return err
+		}
+		defer coord.Close()
+
+		log.WithFields(log.Fields{
+			"rank": Rank,
+		}).Debug("Requesting container deletion")
+
+		if err := coord.Delete(container.Rank(Rank)); err != nil {
+			return fmt.Errorf("Deletion failed: %v", err)
+		}
+		return nil
+	},
+}
+
 func init() {
 	migrateCmd.Flags().IntVar(&Rank, "rank", -1, "Rank to migrate")
 	migrateCmd.MarkFlagRequired("rank")
@@ -90,12 +114,14 @@ func init() {
 	migrateCmd.MarkFlagRequired("dest")
 
 	migrateCmd.Flags().BoolVar(&PreDump, "pre-dump", false, "Run predump command")
-	migrateCmd.MarkFlagRequired("dest")
 
 	migrateCmd.Flags().BoolVar(&WithPreDump, "with-pre-dump", false, "Migrate, but run predump command")
-	migrateCmd.MarkFlagRequired("dest")
 
 	consoleCmd.AddCommand(migrateCmd)
+
+	deleteCmd.Flags().IntVar(&Rank, "rank", -1, "Rank to delete")
+	deleteCmd.MarkFlagRequired("rank")
+	consoleCmd.AddCommand(deleteCmd)
 
 	consoleCmd.Flags().BoolVarP(&InteractiveMode, "interactive", "i", false, "Run console in interactive mode")
 	KonkCmd.AddCommand(consoleCmd)

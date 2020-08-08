@@ -21,6 +21,10 @@ const (
 	ConsoleMigrateShort string = `Migrate rank from ane node to another`
 	ConsoleMigrateLong  string = ``
 
+	ConsoleDeleteUse   string = `delete <args>`
+	ConsoleDeleteShort string = `Delete rank from ane node to another`
+	ConsoleDeleteLong  string = ``
+
 	MpirunUse   string = `mpirun <image> <program> <args>`
 	MpirunShort string = `Wrapper for the mpirun command`
 	MpirunLong  string = ``

@@ -4,7 +4,7 @@ go 1.13
 
 replace (
 	github.com/godbus/dbus => github.com/godbus/dbus/v5 v5.0.3
-	github.com/opencontainers/runc => github.com/planeta/runc v1.0.0-rc9.0.20191206160324-51eabe724369
+	github.com/opencontainers/runc => github.com/planeta/runc mplaneta-external
 )
 
 require (

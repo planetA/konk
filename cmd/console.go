@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -75,17 +76,21 @@ var migrateCmd = &cobra.Command{
 			"type": migrationType,
 		}).Debug("Requesting migration")
 
+		start := time.Now()
 		if err := coord.Migrate(container.Rank(Rank), Destination, migrationType); err != nil {
 			return fmt.Errorf("Migration failed: %v", err)
 		}
+		elapsed := time.Since(start)
+		log.WithField("elapsed", elapsed).Info("Migration finished")
+
 		return nil
 	},
 }
 
 var deleteCmd = &cobra.Command{
-	Use: docs.ConsoleDeleteUse,
+	Use:   docs.ConsoleDeleteUse,
 	Short: docs.ConsoleDeleteShort,
-	Long: docs.ConsoleDeleteLong,
+	Long:  docs.ConsoleDeleteLong,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		log.Debug("Deleting container")
 

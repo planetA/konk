@@ -12,6 +12,7 @@ import (
 	"github.com/containerd/console"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 type tty struct {
@@ -101,6 +102,7 @@ func (t *tty) ClosePostStart() error {
 // Close closes all open fds for the tty and/or restores the original
 // stdin state to what it was prior to the container execution
 func (t *tty) Close() error {
+	log.Info("Closing tty")
 	// ensure that our side of the fds are always closed
 	for _, c := range t.postStart {
 		c.Close()

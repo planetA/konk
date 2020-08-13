@@ -40,7 +40,8 @@ func Migrate(containerRank container.Rank, srcHost, destHost string, migrationTy
 		return fmt.Errorf("Container did not migrate: %v", err)
 	}
 
-	log.WithField("elapsed", time.Since(start)).Info("Migration finished successfully")
+	elapsed := time.Since(start)
+	log.WithField("elapsed", elapsed).Info("Migration finished successfully")
 
 	return nil
 }

@@ -98,8 +98,8 @@ func (r *Recipient) createDir(args container.FileInfoArgs) error {
 
 	if err := os.MkdirAll(dir, args.Mode); err != nil {
 		log.WithFields(log.Fields{
-			"dir":      dir,
-			"error":    err,
+			"dir":   dir,
+			"error": err,
 		}).Error("Failed to create directory")
 		return err
 	}
@@ -167,7 +167,7 @@ func (r *Recipient) FileInfo(args container.FileInfoArgs, seq *int) error {
 	}
 
 	log.WithFields(log.Fields{
-		"error": err,
+		"error":  err,
 		"is-dir": args.Mode.IsDir(),
 	}).Debug("Created file")
 
@@ -212,6 +212,7 @@ func (r *Recipient) FileData(args container.FileDataArgs, seq *int) error {
 func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 	// Load container from checkpoint
 
+	start := time.Now()
 	cont, err := r.nymph.Containers.Load(r.imageInfo)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -244,6 +245,8 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 	}
 
 	// Remember old ID
+	elapsed := time.Since(start)
+	log.WithField("elapsed", elapsed).Info("Checkpoint sent successfully")
 
 	log.WithFields(log.Fields{
 		"cont":   cont.ID(),

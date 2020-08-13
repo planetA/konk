@@ -160,7 +160,7 @@ func (c *checkpoint) Dump(preDump bool) error {
 		ShellJob:          true,
 		FileLocks:         true,
 		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
-		LogLevel:          libcontainer.CRIU_LOG_MSG,
+		LogLevel:          libcontainer.CRIU_LOG_DEBUG,
 	}
 
 	if preDump {
@@ -199,7 +199,7 @@ func (c *checkpoint) Restore(process *libcontainer.Process) error {
 		External:                c.container.external,
 		ExternalUnixConnections: true,
 		ManageCgroupsMode:       libcontainer.CRIU_CG_MODE_SOFT,
-		LogLevel:                libcontainer.CRIU_LOG_MSG,
+		LogLevel:                libcontainer.CRIU_LOG_DEBUG,
 	}
 
 	log.WithFields(log.Fields{

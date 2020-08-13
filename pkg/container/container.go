@@ -115,6 +115,7 @@ func (c *Container) NewProcess(args []string, init bool) (*libcontainer.Process,
 
 // setupIO modifies the given process config according to the options.
 func setupIO(process *libcontainer.Process, rootuid, rootgid int, detach bool, sockpath string) (*tty, error) {
+	// XXX: This function leaks channels
 	process.Stdin = nil
 	process.Stdout = nil
 	process.Stderr = nil

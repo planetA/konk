@@ -131,6 +131,20 @@ func (m *MigrationClient) FileData(data []byte) error {
 	return nil
 }
 
+func (m *MigrationClient) StartPageServer(checkpointPath string) error {
+	args := &container.StartPageServerArgs{checkpointPath}
+
+	log.Debug("Starting the page server")
+
+	var seq int
+	err := m.client.Call(rpcStartPageServer, args, &seq)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *MigrationClient) Relaunch() error {
 	args := &container.RelaunchArgs{}
 

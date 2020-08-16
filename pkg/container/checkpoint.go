@@ -42,7 +42,7 @@ type Checkpoint interface {
 	Rank() Rank
 
 	// Dump process into checkpoint
-	Dump(preDump bool) error
+	Dump() error
 
 	// Restore process from checkpoint
 	Restore(process *libcontainer.Process) error
@@ -62,11 +62,19 @@ type Checkpoint interface {
 	ImageInfo() *ImageInfoArgs
 
 	Destroy()
+
+	StartPageServer() bool
+}
+
+type CheckpointArgs struct {
+	Parent     Checkpoint
+	PreDump    bool
+	PageServer bool
 }
 
 type checkpoint struct {
+	CheckpointArgs
 	generation int
-	parent     Checkpoint
 	container  *Container
 }
 
@@ -80,11 +88,11 @@ func (c *Container) getCheckpoint(generation int) (Checkpoint, error) {
 	return nil, fmt.Errorf("Checkpoint %v not found", generation)
 }
 
-func (c *Container) NewCheckpoint(parent Checkpoint) (Checkpoint, error) {
+func (c *Container) NewCheckpoint(args *CheckpointArgs) (Checkpoint, error) {
 	checkpoint := &checkpoint{
-		generation: c.nextCheckpointId,
-		container:  c,
-		parent:     parent,
+		*args,
+		c.nextCheckpointId,
+		c,
 	}
 
 	if err := os.MkdirAll(checkpoint.PathAbs(), os.ModeDir|os.ModePerm); err != nil {
@@ -154,7 +162,7 @@ func (c *checkpoint) ImageInfo() *ImageInfoArgs {
 	}
 }
 
-func (c *checkpoint) Dump(preDump bool) error {
+func (c *checkpoint) Dump() error {
 	criuOpts := &libcontainer.CriuOpts{
 		ImagesDirectory:   c.PathAbs(),
 		LeaveRunning:      false,
@@ -165,13 +173,13 @@ func (c *checkpoint) Dump(preDump bool) error {
 		LogLevel:          libcontainer.CRIU_LOG_DEBUG,
 	}
 
-	if preDump {
+	if c.PreDump {
 		criuOpts.LeaveRunning = true
 		criuOpts.PreDump = true
 	}
 
-	if c.parent != nil {
-		criuOpts.ParentImage = c.parent.PathAbs()
+	if c.Parent != nil {
+		criuOpts.ParentImage = c.Parent.PathAbs()
 	}
 
 	err := c.container.Checkpoint(criuOpts)
@@ -185,8 +193,8 @@ func (c *checkpoint) Dump(preDump bool) error {
 
 func (c *checkpoint) Restore(process *libcontainer.Process) error {
 	var parent string
-	if c.parent != nil {
-		parent = c.parent.PathAbs()
+	if c.Parent != nil {
+		parent = c.Parent.PathAbs()
 	} else {
 		parent = ""
 	}
@@ -216,4 +224,8 @@ func (c *checkpoint) Restore(process *libcontainer.Process) error {
 
 func (c *checkpoint) Destroy() {
 	os.RemoveAll(c.PathAbs())
+}
+
+func (c *checkpoint) StartPageServer() bool {
+	return c.PageServer
 }

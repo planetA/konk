@@ -36,5 +36,9 @@ type FileDataArgs struct {
 	Data []byte
 }
 
+type StartPageServerArgs struct {
+	CheckpointPath string
+}
+
 type RelaunchArgs struct {
 }

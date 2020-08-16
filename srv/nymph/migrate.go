@@ -17,8 +17,28 @@ func (n *Nymph) sendCheckpoint(cont *container.Container, checkpoint container.C
 	}
 	defer migration.Close()
 
-	// Send the checkpoint
+	if checkpoint.StartPageServer() {
+		if err := migration.StartPageServer(checkpoint.PathAbs()); err != nil {
+			log.WithError(err).Error("Migration server did not start")
+			return err
+		}
+	}
+
 	start := time.Now()
+	// Second checkpoint without predump (or first of pre-dump is off)
+	if err := checkpoint.Dump(); err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+			"path":  checkpoint.PathAbs(),
+			"rank":  checkpoint.Rank(),
+		}).Debug("Checkpoint requested")
+		return err
+	}
+	elapsed := time.Since(start)
+	log.WithField("elapsed", elapsed).Info("Dump finished successfully")
+
+	// Send the checkpoint
+	start = time.Now()
 	err = migration.SendCheckpoint(cont)
 	if err != nil {
 		log.WithError(err).Debug("Checkpoint send failed")
@@ -64,30 +84,19 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		// If we need to make pre-dump checkpoint
 
 		// First make checkpoint, that has no parent
-		checkpoint, err = cont.NewCheckpoint(nil)
+		checkpoint, err = cont.NewCheckpoint(&container.CheckpointArgs{
+			Parent:     nil,
+			PreDump:    true,
+			PageServer: args.PageServer,
+		})
 		if err != nil {
 			return err
 		}
 
-		start := time.Now()
-		if err := checkpoint.Dump(true); err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-				"path":  checkpoint.PathAbs(),
-				"rank":  args.ContainerRank,
-			}).Debug("Checkpoint requested")
-			return err
-		}
-		elapsed := time.Since(start)
-		log.WithField("elapsed", elapsed).Info("Dump finished successfully")
-
-		start = time.Now()
 		// Send without launching
 		if err := n.sendCheckpoint(nil, checkpoint, args.Host, false); err != nil {
 			return err
 		}
-		elapsed = time.Since(start)
-		log.WithField("elapsed", elapsed).Info("Checkpoint sent successfully")
 	}
 
 	if args.MigrationType == container.WithPreDump {
@@ -96,32 +105,19 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 
 	if args.MigrationType == container.Migrate || args.MigrationType == container.WithPreDump {
 		// Initiate new checkpoint. If there was parent, we use it.
-		checkpoint, err = cont.NewCheckpoint(checkpoint)
+		checkpoint, err = cont.NewCheckpoint(&container.CheckpointArgs{
+			Parent:     checkpoint,
+			PreDump:    false,
+			PageServer: args.PageServer,
+		})
 		if err != nil {
 			return err
 		}
-
-		start := time.Now()
-		// Second checkpoint without predump (or first of pre-dump is off)
-		if err := checkpoint.Dump(false); err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-				"path":  checkpoint.PathAbs(),
-				"rank":  args.ContainerRank,
-			}).Debug("Checkpoint requested")
-			return err
-		}
-		elapsed := time.Since(start)
-		log.WithField("elapsed", elapsed).Info("Dump finished successfully")
-
-		start = time.Now()
 
 		// Now, send a checkpoint and launch it
 		if err := n.sendCheckpoint(cont, checkpoint, args.Host, true); err != nil {
 			return err
 		}
-		elapsed = time.Since(start)
-		log.WithField("elapsed", elapsed).Info("Checkpoint sent successfully")
 
 		n.Containers.DeleteUnlocked(args.ContainerRank)
 	}

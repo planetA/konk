@@ -175,6 +175,17 @@ func (migration *MigrationDonor) SendFile(filepath string) error {
 	return nil
 }
 
+func (migration *MigrationDonor) StartPageServer(checkpointPath string) error {
+
+	err := migration.recipientClient.StartPageServer(checkpointPath)
+	if err != nil {
+		log.WithError(err).Debug("Requested launch failed")
+		return fmt.Errorf("Failed to send launch request: %v", err)
+	}
+
+	return nil
+}
+
 func (migration *MigrationDonor) Relaunch() error {
 
 	err := migration.recipientClient.Relaunch()

@@ -209,10 +209,35 @@ func (r *Recipient) FileData(args container.FileDataArgs, seq *int) error {
 	return nil
 }
 
+func (r *Recipient) StartPageServer(args container.StartPageServerArgs, seq *int) error {
+	log.WithField("checkpoint-path", args.CheckpointPath).Info("Starting page server")
+
+	if err := os.MkdirAll(args.CheckpointPath, os.ModeDir | os.ModePerm); err != nil {
+		log.WithError(err).Error("Failed to create checkpoint directory")
+	}
+
+	*seq = r.seq
+	r.seq = r.seq + 1
+	return nil
+}
+
 func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 	// Load container from checkpoint
 
 	start := time.Now()
+	linkName := "/tmp/konk/nymph/checkpoints/93252b437d782ba9d09f77e098b2dc3ef3fb539f026eb2fbc478d9d6f7c45aff/1/parent"
+	if fi, err := os.Lstat(linkName); err != nil {
+		log.WithError(err).Error("Lstat")
+		return err
+	} else {
+		log.WithField("file-info", fi).Info("Lstot")
+	}
+
+	if err := os.Remove(linkName); err != nil {
+		log.WithError(err).Info("Remove")
+	}
+	os.Symlink("../0", linkName)
+
 	cont, err := r.nymph.Containers.Load(r.imageInfo)
 	if err != nil {
 		log.WithFields(log.Fields{

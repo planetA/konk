@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ChunkSize int = 1 << 21
+	ChunkSize int = 1 << 20
 )
 
 type MigrationDonor struct {
@@ -206,6 +206,7 @@ func (migration *MigrationDonor) SendCheckpoint(cont *container.Container) error
 		return err
 	}
 
+	// XXX: This nonsense must be removed
 	if cont != nil {
 		if err := migration.sendTmpFiles(cont); err != nil {
 			return err

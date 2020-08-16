@@ -60,6 +60,8 @@ type Checkpoint interface {
 	Args() []string
 
 	ImageInfo() *ImageInfoArgs
+
+	Destroy()
 }
 
 type checkpoint struct {
@@ -210,4 +212,8 @@ func (c *checkpoint) Restore(process *libcontainer.Process) error {
 	err := c.container.Restore(process, criuOpts)
 
 	return err
+}
+
+func (c *checkpoint) Destroy() {
+	os.RemoveAll(c.PathAbs())
 }

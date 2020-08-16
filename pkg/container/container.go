@@ -248,6 +248,10 @@ func (c *Container) Destroy() (err error) {
 		err = c.tty.Close()
 	}
 
+	for _, ckpt := range c.checkpoints {
+		ckpt.Destroy()
+	}
+
 	cerr := c.Container.Destroy()
 	if err != nil {
 		return err

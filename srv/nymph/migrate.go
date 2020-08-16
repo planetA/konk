@@ -57,6 +57,8 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		return err
 	}
 
+	log.WithField("page-server", args.PageServer).Info("Request to dump")
+
 	var checkpoint container.Checkpoint = nil
 	if args.MigrationType == container.PreDump || args.MigrationType == container.WithPreDump {
 		// If we need to make pre-dump checkpoint

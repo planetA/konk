@@ -39,6 +39,7 @@ type MigrateArgs struct {
 	Rank          container.Rank
 	DestHost      string
 	MigrationType container.MigrationType
+	PageServer    bool
 }
 
 type DeleteArgs struct {

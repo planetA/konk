@@ -19,6 +19,7 @@ var (
 	Destination     string = ""
 	PreDump         bool   = false
 	WithPreDump     bool   = false
+	PageServer      bool   = false
 )
 
 var consoleCmd = &cobra.Command{
@@ -71,13 +72,19 @@ var migrateCmd = &cobra.Command{
 		}
 
 		log.WithFields(log.Fields{
-			"rank": Rank,
-			"dest": Destination,
-			"type": migrationType,
+			"rank":        Rank,
+			"dest":        Destination,
+			"type":        migrationType,
+			"page-server": PageServer,
 		}).Debug("Requesting migration")
 
 		start := time.Now()
-		if err := coord.Migrate(container.Rank(Rank), Destination, migrationType); err != nil {
+		if err := coord.Migrate(&coordinator.MigrateArgs{
+			Rank:          container.Rank(Rank),
+			DestHost:      Destination,
+			MigrationType: migrationType,
+			PageServer:    PageServer,
+		}); err != nil {
 			return fmt.Errorf("Migration failed: %v", err)
 		}
 		elapsed := time.Since(start)
@@ -121,6 +128,8 @@ func init() {
 	migrateCmd.Flags().BoolVar(&PreDump, "pre-dump", false, "Run predump command")
 
 	migrateCmd.Flags().BoolVar(&WithPreDump, "with-pre-dump", false, "Migrate, but run predump command")
+
+	migrateCmd.Flags().BoolVar(&PageServer, "with-page-server", false, "Use page server during dumping")
 
 	consoleCmd.AddCommand(migrateCmd)
 

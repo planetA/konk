@@ -26,6 +26,7 @@ type SendArgs struct {
 	ContainerRank container.Rank
 	Host          string
 	MigrationType container.MigrationType
+	PageServer    bool
 }
 
 type DeleteArgs struct {

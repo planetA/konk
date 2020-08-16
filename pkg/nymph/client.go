@@ -38,9 +38,7 @@ func NewClient(hostname string) (*Client, error) {
 
 // Send the checkpoint to the server at given host and port. The receiver is a nymph, but the
 // port is supposed to be not the default nymph port.
-func (c *Client) Send(containerRank container.Rank, destHost string, migrationType container.MigrationType) error {
-	args := &SendArgs{containerRank, destHost, migrationType}
-
+func (c *Client) Send(args *SendArgs) error {
 	var reply bool
 	err := c.client.Call(rpcSend, args, &reply)
 	if err != nil {

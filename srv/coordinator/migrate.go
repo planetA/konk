@@ -5,6 +5,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/planetA/konk/pkg/coordinator"
 	"github.com/planetA/konk/pkg/container"
 	"github.com/planetA/konk/pkg/nymph"
 	log "github.com/sirupsen/logrus"
@@ -15,8 +16,8 @@ import (
 // checkpoint. The nymph returns the port number that should be used specifically for transferring
 // this particular checkpoint. Then, the coordinator contacts the source nymph, tells it the
 // destination hostname and port number, and asks to send the checkpoint.
-func Migrate(containerRank container.Rank, srcHost, destHost string, migrationType container.MigrationType) error {
-	if srcHost == destHost {
+func Migrate(srcHost string, args *coordinator.MigrateArgs) error {
+	if srcHost == args.DestHost {
 		return fmt.Errorf("The container is already at the destination")
 	}
 
@@ -28,14 +29,19 @@ func Migrate(containerRank container.Rank, srcHost, destHost string, migrationTy
 	defer donorClient.Close()
 
 	log.WithFields(log.Fields{
-		"rank": containerRank,
+		"rank": args.Rank,
 		"src":  srcHost,
-		"dst":  destHost,
-		"type": migrationType,
+		"dst":  args.DestHost,
+		"type": args.MigrationType,
 	}).Trace("Requesting migration")
 
 	start := time.Now()
-	err = donorClient.Send(containerRank, destHost, migrationType)
+	err = donorClient.Send(&nymph.SendArgs{
+		ContainerRank: args.Rank,
+		Host:          args.DestHost,
+		MigrationType: args.MigrationType,
+		PageServer:    args.PageServer,
+	})
 	if err != nil {
 		return fmt.Errorf("Container did not migrate: %v", err)
 	}

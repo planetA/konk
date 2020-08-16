@@ -150,7 +150,7 @@ func (c *Control) migrateImpl(args *MigrateArgs) error {
 		return fmt.Errorf("Container %v is not known", args.Rank)
 	}
 
-	if err := Migrate(args.Rank, src.Hostname, args.DestHost, args.MigrationType); err != nil {
+	if err := Migrate(src.Hostname, args); err != nil {
 		return fmt.Errorf("Failed to migrate: %v", err)
 	}
 

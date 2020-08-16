@@ -2,7 +2,10 @@ package nymph
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"time"
 
@@ -10,6 +13,62 @@ import (
 
 	"github.com/planetA/konk/pkg/container"
 )
+
+type pageServer struct {
+	cmd *exec.Cmd
+	out io.ReadCloser
+	err io.ReadCloser
+}
+
+func NewPageServer(ckptPath string) (*pageServer, error) {
+	var err error
+
+	cmd := exec.Command("criu", "page-server",
+		"--port", "7624",
+		"--address", "0.0.0.0",
+		"--images-dir", ckptPath)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.WithError(err).Error("Did not get the stdout")
+		return nil, err
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.WithError(err).Error("Did not get the stderr")
+		return nil, err
+	}
+	if err := cmd.Start(); err != nil {
+		log.WithError(err).Error("Failed to start page server")
+		return nil, err
+	}
+	return &pageServer{
+		out: stdout,
+		err: stderr,
+		cmd: cmd,
+	}, nil
+}
+
+func (p *pageServer) Close() {
+	if p == nil {
+		return
+	}
+
+	if slurp, err := ioutil.ReadAll(p.err); err != nil {
+		log.WithError(err).Error("Could not read the stdout")
+	} else {
+		log.Infof("Page server: %s\n", slurp)
+	}
+
+	if slurp, err := ioutil.ReadAll(p.out); err != nil {
+		log.WithError(err).Error("Could not read the stdout")
+	} else {
+		log.Infof("Page server: %s\n", slurp)
+	}
+
+	if err := p.cmd.Wait(); err != nil {
+		log.WithError(err).Error("Page server failed")
+	}
+}
 
 type Recipient struct {
 	nymph      *Nymph
@@ -28,6 +87,9 @@ type Recipient struct {
 
 	File    *os.File
 	ToWrite int64
+
+	// PageServer
+	pageServer *pageServer
 }
 
 func NewRecipient(nymph *Nymph) (*Recipient, error) {
@@ -212,8 +274,14 @@ func (r *Recipient) FileData(args container.FileDataArgs, seq *int) error {
 func (r *Recipient) StartPageServer(args container.StartPageServerArgs, seq *int) error {
 	log.WithField("checkpoint-path", args.CheckpointPath).Info("Starting page server")
 
-	if err := os.MkdirAll(args.CheckpointPath, os.ModeDir | os.ModePerm); err != nil {
+	if err := os.MkdirAll(args.CheckpointPath, os.ModeDir|os.ModePerm); err != nil {
 		log.WithError(err).Error("Failed to create checkpoint directory")
+		return err
+	}
+
+	var err error
+	if r.pageServer, err = NewPageServer(args.CheckpointPath); err != nil {
+		return err
 	}
 
 	*seq = r.seq
@@ -282,5 +350,5 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 }
 
 func (r *Recipient) _Close() {
-
+	r.pageServer.Close()
 }

@@ -17,7 +17,7 @@ func (n *Nymph) sendCheckpoint(cont *container.Container, checkpoint container.C
 	}
 	defer migration.Close()
 
-	if checkpoint.StartPageServer() {
+	if checkpoint.IsPageServer() {
 		if err := migration.StartPageServer(checkpoint.PathAbs()); err != nil {
 			log.WithError(err).Error("Migration server did not start")
 			return err
@@ -84,10 +84,14 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		// If we need to make pre-dump checkpoint
 
 		// First make checkpoint, that has no parent
+		pageServer := ""
+		if args.PageServer {
+			pageServer = args.Host
+		}
 		checkpoint, err = cont.NewCheckpoint(&container.CheckpointArgs{
 			Parent:     nil,
 			PreDump:    true,
-			PageServer: args.PageServer,
+			PageServer: pageServer,
 		})
 		if err != nil {
 			return err
@@ -99,16 +103,20 @@ func (n *Nymph) Send(args *SendArgs, reply *bool) error {
 		}
 	}
 
-	if args.MigrationType == container.WithPreDump {
-		time.Sleep(2 * time.Second)
-	}
+	// if args.MigrationType == container.WithPreDump {
+	// 	time.Sleep(2 * time.Second)
+	// }
 
 	if args.MigrationType == container.Migrate || args.MigrationType == container.WithPreDump {
 		// Initiate new checkpoint. If there was parent, we use it.
+		pageServer := ""
+		if args.PageServer {
+			pageServer = args.Host
+		}
 		checkpoint, err = cont.NewCheckpoint(&container.CheckpointArgs{
 			Parent:     checkpoint,
 			PreDump:    false,
-			PageServer: args.PageServer,
+			PageServer: pageServer,
 		})
 		if err != nil {
 			return err

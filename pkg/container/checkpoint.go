@@ -63,13 +63,13 @@ type Checkpoint interface {
 
 	Destroy()
 
-	StartPageServer() bool
+	PageServer() bool
 }
 
 type CheckpointArgs struct {
 	Parent     Checkpoint
 	PreDump    bool
-	PageServer bool
+	PageServer string
 }
 
 type checkpoint struct {
@@ -163,12 +163,21 @@ func (c *checkpoint) ImageInfo() *ImageInfoArgs {
 }
 
 func (c *checkpoint) Dump() error {
+	var cpsInfo libcontainer.CriuPageServerInfo
+	if c.PageServer != "" {
+		cpsInfo = libcontainer.CriuPageServerInfo{
+			Address: c.PageServer,
+			Port:    7624,
+		}
+	}
+
 	criuOpts := &libcontainer.CriuOpts{
 		ImagesDirectory:   c.PathAbs(),
 		LeaveRunning:      false,
 		TcpEstablished:    true,
 		ShellJob:          true,
 		FileLocks:         true,
+		PageServer:        cpsInfo,
 		ManageCgroupsMode: libcontainer.CRIU_CG_MODE_SOFT,
 		LogLevel:          libcontainer.CRIU_LOG_DEBUG,
 	}
@@ -226,6 +235,6 @@ func (c *checkpoint) Destroy() {
 	os.RemoveAll(c.PathAbs())
 }
 
-func (c *checkpoint) StartPageServer() bool {
-	return c.PageServer
+func (c *checkpoint) IsPageServer() bool {
+	return c.PageServer != ""
 }

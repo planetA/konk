@@ -63,7 +63,7 @@ type Checkpoint interface {
 
 	Destroy()
 
-	PageServer() bool
+	IsPageServer() bool
 }
 
 type CheckpointArgs struct {

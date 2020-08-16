@@ -185,6 +185,10 @@ func (c *Container) Launch(startType StartType, args []string, init bool) error 
 		return err
 	}
 
+	if c.tty != nil {
+		c.tty.Close()
+	}
+
 	detach := false
 	sockpath := ""
 	c.tty, err = setupIO(process, rootuid, rootgid, detach, sockpath)
@@ -236,7 +240,6 @@ func (c *Container) Launch(startType StartType, args []string, init bool) error 
 }
 
 func (c *Container) Destroy() (err error) {
-	log.WithField("rank", c.Rank()).Debug("Destroying container")
 
 	err = c.Signal(os.Kill, true)
 	log.WithError(err).WithFields(log.Fields{

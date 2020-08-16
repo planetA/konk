@@ -126,9 +126,9 @@ func (t *tty) Close() error {
 		t.stdin.Reset()
 	}
 
-	if err := t.epoller.Close(); err != nil {
-		log.WithError(err).Info("epoller close")
-	}
+	// if err := t.epoller.Close(); err != nil {
+	// 	log.WithError(err).Info("epoller close")
+	// }
 
 	return nil
 }

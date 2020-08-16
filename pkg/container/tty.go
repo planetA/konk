@@ -105,20 +105,31 @@ func (t *tty) Close() error {
 	log.Info("Closing tty")
 	// ensure that our side of the fds are always closed
 	for _, c := range t.postStart {
-		c.Close()
+		if err := c.Close(); err != nil {
+			log.WithError(err).Error("Failure when closing tty")
+		}
 	}
 	// the process is gone at this point, shutting down the console if we have
 	// one and wait for all IO to be finished
 	if t.console != nil && t.epoller != nil {
-		t.console.Shutdown(t.epoller.CloseConsole)
+		if err := t.console.Shutdown(t.epoller.CloseConsole); err != nil {
+			log.WithError(err).Error("Failed to shutdown console")
+		}
 	}
 	t.wg.Wait()
 	for _, c := range t.closers {
-		c.Close()
+		if err := c.Close(); err != nil {
+			log.WithError(err).Error("Failure when closing tty")
+		}
 	}
 	if t.stdin != nil {
 		t.stdin.Reset()
 	}
+
+	if err := t.epoller.Close(); err != nil {
+		log.WithError(err).Info("epoller close")
+	}
+
 	return nil
 }
 

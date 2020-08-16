@@ -226,7 +226,7 @@ func (c *Container) Launch(startType StartType, args []string, init bool) error 
 	go func() {
 		ret, err := process.Wait()
 		if err != nil {
-			log.Error("Waiting for process failed", err)
+			log.WithError(err).Error("Waiting for process failed")
 		}
 
 		log.WithField("return", ret).Trace("Finished process")

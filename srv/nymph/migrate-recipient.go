@@ -20,13 +20,17 @@ type pageServer struct {
 	err io.ReadCloser
 }
 
-func NewPageServer(ckptPath string) (*pageServer, error) {
+func NewPageServer(ckptPath string, parentPath string) (*pageServer, error) {
 	var err error
 
 	cmd := exec.Command("criu", "page-server",
 		"--port", "7624",
 		"--address", "0.0.0.0",
 		"--images-dir", ckptPath)
+
+	if parentPath != "" {
+		cmd.Args = append(cmd.Args, "--prev-images-dir", parentPath)
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.WithError(err).Error("Did not get the stdout")
@@ -147,7 +151,7 @@ func (r *Recipient) LinkInfo(args container.LinkInfoArgs, seq *int) error {
 			"link":  args.Link,
 			"error": err,
 		}).Debug("Failed to create symlink")
-		return fmt.Errorf("Failed to create symlink (%s) -> (%s): %v", args.Link, args.Filename, err)
+		// return fmt.Errorf("Failed to create symlink (%s) -> (%s): %v", args.Link, args.Filename, err)
 	}
 
 	*seq = r.seq
@@ -272,7 +276,9 @@ func (r *Recipient) FileData(args container.FileDataArgs, seq *int) error {
 }
 
 func (r *Recipient) StartPageServer(args container.StartPageServerArgs, seq *int) error {
-	log.WithField("checkpoint-path", args.CheckpointPath).Info("Starting page server")
+	log.WithField("checkpoint-path", args.CheckpointPath).
+		WithField("parent-path", args.ParentPath).
+		Info("Starting page server")
 
 	if err := os.MkdirAll(args.CheckpointPath, os.ModeDir|os.ModePerm); err != nil {
 		log.WithError(err).Error("Failed to create checkpoint directory")
@@ -280,7 +286,7 @@ func (r *Recipient) StartPageServer(args container.StartPageServerArgs, seq *int
 	}
 
 	var err error
-	if r.pageServer, err = NewPageServer(args.CheckpointPath); err != nil {
+	if r.pageServer, err = NewPageServer(args.CheckpointPath, args.ParentPath); err != nil {
 		return err
 	}
 
@@ -293,18 +299,18 @@ func (r *Recipient) Relaunch(args container.RelaunchArgs, seq *int) error {
 	// Load container from checkpoint
 
 	start := time.Now()
-	linkName := "/tmp/konk/nymph/checkpoints/93252b437d782ba9d09f77e098b2dc3ef3fb539f026eb2fbc478d9d6f7c45aff/1/parent"
-	if fi, err := os.Lstat(linkName); err != nil {
-		log.WithError(err).Error("Lstat")
-		return err
-	} else {
-		log.WithField("file-info", fi).Info("Lstot")
-	}
+	// linkName := "/tmp/konk/nymph/checkpoints/93252b437d782ba9d09f77e098b2dc3ef3fb539f026eb2fbc478d9d6f7c45aff/1/parent"
+	// if fi, err := os.Lstat(linkName); err != nil {
+	// 	log.WithError(err).Error("Lstat")
+	// 	return err
+	// } else {
+	// 	log.WithField("file-info", fi).Info("Lstot")
+	// }
 
-	if err := os.Remove(linkName); err != nil {
-		log.WithError(err).Info("Remove")
-	}
-	os.Symlink("../0", linkName)
+	// if err := os.Remove(linkName); err != nil {
+	// 	log.WithError(err).Info("Remove")
+	// }
+	// os.Symlink("../0", linkName)
 
 	cont, err := r.nymph.Containers.Load(r.imageInfo)
 	if err != nil {

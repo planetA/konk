@@ -38,6 +38,7 @@ type FileDataArgs struct {
 
 type StartPageServerArgs struct {
 	CheckpointPath string
+	ParentPath     string
 }
 
 type RelaunchArgs struct {

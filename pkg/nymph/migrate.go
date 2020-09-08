@@ -131,8 +131,8 @@ func (m *MigrationClient) FileData(data []byte) error {
 	return nil
 }
 
-func (m *MigrationClient) StartPageServer(checkpointPath string) error {
-	args := &container.StartPageServerArgs{checkpointPath}
+func (m *MigrationClient) StartPageServer(checkpointPath, parentPath string) error {
+	args := &container.StartPageServerArgs{checkpointPath, parentPath}
 
 	log.Debug("Starting the page server")
 

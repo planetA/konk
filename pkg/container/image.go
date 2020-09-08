@@ -203,6 +203,7 @@ func readSpec(imageDir string) (*specs.Spec, error) {
 func NewImage(imagePath string) (*Image, error) {
 	name := ImageName(imagePath)
 	extractDir := path.Join(imageDir, name)
+	// extractDir = "/tmp/4106665f027f0b5280362ac80fb5c92a3af6f066e04f95c89c349434d9d70ad4/"
 
 	log.WithFields(log.Fields{
 		"imagePath":  imagePath,
@@ -210,13 +211,13 @@ func NewImage(imagePath string) (*Image, error) {
 		"extractDir": extractDir,
 	}).Debug("Getting image name")
 
-	if err := os.MkdirAll(imageDir, os.ModeDir|os.ModePerm); err != nil {
-		return nil, err
-	}
+	// if err := os.MkdirAll(imageDir, os.ModeDir|os.ModePerm); err != nil {
+	// 	return nil, err
+	// }
 
-	if err := unpackImage(extractDir, imagePath); err != nil {
-		return nil, err
-	}
+	// if err := unpackImage(extractDir, imagePath); err != nil {
+	// 	return nil, err
+	// }
 
 	var spec *specs.Spec
 	spec, err := readSpec(extractDir)
@@ -238,5 +239,5 @@ func NewImage(imagePath string) (*Image, error) {
 }
 
 func (image *Image) Close() {
-	os.RemoveAll(image.RootPath)
+	// os.RemoveAll(image.RootPath)
 }

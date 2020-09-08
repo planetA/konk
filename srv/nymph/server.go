@@ -372,7 +372,7 @@ func (n *Nymph) _Close() {
 
 	n.unregisterNymph()
 
-	os.RemoveAll(n.RootDir)
+	// os.RemoveAll(n.RootDir)
 
 	for _, net := range n.networks {
 		net.Destroy()

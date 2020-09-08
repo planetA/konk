@@ -90,6 +90,7 @@ func (migration *MigrationDonor) sendTmpFiles(cont *container.Container) error {
 	tmpPath := fmt.Sprintf("%s/tmp", rootfs)
 
 	if !strings.HasPrefix(tmpPath, migration.rootDir) {
+		log.WithField("tmp", tmpPath).WithField("root", migration.rootDir).Error("Path mismatch")
 		return fmt.Errorf("Path mismatch")
 	}
 
@@ -175,9 +176,9 @@ func (migration *MigrationDonor) SendFile(filepath string) error {
 	return nil
 }
 
-func (migration *MigrationDonor) StartPageServer(checkpointPath string) error {
+func (migration *MigrationDonor) StartPageServer(checkpointPath, parentPath string) error {
 
-	err := migration.recipientClient.StartPageServer(checkpointPath)
+	err := migration.recipientClient.StartPageServer(checkpointPath, parentPath)
 	if err != nil {
 		log.WithError(err).Debug("Requested launch failed")
 		return fmt.Errorf("Failed to send launch request: %v", err)

@@ -18,7 +18,11 @@ func (n *Nymph) sendCheckpoint(cont *container.Container, checkpoint container.C
 	defer migration.Close()
 
 	if checkpoint.IsPageServer() {
-		if err := migration.StartPageServer(checkpoint.PathAbs()); err != nil {
+		parentPath := ""
+		if cont != nil {
+			parentPath = "../0"
+		}
+		if err := migration.StartPageServer(checkpoint.PathAbs(), parentPath); err != nil {
 			log.WithError(err).Error("Migration server did not start")
 			return err
 		}

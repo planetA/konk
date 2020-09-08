@@ -3,20 +3,33 @@ package cmd
 import (
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/planetA/konk/config"
 	"github.com/planetA/konk/docs"
 )
 
-var KonkCmd = &cobra.Command{
-	TraverseChildren: true,
-	Run:              nil,
+var (
+	logLevel int
 
-	Use:   docs.KonkUse,
-	Short: docs.KonkShort,
-	Long:  docs.KonkLong,
-}
+	KonkCmd = &cobra.Command{
+		TraverseChildren: true,
+		Run:              nil,
+
+		Use:   docs.KonkUse,
+		Short: docs.KonkShort,
+		Long:  docs.KonkLong,
+
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			logLevel = logLevel + int(log.WarnLevel)
+			if logLevel > int(log.TraceLevel) {
+				logLevel = int(log.TraceLevel)
+			}
+			log.SetLevel(log.Level(logLevel))
+		},
+	}
+)
 
 func ExecuteKonk() {
 	if err := KonkCmd.Execute(); err != nil {
@@ -27,7 +40,7 @@ func ExecuteKonk() {
 func init() {
 	cobra.OnInitialize(config.InitConfig)
 	KonkCmd.PersistentFlags().StringVar(&config.CfgFile, "config", config.CfgFile, "config file")
-	KonkCmd.PersistentFlags().BoolVarP(&config.VarVerbose, "verbose", "v", config.DefaultVerbose, "verbose output")
+	KonkCmd.PersistentFlags().CountVarP(&logLevel, "verbose", "v", "Increase verbosity level")
 	KonkCmd.PersistentFlags().StringVar(&config.VarCoordinatorHost, "coordinator_host", config.DefaultCoordinatorHost, "Hostname running the coordinator")
 	KonkCmd.PersistentFlags().IntVar(&config.VarCoordinatorPort, "coordinator_port", config.DefaultCoordinatorPort, "Coordinator server port")
 

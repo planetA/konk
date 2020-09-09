@@ -1,0 +1,9 @@
+[Unit]
+Description=Konk coordinator service.
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/konk --config /etc/konk.yaml coordinator -vvv
+KillMode=control-group
+
+[Install]

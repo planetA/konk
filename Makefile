@@ -24,3 +24,8 @@ install-suid:
 	-cp /home/user/go/bin/konk /home/user/go/bin/konk-suid
 	-chown root:root /home/user/go/bin/konk-suid
 	-chmod u+s /home/user/go/bin/konk-suid
+
+.PHONY: deploy
+deploy: konk
+	cp ./konk ./provisioning/roles/demo/files/
+	vagrant up

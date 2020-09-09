@@ -1,0 +1,10 @@
+[Unit]
+Description=Konk node local daemon service.
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/konk --config /etc/konk.yaml nymph -vvvvv
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

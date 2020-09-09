@@ -1,0 +1,27 @@
+---
+- name: Copy konk binary
+  become: true
+  copy:
+    src: konk
+    dest: /usr/bin/konk
+    mode: '0755'
+- name: Copy konk config
+  become: true
+  copy:
+    src: konk-ip.yaml
+    dest: /etc/konk.yaml
+    mode: '0644'
+- name: Deploy systemd coordinator service
+  become: true
+  copy:
+    src: konk-coordinator.service
+    dest: /lib/systemd/system/
+    owner: root
+    group: root
+- name: Deploy systemd nymph services
+  become: true
+  copy:
+    src: konk-nymph.service
+    dest: /lib/systemd/system/
+    owner: root
+    group: root

@@ -1,0 +1,19 @@
+---
+- hosts: workers
+  roles:
+    - demo
+- hosts: master
+  tasks:
+    - name: Start konk coordinator
+      become: true
+      systemd:
+        state: started
+        name: konk-coordinator
+- hosts: workers
+  tasks:
+    - name: Start konk nymphs
+      become: true
+      systemd:
+        state: started
+        name: konk-nymph
+

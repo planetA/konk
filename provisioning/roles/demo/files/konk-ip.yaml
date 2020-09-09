@@ -1,0 +1,42 @@
+container:
+  rank_env: OMPI_COMM_WORLD_RANK
+  root_dir: "/var/run/konk"
+  base_name: "konk"
+  device:
+    path: "/dev/infiniband"
+
+criu:
+  port: 8989
+
+coordinator:
+  host: ffmk-n1
+  port: 8990
+
+nymph:
+  port: 8991
+  root_dir: "/tmp/konk/nymph"
+  cni_path: "/home/user/go/src/github.com/containernetworking/plugins/bin"
+  networks:
+    - veth
+
+konk-sys:
+  launcher: "/home/user/singularity-criu/konk-sys/launcher/launcher"
+  init: "/home/user/singularity-criu/konk-sys/init/init"
+
+mpirun:
+  binpath: "/usr/bin/mpirun"
+  tmp_dir: "/tmp/konk/mpirun"
+  params: ["--continuous", "--mca", "pml", "ob1", "--mca", "btl", "tcp,self", "--oversubscribe", "--mca", "mpi_yield_when_idle", "1"]
+  name:
+    numproc: "-np"
+    hosts: "-H"
+
+veth:
+  bridge:
+    name: "br0"
+  vxlan:
+    name: "vxlan0"
+    dev: "eth1"
+    port: 4789
+    id: 10
+    group: 239.1.1.1

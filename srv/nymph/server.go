@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -330,16 +329,11 @@ func (n *Nymph) registerNymphOnce() error {
 }
 
 func (n *Nymph) registerNymph() error {
-	for {
-		if err := n.registerNymphOnce(); err != nil {
-			log.Printf("Registration has failed: %v", err)
-		} else {
-			return nil
-		}
-
-		time.Sleep(5 * time.Second)
-		log.Println("Trying to register once again")
+	if err := n.registerNymphOnce(); err != nil {
+		log.WithError(err).Error("Registration has failed")
+		return fmt.Errorf("Failed to register nymph: %v")
 	}
+	return nil
 }
 
 func (n *Nymph) unregisterNymph() {

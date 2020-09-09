@@ -77,16 +77,18 @@ func DialRpcServerOnce(hostname string, port int) (*rpc.Client, error) {
 
 func DialRpcServer(hostname string, port int) (*rpc.Client, error) {
 	for {
-		log.WithFields(log.Fields{
-			"hostname": hostname,
-			"port": port}).Trace("Connecting to server")
+		log.WithFields(
+			log.Fields{
+				"hostname": hostname,
+				"port":     port,
+			}).Trace("Connecting to server")
 		rpcClient, err := DialRpcServerOnce(hostname, port)
 		if err == nil {
 			return rpcClient, nil
 		}
 
-		log.Println("Failed to dial server: ", err)
+		log.WithError(err).Warn("Failed to dial server")
 		time.Sleep(5 * time.Second)
-		log.Println("Trying to dial once again")
+		log.Warn("Trying to dial once again")
 	}
 }

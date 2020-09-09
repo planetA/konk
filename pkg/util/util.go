@@ -7,7 +7,6 @@ import (
 var (
 	VethName    string = "veth"
 	VpeerName   string = "vpeer"
-	EthName     string = "enp2s0"
 	BridgeName  string = "br0"
 	MacvlanName string = "macvlan0"
 	DefaultMAC  string = "42:d6:7d:f7:3e:00"

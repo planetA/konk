@@ -3,7 +3,7 @@ Description=Konk coordinator service.
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/konk --config /etc/konk.yaml coordinator -vvv
+ExecStart=/usr/bin/konk --config /etc/konk.yaml --log /var/log/konk-coordinator.log coordinator -vvvv
 KillMode=control-group
 
 [Install]

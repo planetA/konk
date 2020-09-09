@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -62,6 +62,8 @@ const (
 	RxeMinqpn = "rxe.minqpn"
 	RxeMrnpn  = "rxe.mrnpn"
 	RxeMinmrn = "rxe.minmrn"
+
+	LogFilename = "log.filename"
 )
 
 func GetString(key ViperKey) string {

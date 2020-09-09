@@ -40,3 +40,6 @@ veth:
     port: 4789
     id: 10
     group: 239.1.1.1
+
+log:
+    filename: /var/log/konk.log

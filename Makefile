@@ -28,4 +28,4 @@ install-suid:
 .PHONY: deploy
 deploy: konk
 	cp ./konk ./provisioning/roles/demo/files/
-	vagrant up
+	vagrant up --provision

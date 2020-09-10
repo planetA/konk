@@ -1,4 +1,36 @@
 ---
+- name: Install hostfile
+  become: true
+  template:
+    src: hosts.j2
+    dest: /etc/hosts
+    mode: '0644'
+    backup: true
+- name: Copy private ssh and config
+  copy:
+    src: ssh/
+    dest: .ssh
+    mode: '0600'
+- name: Enable ssh keys
+  authorized_key:
+    user: vagrant
+    key: '{{ item }}'
+    state: present
+  with_file:
+    - ssh/id_rsa.pub
+- name: Install containerd
+  become: true
+  copy:
+    src: containerd/
+    dest: /usr/bin
+    mode: '0755'
+    owner: root
+    group: root
+- name: Install libseccomp2
+  become: true
+  apt:
+    name: libseccomp2
+    state: present
 - name: Copy konk binary
   become: true
   copy:
@@ -11,17 +43,17 @@
     src: konk-ip.yaml
     dest: /etc/konk.yaml
     mode: '0644'
-- name: Deploy systemd coordinator service
+- name: Deploy systemd services
   become: true
   copy:
-    src: konk-coordinator.service
+    src: systemd/
     dest: /lib/systemd/system/
     owner: root
     group: root
-- name: Deploy systemd nymph services
+- name: Start containerd
   become: true
-  copy:
-    src: konk-nymph.service
-    dest: /lib/systemd/system/
-    owner: root
-    group: root
+  systemd:
+    state: started
+    daemon_reload: yes
+    name: containerd
+

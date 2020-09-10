@@ -9,7 +9,7 @@ criu:
   port: 8989
 
 coordinator:
-  host: ffmk-n1
+  host: konk1
   port: 8990
 
 nymph:

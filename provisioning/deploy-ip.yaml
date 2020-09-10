@@ -8,6 +8,7 @@
       become: true
       systemd:
         state: started
+        daemon_reload: yes
         name: konk-coordinator
 - hosts: workers
   tasks:
@@ -15,5 +16,6 @@
       become: true
       systemd:
         state: started
+        daemon_reload: yes
         name: konk-nymph
 

@@ -3,7 +3,7 @@ Description=Konk node local daemon service.
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/konk --config /etc/konk.yaml --log /var/log/konk-coordinator.log nymph -vvvvv
+ExecStart=/usr/bin/konk --config /etc/konk.yaml --log /var/log/konk-nymph.log nymph -vvvvv
 KillMode=control-group
 
 [Install]

@@ -134,6 +134,9 @@ func createVxlan() (*netlink.Vxlan, error) {
 		VtepDevIndex: parent.Attrs().Index,
 	}
 
+	// Remove stale link, if one exists
+	netlink.LinkDel(vxlan)
+
 	if err := netlink.LinkAdd(vxlan); err != nil {
 		return nil, err
 	}
@@ -178,6 +181,10 @@ func createBridge() (*netlink.Bridge, error) {
 	}
 
 	bridge := &netlink.Bridge{LinkAttrs: la}
+
+	// Remove stale link, if one exists
+	netlink.LinkDel(bridge)
+
 	if err := netlink.LinkAdd(bridge); err != nil {
 		return nil, err
 	}

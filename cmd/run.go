@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -82,17 +80,16 @@ var RunCmd = &cobra.Command{
 
 func init() {
 	// Configure a unique Rank of a container in a network
-	RunCmd.Flags().String("rank", "", "Environment variable containing rank")
+	RunCmd.Flags().Int("rank", 0, "Rank number for parallel jobs")
 	config.BindPFlag(config.ContainerRank, RunCmd.Flags().Lookup("rank"))
+	config.BindPFlagDefault(config.ContainerRank, RunCmd.Flags().Lookup("rank"), 1)
 
-	RunCmd.Flags().String("rank_env", "", "Environment variable containing rank")
-	config.BindPFlag(config.ContainerRankEnv, RunCmd.Flags().Lookup("rank_env"))
-
-	RunCmd.Flags().String("image", "", "Location of the container image")
+	RunCmd.Flags().String("image", "", "Container image")
 	RunCmd.MarkFlagRequired("image")
 	config.BindPFlag(config.ContainerImage, RunCmd.Flags().Lookup("image"))
 
-	RunCmd.Flags().String("hostname", "localhost", "Where the application should run")
+	RunCmd.Flags().String("hostname", "", "Name of the host where the application should run")
+	RunCmd.MarkFlagRequired("hostname")
 	config.BindPFlag(config.ContainerHostname, RunCmd.Flags().Lookup("hostname"))
 
 	RunCmd.Flags().String("user", "user", "The user that should launch the process")
@@ -107,29 +104,13 @@ func init() {
 // Return a unique Rank of a container in a network. It either can be set over a command line,
 // or obtained from an environment variable.
 func GetContainerRank() (container.Rank, error) {
-	if containerRankInt, ok := config.GetIntOk(config.ContainerRank); ok == true {
-		return container.Rank(containerRankInt), nil
-	}
-
-	// Environment variable containing the Rank
-	envVarRank, ok := config.GetStringOk(config.ContainerRankEnv)
-	if ok != true {
-		return -1, fmt.Errorf("Could not determine container rank")
-	}
-
-	var containerRank container.Rank
-	if len(envVarRank) != 0 {
-		envVal := os.Getenv(envVarRank)
-		i, err := strconv.Atoi(envVal)
-		if err != nil {
-			return -1, fmt.Errorf(`Could not parse variable %s: %s`, envVarRank, envVal)
+	if containerRank, ok := config.GetIntOk(config.ContainerRank); ok == true {
+		if containerRank < 0 {
+			return -1, fmt.Errorf("Rank should be >= 0: %v", containerRank)
 		}
-		containerRank = container.Rank(i)
+
+		return container.Rank(containerRank), nil
 	}
 
-	if containerRank < 0 {
-		return -1, fmt.Errorf("Rank should be >= 0: %v", containerRank)
-	}
-
-	return containerRank, nil
+	return -1, fmt.Errorf("Rank was not set")
 }

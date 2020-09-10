@@ -25,7 +25,6 @@ const (
 	CoordinatorPort = "coordinator.port"
 
 	ContainerRank     = "container.rank"
-	ContainerRankEnv  = "container.rank_env"
 	ContainerImage    = "container.image"
 	ContainerRootDir  = "container.root_dir"
 	ContainerBaseName = "container.base_name"
@@ -128,6 +127,11 @@ func GetIP(key ViperKey) net.IP {
 
 func BindPFlag(key ViperKey, flag *pflag.Flag) {
 	viper.BindPFlag(string(key), flag)
+}
+
+func BindPFlagDefault(key ViperKey, flag *pflag.Flag, value interface{}) {
+	viper.BindPFlag(string(key), flag)
+	viper.SetDefault(string(key), value)
 }
 
 func InitConfig() {
